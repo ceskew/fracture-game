@@ -1,0 +1,3205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FRACTURE — Tactical HP-Pool Wargame</title>
+<style>
+  :root {
+    --bg: #0c0e13;
+    --panel: #141821;
+    --panel-2: #1b212e;
+    --border: #283142;
+    --border-hi: #3c4a63;
+    --ink: #e8ecf2;
+    --muted: #8b97ad;
+    --brass: #d4a359;
+    --brass-dim: rgba(212, 163, 89, 0.16);
+    --p1: #38bdf8;
+    --p1-dim: rgba(56, 189, 248, 0.18);
+    --p2: #f43f5e;
+    --p2-dim: rgba(244, 63, 94, 0.18);
+    --good: #10b981;
+    --warn: #f59e0b;
+    --crit: #ef4444;
+    --purple: #a855f7;
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  button {
+    font-family: inherit;
+    color: inherit;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 7px 12px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 13px;
+    transition: background 0.15s, border-color 0.15s, transform 0.08s;
+  }
+  button:hover:not(:disabled) {
+    background: #232b3b;
+    border-color: var(--border-hi);
+  }
+  button:active:not(:disabled) { transform: translateY(1px); }
+  button:disabled { opacity: 0.42; cursor: not-allowed; }
+  button.primary {
+    background: var(--brass);
+    color: #0c0e13;
+    border-color: #e5ba73;
+  }
+  button.primary:hover:not(:disabled) { background: #e3b46a; }
+  button.danger {
+    background: rgba(244, 63, 94, 0.16);
+    border-color: rgba(244, 63, 94, 0.45);
+    color: #fda4af;
+  }
+  button.danger:hover:not(:disabled) { background: rgba(244, 63, 94, 0.28); }
+  button.active-tab {
+    background: var(--brass-dim);
+    border-color: var(--brass);
+    color: var(--brass);
+  }
+
+  input, select {
+    font-family: inherit;
+    background: #0f131b;
+    border: 1px solid var(--border);
+    color: var(--ink);
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 13px;
+  }
+  input:focus, select:focus { outline: none; border-color: var(--brass); }
+
+  /* APP SHELL */
+  .app {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  /* HEADER */
+  .topbar {
+    height: 52px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .brand-mark {
+    width: 26px;
+    height: 26px;
+    border: 2px solid var(--brass);
+    transform: rotate(45deg);
+    display: grid;
+    place-items: center;
+  }
+  .brand-mark span {
+    width: 10px;
+    height: 10px;
+    background: var(--brass);
+  }
+  .brand-title {
+    font-weight: 800;
+    letter-spacing: 0.16em;
+    font-size: 16px;
+    color: var(--ink);
+  }
+  .brand-sub {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--muted);
+    border-left: 1px solid var(--border);
+    padding-left: 10px;
+  }
+
+  .hud-center {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .turn-pill {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    padding: 5px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: #0f131b;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .turn-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--p1);
+  }
+  .ap-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .ap-pips {
+    display: flex;
+    gap: 4px;
+  }
+  .ap-pip {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    border: 1px solid var(--border-hi);
+    background: #0f131b;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .ap-pip.filled {
+    background: var(--brass);
+    border-color: #f3c984;
+  }
+
+  .topbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* SCREENS */
+  .screen {
+    display: none;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .screen.active { display: flex; }
+
+  /* LOBBY SCREEN */
+  #lobbyScreen {
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: radial-gradient(circle at 50% 25%, #192030 0%, #0c0e13 70%);
+    overflow-y: auto;
+  }
+  .lobby-card {
+    width: 100%;
+    max-width: 780px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px;
+    display: grid;
+    grid-template-columns: 1.15fr 0.85fr;
+    gap: 24px;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
+  }
+  .lobby-h1 {
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    margin-bottom: 6px;
+  }
+  .lobby-lead {
+    color: var(--muted);
+    line-height: 1.5;
+    margin-bottom: 18px;
+    font-size: 13.5px;
+  }
+  .form-group { margin-bottom: 14px; }
+  .form-label {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .pool-presets {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+  .pool-presets button {
+    padding: 6px 4px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+  }
+  .pool-presets button.selected {
+    background: var(--brass-dim);
+    border-color: var(--brass);
+    color: var(--brass);
+  }
+  .pool-slider-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .pool-slider-row input[type="range"] { flex: 1; padding: 0; }
+  .pool-val {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    color: var(--brass);
+    min-width: 66px;
+    text-align: right;
+  }
+
+  .lobby-side {
+    background: #10141c;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .lobby-side h3 {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    color: var(--brass);
+    margin-bottom: 10px;
+    text-transform: uppercase;
+  }
+  .pillar-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    font-size: 12.5px;
+    color: var(--muted);
+    line-height: 1.45;
+  }
+  .pillar-list strong { color: var(--ink); }
+  .net-badge {
+    margin-top: 14px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    background: rgba(56, 189, 248, 0.08);
+    border: 1px solid rgba(56, 189, 248, 0.25);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: #93c5fd;
+    line-height: 1.4;
+  }
+
+  /* FORGE SCREEN */
+  #forgeScreen {
+    flex-direction: column;
+    padding: 16px 20px;
+    gap: 14px;
+    overflow: hidden;
+  }
+  .forge-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 16px;
+    gap: 16px;
+    flex-shrink: 0;
+  }
+  .forge-pool-wrap {
+    flex: 1;
+    max-width: 440px;
+  }
+  .forge-pool-top {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    margin-bottom: 6px;
+  }
+  .pool-meter {
+    height: 10px;
+    background: #0c0e13;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+  .pool-meter-fill {
+    height: 100%;
+    background: var(--brass);
+    transition: width 0.2s, background 0.2s;
+  }
+  .forge-presets {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .forge-grid {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+    gap: 12px;
+    align-content: start;
+    padding-right: 4px;
+  }
+  .unit-forge-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .uf-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .uf-top input {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    width: 130px;
+    padding: 4px 8px;
+  }
+  .weight-badge {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    padding: 3px 7px;
+    border-radius: 4px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    background: var(--brass-dim);
+    color: var(--brass);
+    border: 1px solid rgba(212, 163, 89, 0.35);
+  }
+  .uf-hp-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .uf-hp-row input[type="range"] { flex: 1; padding: 0; }
+  .uf-hp-num {
+    font-family: var(--font-mono);
+    font-weight: 800;
+    font-size: 15px;
+    min-width: 54px;
+    text-align: right;
+    color: var(--good);
+  }
+  .uf-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+    background: #0f131b;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 7px;
+    text-align: center;
+    font-family: var(--font-mono);
+  }
+  .uf-stat-lbl { font-size: 10px; color: var(--muted); }
+  .uf-stat-val { font-size: 13px; font-weight: 700; margin-top: 2px; }
+  .uf-perk {
+    font-size: 11.5px;
+    color: var(--muted);
+    line-height: 1.4;
+    background: rgba(255,255,255,0.02);
+    padding: 6px 8px;
+    border-radius: 6px;
+    border-left: 2px solid var(--brass);
+  }
+
+  .forge-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 16px;
+    flex-shrink: 0;
+  }
+
+  /* BATTLE SCREEN */
+  #battleScreen {
+    display: none;
+    grid-template-columns: 270px 1fr 300px;
+    gap: 10px;
+    padding: 10px;
+  }
+  #battleScreen.active { display: grid; }
+
+  .side-col {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .panel-hdr {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .panel-body {
+    padding: 10px 12px;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+  }
+
+  /* INSPECTOR */
+  .insp-card {
+    background: #0f131b;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px;
+    margin-bottom: 10px;
+  }
+  .insp-title-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+  }
+  .insp-name { font-weight: 800; font-size: 15px; }
+  .insp-hp-bar {
+    height: 8px;
+    background: #1a202c;
+    border-radius: 999px;
+    overflow: hidden;
+    margin: 6px 0;
+  }
+  .insp-hp-fill { height: 100%; transition: width 0.25s; }
+  .dial-tiers {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+    margin-top: 8px;
+  }
+  .dial-tier {
+    padding: 5px 4px;
+    border-radius: 5px;
+    border: 1px solid var(--border);
+    background: #141821;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    text-align: center;
+    color: var(--muted);
+  }
+  .dial-tier.active {
+    border-color: var(--brass);
+    color: var(--ink);
+    background: var(--brass-dim);
+  }
+  .action-btns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    margin-top: 8px;
+  }
+
+  .roster-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 7px 8px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: #0f131b;
+    margin-bottom: 6px;
+    cursor: pointer;
+    font-size: 12px;
+  }
+  .roster-item:hover { border-color: var(--border-hi); }
+  .roster-item.selected { border-color: var(--brass); background: var(--brass-dim); }
+  .roster-item.dead { opacity: 0.35; text-decoration: line-through; }
+
+  /* CENTER BOARD & CARDS */
+  .center-col {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-height: 0;
+    min-width: 0;
+  }
+  .board-wrap {
+    flex: 1;
+    min-height: 0;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+  canvas#boardCanvas {
+    display: block;
+    cursor: pointer;
+  }
+  .board-banner {
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(12, 14, 19, 0.9);
+    border: 1px solid var(--brass);
+    color: var(--brass);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    padding: 5px 12px;
+    border-radius: 999px;
+    pointer-events: none;
+    display: none;
+  }
+  .board-banner.visible { display: block; }
+
+  .hover-tooltip {
+    position: absolute;
+    bottom: 10px;
+    left: 12px;
+    background: rgba(12, 14, 19, 0.92);
+    border: 1px solid var(--border-hi);
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    color: var(--ink);
+    pointer-events: none;
+    display: none;
+  }
+  .hover-tooltip.visible { display: block; }
+
+  /* HAND OF BLOOD CARDS */
+  .hand-bar {
+    height: 132px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+  .hand-hdr {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .cards-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    flex: 1;
+    min-height: 0;
+  }
+  .cmd-card {
+    background: #101520;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: transform 0.12s, border-color 0.15s, background 0.15s;
+  }
+  .cmd-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--brass);
+    background: #161d2b;
+  }
+  .cmd-card.active-card {
+    border-color: var(--crit);
+    background: rgba(239, 68, 68, 0.14);
+  }
+  .cmd-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 6px;
+  }
+  .cmd-card-name { font-weight: 700; font-size: 12.5px; }
+  .blood-cost {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 700;
+    color: #fda4af;
+    background: rgba(244, 63, 94, 0.2);
+    border: 1px solid rgba(244, 63, 94, 0.4);
+    padding: 2px 6px;
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+  .cmd-card-desc {
+    font-size: 11.5px;
+    color: var(--muted);
+    line-height: 1.35;
+  }
+
+  /* RIGHT TABS: LOG/CHAT, RANKS, RULES */
+  .tab-bar {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px;
+    padding: 8px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .tab-bar button { padding: 5px 4px; font-size: 11.5px; }
+  .tab-pane {
+    display: none;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+  }
+  .tab-pane.active { display: flex; }
+
+  .log-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 12px;
+  }
+  .log-entry {
+    padding: 5px 8px;
+    border-radius: 5px;
+    background: #0f131b;
+    border-left: 2px solid var(--border-hi);
+    line-height: 1.35;
+  }
+  .log-entry.p1 { border-left-color: var(--p1); }
+  .log-entry.p2 { border-left-color: var(--p2); }
+  .log-entry.chat { border-left-color: var(--brass); background: rgba(212, 163, 89, 0.08); }
+  .log-entry.sys { border-left-color: var(--muted); color: var(--muted); font-family: var(--font-mono); font-size: 11px; }
+
+  .chat-form {
+    display: flex;
+    gap: 6px;
+    padding: 8px;
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .chat-form input { flex: 1; min-width: 0; }
+
+  .lb-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+  }
+  .lb-table th, .lb-table td {
+    padding: 6px 5px;
+    border-bottom: 1px solid var(--border);
+    text-align: left;
+  }
+  .lb-table th { color: var(--muted); font-size: 10.5px; }
+
+  /* OVERLAYS */
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(8, 10, 14, 0.88);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 50;
+    padding: 20px;
+  }
+  .overlay.active { display: flex; }
+  .modal {
+    background: var(--panel);
+    border: 1px solid var(--brass);
+    border-radius: 12px;
+    padding: 26px;
+    max-width: 460px;
+    width: 100%;
+    text-align: center;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.65);
+  }
+  .modal h2 {
+    font-size: 22px;
+    letter-spacing: 0.08em;
+    margin-bottom: 8px;
+  }
+  .modal p {
+    color: var(--muted);
+    line-height: 1.5;
+    margin-bottom: 18px;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark"><span></span></div>
+      <div class="brand-title">FRACTURE</div>
+      <div class="brand-sub" id="matchBadge">HP-POOL TACTICAL ARENA</div>
+    </div>
+
+    <div class="hud-center" id="battleHud" style="display:none;">
+      <div class="turn-pill">
+        <span class="turn-dot" id="turnDot"></span>
+        <span id="turnLabel">TURN 1 — PLAYER 1</span>
+      </div>
+      <div class="ap-bar">
+        <span>AP</span>
+        <div class="ap-pips" id="apPips"></div>
+      </div>
+      <button class="primary" id="endTurnBtn">END TURN [Space]</button>
+    </div>
+
+    <div class="topbar-actions">
+      <span class="turn-pill" id="netStatusPill" style="font-size:11px; padding:4px 10px;">LOCAL MODE</span>
+      <button id="soundBtn">SOUND: OFF</button>
+      <button id="newMatchBtn" style="display:none;">NEW MATCH</button>
+    </div>
+  </header>
+
+  <!-- LOBBY SCREEN -->
+  <section id="lobbyScreen" class="screen active">
+    <div class="lobby-card">
+      <div>
+        <div class="lobby-h1">FRACTURE</div>
+        <p class="lobby-lead">
+          Both commanders start with the exact same <strong>Hit Point Pool</strong>. Pour every point into one unstoppable Titan, split it across a balanced strike squad, or flood the arena with a nimble swarm—then outmaneuver your rival on a tactical grid with blood-cost command cards.
+        </p>
+
+        <div class="form-group">
+          <label class="form-label">Commander Callsign (Leaderboard &amp; Chat)</label>
+          <input type="text" id="playerNameInput" value="Commander" maxlength="18" style="width:100%;" />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Battle Mode</label>
+          <select id="modeSelect" style="width:100%;">
+            <option value="ai">Skirmish vs Tactical AI</option>
+            <option value="online">Online PvP (Room Code / Live Match)</option>
+            <option value="hotseat">Local 2-Player Hotseat (Secret Forge)</option>
+          </select>
+        </div>
+
+        <div class="form-group" id="aiDoctrineGroup">
+          <label class="form-label">AI Squad Doctrine</label>
+          <select id="aiDoctrineSelect" style="width:100%;">
+            <option value="random">Random Doctrine (Hidden until Deploy)</option>
+            <option value="monolith">The Monolith (1× 100% HP Titan)</option>
+            <option value="twins">Iron Phalanx (2× 50% HP Champions)</option>
+            <option value="triad">Combined Arms (45% / 35% / 20%)</option>
+            <option value="swarm">The Hive (5× 20% HP Swarm)</option>
+          </select>
+        </div>
+
+        <div class="form-group" id="onlinePanel" style="display:none; background:#10141c; border:1px solid var(--border); border-radius:8px; padding:12px;">
+          <label class="form-label">Online Match Room</label>
+          <div style="display:flex; gap:6px; margin-bottom:8px;">
+            <button class="primary" id="createRoomBtn" style="flex:1;">Create Room (Agreed HP)</button>
+            <input type="text" id="joinCodeInput" placeholder="CODE" maxlength="4" style="width:78px; text-transform:uppercase; font-family:var(--font-mono); text-align:center;" />
+            <button id="joinRoomBtn">Join</button>
+          </div>
+          <div id="onlineStatusBox" style="font-family:var(--font-mono); font-size:11.5px; color:var(--muted); margin-bottom:6px;">Create a room or enter a 4-letter code to duel live.</div>
+          <div id="openRoomsList" style="display:flex; flex-direction:column; gap:5px; max-height:92px; overflow-y:auto;"></div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Agreed Battle Hit Point Pool</label>
+          <div class="pool-presets" id="poolPresets">
+            <button data-pool="60">60 HP</button>
+            <button data-pool="100" class="selected">100 HP</button>
+            <button data-pool="150">150 HP</button>
+            <button data-pool="200">200 HP</button>
+          </div>
+          <div class="pool-slider-row">
+            <input type="range" id="poolSlider" min="40" max="240" step="10" value="100" />
+            <span class="pool-val" id="poolValLabel">100 HP</span>
+          </div>
+        </div>
+
+        <div id="localStartBtns" style="display:flex; gap:8px;">
+          <button class="primary" id="startForgeBtn" style="flex:1; padding:11px; font-size:14px;">
+            ENTER THE FRACTURE FORGE
+          </button>
+          <button id="quickBattleBtn" style="padding:11px 14px; font-size:13px;">
+            QUICK BATTLE
+          </button>
+        </div>
+      </div>
+
+      <div class="lobby-side">
+        <div>
+          <h3>Core Pillars</h3>
+          <ul class="pillar-list">
+            <li><strong>HP = Currency:</strong> Every point in the agreed pool builds your roster. Weight classes (Swarm, Skirmisher, Champion, Titan) scale stats &amp; passives automatically.</li>
+            <li><strong>Shared Action Economy:</strong> Both sides get <strong>4 AP</strong> per turn—Titans cleave and double-strike; Swarms flank with Pack Tactics.</li>
+            <li><strong>Wound Dials:</strong> Like HeroClix, each unit's outer ring shifts across Fresh, Bloodied, and Critical tiers as it takes damage.</li>
+            <li><strong>Blood-Cost Cards:</strong> Spend 0 AP—pay directly from a unit's HP to teleport, shield, surge, or siphon.</li>
+          </ul>
+        </div>
+        <div class="net-badge" id="lobbyNetBadge">
+          LOCAL MODE: Start "Start FRACTURE Server.command" for live Online PvP, shared ELO leaderboard, and real-time chat.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SQUAD FORGE SCREEN -->
+  <section id="forgeScreen" class="screen">
+    <div class="forge-header">
+      <div>
+        <div style="font-weight:800; font-size:16px;" id="forgePlayerTitle">PLAYER 1 — FRACTURE FORGE</div>
+        <div style="font-size:12px; color:var(--muted);">Allocate 100% of your agreed HP pool across 1 to 6 fighters (min 10 HP each).</div>
+      </div>
+
+      <div class="forge-pool-wrap">
+        <div class="forge-pool-top">
+          <span id="forgeAllocatedText">ALLOCATED: 100 / 100 HP</span>
+          <span id="forgeRemainingText" style="color:var(--good);">0 HP REMAINING</span>
+        </div>
+        <div class="pool-meter">
+          <div class="pool-meter-fill" id="forgeMeterFill" style="width:100%;"></div>
+        </div>
+      </div>
+
+      <div class="forge-presets">
+        <button data-split="1">1× Titan</button>
+        <button data-split="2">2× Twins</button>
+        <button data-split="3">3× Triad</button>
+        <button data-split="5">5× Swarm</button>
+        <button id="addUnitBtn">+ Add Unit</button>
+      </div>
+    </div>
+
+    <div class="forge-grid" id="forgeGrid"></div>
+
+    <div class="forge-footer">
+      <button id="backToLobbyBtn">Back to Lobby</button>
+      <div style="font-family:var(--font-mono); font-size:12px; color:var(--muted);" id="forgeSummary"></div>
+      <button class="primary" id="lockSquadBtn" style="padding:9px 20px;">LOCK SQUAD &amp; DEPLOY</button>
+    </div>
+  </section>
+
+  <!-- BATTLE SCREEN -->
+  <section id="battleScreen" class="screen">
+    <!-- LEFT: INSPECTOR & ROSTER -->
+    <aside class="side-col">
+      <div class="panel-hdr">
+        <span>Tactical Inspector</span>
+        <span id="poolTotalsBadge" style="color:var(--brass);"></span>
+      </div>
+      <div class="panel-body">
+        <div id="inspectorBox">
+          <div class="insp-card" style="color:var(--muted); font-size:12.5px;">
+            Select any unit on the board to inspect its Wound Dial, stats, and abilities.
+          </div>
+        </div>
+        <div class="panel-hdr" style="padding:8px 0 6px; margin-top:6px;">
+          <span>Battlefield Roster</span>
+        </div>
+        <div id="rosterList"></div>
+      </div>
+    </aside>
+
+    <!-- CENTER: BOARD & HAND -->
+    <main class="center-col">
+      <div class="board-wrap" id="boardWrap">
+        <canvas id="boardCanvas"></canvas>
+        <div class="board-banner" id="boardBanner"></div>
+        <div class="hover-tooltip" id="hoverTooltip"></div>
+      </div>
+
+      <div class="hand-bar">
+        <div class="hand-hdr">
+          <span>Blood-Cost Command Hand (0 AP — Pay from Selected Unit's HP)</span>
+          <span id="deckCountLabel">DECK: 9</span>
+        </div>
+        <div class="cards-row" id="cardsRow"></div>
+      </div>
+    </main>
+
+    <!-- RIGHT: LOG/CHAT, LEADERBOARD, RULES -->
+    <aside class="side-col">
+      <div class="tab-bar">
+        <button class="active-tab" data-tab="log">Log &amp; Chat</button>
+        <button data-tab="ranks">Leaderboard</button>
+        <button data-tab="rules">Rules</button>
+      </div>
+
+      <div class="tab-pane active" id="tab-log">
+        <div class="log-list" id="logList"></div>
+        <form class="chat-form" id="chatForm">
+          <input type="text" id="chatInput" placeholder="Send match chat..." maxlength="120" autocomplete="off" />
+          <button type="submit">Send</button>
+        </form>
+      </div>
+
+      <div class="tab-pane" id="tab-ranks">
+        <div class="panel-body">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <span id="lbModeLabel" style="font-family:var(--font-mono); font-size:11px; color:var(--muted);">LOCAL ELO STANDINGS</span>
+            <button id="resetLbBtn" style="padding:3px 7px; font-size:11px;">Reset</button>
+          </div>
+          <table class="lb-table">
+            <thead>
+              <tr><th>#</th><th>Commander</th><th>ELO</th><th>W-L</th><th>Style</th></tr>
+            </thead>
+            <tbody id="lbBody"></tbody>
+          </table>
+          <div class="net-badge" style="margin-top:12px;">
+            Ready for online sync: Leaderboard reads/writes via <code>NetworkAdapter</code>.
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-pane" id="tab-rules">
+        <div class="panel-body" style="font-size:12px; color:var(--muted); line-height:1.5; display:flex; flex-direction:column; gap:10px;">
+          <div>
+            <strong style="color:var(--ink);">Turn Flow (4 AP Shared):</strong><br/>
+            Move = 1 AP · Attack = 2 AP · Role Special = 2 AP · Blood Card = 0 AP (costs unit HP). Press <code>Esc</code> to cancel targeting, <code>Space</code> to end turn.
+          </div>
+          <div>
+            <strong style="color:var(--ink);">Weight Classes (By Max HP):</strong><br/>
+            • <strong>Swarm (&lt;25):</strong> +1 MOV, Pack Tactics (+2 ATK per adjacent ally).<br/>
+            • <strong>Skirmisher (25–49):</strong> Flanker (+2 ATK vs enemies next to an ally).<br/>
+            • <strong>Champion (50–79):</strong> +1 ARM, Momentum (+1 AP refund on kill).<br/>
+            • <strong>Titan (80+):</strong> +2 ARM, Cleave (50% splash to adjacent foes), can attack twice/turn.
+          </div>
+          <div>
+            <strong style="color:var(--ink);">Terrain:</strong><br/>
+            • <strong>Pillar:</strong> Impassable, blocks line-of-sight.<br/>
+            • <strong>Conduit (Brass):</strong> +2 ATK &amp; +1 RNG while standing on it.<br/>
+            • <strong>Rift (Violet):</strong> -3 HP at end of turn; +5 impact damage if pushed in.
+          </div>
+          <div>
+            <strong style="color:var(--ink);">Wound Dials:</strong><br/>
+            Fresh (&gt;66%) → Bloodied (34–66%) → Critical (≤33%). Each role's stats shift dynamically on the dial!
+          </div>
+        </div>
+      </div>
+    </aside>
+  </section>
+</div>
+
+<!-- PASS DEVICE / VICTORY OVERLAY -->
+<div class="overlay" id="modalOverlay">
+  <div class="modal">
+    <h2 id="modalTitle">VICTORY</h2>
+    <p id="modalBody"></p>
+    <div style="display:flex; gap:10px; justify-content:center;" id="modalButtons"></div>
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  /* ============================================================================
+     1. NETWORK-READY ADAPTER (Drop-in seam for WebSockets / Supabase / Firebase)
+     ============================================================================ */
+  const NetworkAdapter = {
+    STORAGE_KEY: 'fracture_leaderboard_v1',
+    isServer: location.protocol.startsWith('http'),
+    connected: false,
+    clientId: 'c_' + Math.random().toString(36).slice(2, 10),
+    es: null,
+    cachedBoard: null,
+    openRooms: [],
+    init() {
+      if (!this.isServer) {
+        this.updateStatusUI();
+        return;
+      }
+      this.connectStream();
+    },
+    connectStream(roomCode = null) {
+      if (this.es) { try { this.es.close(); } catch (_) {} }
+      const q = new URLSearchParams({ clientId: this.clientId });
+      if (roomCode) q.set('room', roomCode);
+      const es = new EventSource(`/api/stream?${q.toString()}`);
+      this.es = es;
+      es.addEventListener('hello', e => {
+        const data = JSON.parse(e.data);
+        this.connected = true;
+        this.cachedBoard = data.leaderboard || this.cachedBoard;
+        this.openRooms = data.rooms || [];
+        this.updateStatusUI(data.playersOnline);
+        renderLeaderboard();
+        renderOpenRooms();
+      });
+      es.addEventListener('leaderboard_update', e => {
+        const data = JSON.parse(e.data);
+        this.cachedBoard = data.board;
+        renderLeaderboard();
+      });
+      es.addEventListener('rooms_update', e => {
+        const data = JSON.parse(e.data);
+        this.openRooms = data.rooms || [];
+        renderOpenRooms();
+      });
+      es.addEventListener('room_joined', e => {
+        const data = JSON.parse(e.data);
+        STATE.mode = 'online';
+        STATE.roomCode = data.code;
+        STATE.poolHP = data.poolHP;
+        STATE.p1Name = data.p1Name;
+        STATE.p2Name = data.p2Name;
+        applySplitPreset(3, STATE.localPlayerNum);
+        hideModal();
+        openForgeFor(STATE.localPlayerNum);
+      });
+      es.addEventListener('squad_ready', e => {
+        const data = JSON.parse(e.data);
+        if (data.playerNum !== STATE.localPlayerNum) {
+          const el = document.getElementById('forgeSummary');
+          if (el) el.textContent = 'Opponent locked their secret squad — waiting on you!';
+        }
+      });
+      es.addEventListener('battle_start', e => {
+        const data = JSON.parse(e.data);
+        STATE.mode = 'online';
+        STATE.roomCode = data.code;
+        STATE.poolHP = data.poolHP;
+        STATE.p1Name = data.p1Name;
+        STATE.p2Name = data.p2Name;
+        STATE.forgeDrafts[1] = data.squads[1];
+        STATE.forgeDrafts[2] = data.squads[2];
+        STATE.onlineSeed = data.seed;
+        hideModal();
+        startBattle();
+      });
+      es.addEventListener('action', e => {
+        const msg = JSON.parse(e.data);
+        handleRemoteAction(msg);
+      });
+      es.addEventListener('chat', e => {
+        const msg = JSON.parse(e.data);
+        addLog(`${msg.sender}: ${msg.text}`, 'chat');
+      });
+      es.addEventListener('opponent_left', e => {
+        const data = JSON.parse(e.data);
+        addLog(`${data.name || 'Opponent'} disconnected from the match.`, 'sys');
+      });
+      es.addEventListener('rematch_start', e => {
+        const data = JSON.parse(e.data);
+        STATE.poolHP = data.poolHP;
+        applySplitPreset(3, STATE.localPlayerNum);
+        hideModal();
+        openForgeFor(STATE.localPlayerNum);
+      });
+      es.onerror = () => {
+        this.connected = false;
+        this.updateStatusUI();
+      };
+    },
+    updateStatusUI(onlineCount = 1) {
+      const pill = document.getElementById('netStatusPill');
+      const badge = document.getElementById('lobbyNetBadge');
+      const lbLbl = document.getElementById('lbModeLabel');
+      if (this.connected) {
+        pill.textContent = `ONLINE · ${onlineCount} LIVE`;
+        pill.style.borderColor = 'var(--good)';
+        pill.style.color = 'var(--good)';
+        if (badge) badge.textContent = `SERVER CONNECTED (${onlineCount} online): Live PvP rooms, shared ELO leaderboard, and real-time chat active.`;
+        if (lbLbl) lbLbl.textContent = 'LIVE SERVER ELO STANDINGS';
+      } else {
+        pill.textContent = this.isServer ? 'RECONNECTING...' : 'LOCAL MODE';
+        pill.style.borderColor = 'var(--border)';
+        pill.style.color = 'var(--muted)';
+        if (lbLbl) lbLbl.textContent = 'LOCAL ELO STANDINGS';
+      }
+    },
+    async post(path, body) {
+      const res = await fetch(path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Request failed');
+      return data;
+    },
+    async createRoom(hostName, poolHP) {
+      const data = await this.post('/api/rooms', { hostName, poolHP, clientId: this.clientId });
+      this.connectStream(data.code);
+      return data;
+    },
+    async joinRoom(code, playerName) {
+      const clean = code.trim().toUpperCase();
+      const data = await this.post(`/api/rooms/${clean}/join`, { playerName, clientId: this.clientId });
+      this.connectStream(data.code);
+      return data;
+    },
+    async submitSquad(code, playerNum, squad) {
+      return this.post(`/api/rooms/${code}/squad`, { playerNum, squad, clientId: this.clientId });
+    },
+    sendAction(code, payload) {
+      if (!this.connected || !code) return;
+      this.post(`/api/rooms/${code}/action`, { ...payload, clientId: this.clientId }).catch(() => {});
+    },
+    requestRematch(code) {
+      if (!this.connected || !code) return;
+      this.post(`/api/rooms/${code}/rematch`, { clientId: this.clientId }).catch(() => {});
+    },
+    getLeaderboard() {
+      if (this.cachedBoard) return this.cachedBoard;
+      try {
+        const raw = localStorage.getItem(this.STORAGE_KEY);
+        if (raw) return JSON.parse(raw);
+      } catch (_) {}
+      return [
+        { name: 'AI: The Monolith', elo: 1240, wins: 4, losses: 2, style: 'Titan' },
+        { name: 'AI: Combined Arms', elo: 1215, wins: 3, losses: 2, style: 'Triad' },
+        { name: 'AI: The Hive', elo: 1185, wins: 2, losses: 3, style: 'Swarm' }
+      ];
+    },
+    recordMatch(winnerName, loserName, winnerStyle, loserStyle) {
+      if (this.connected) {
+        this.post('/api/leaderboard/match', { winnerName, loserName, winnerStyle, loserStyle })
+          .then(res => { this.cachedBoard = res.board; renderLeaderboard(); })
+          .catch(() => {});
+      }
+      const board = this.getLeaderboard().map(r => ({ ...r }));
+      const findOrCreate = (name, style) => {
+        let row = board.find(r => r.name === name);
+        if (!row) { row = { name, elo: 1200, wins: 0, losses: 0, style }; board.push(row); }
+        row.style = style || row.style;
+        return row;
+      };
+      const w = findOrCreate(winnerName, winnerStyle);
+      const l = findOrCreate(loserName, loserStyle);
+      const K = 32;
+      const expW = 1 / (1 + Math.pow(10, (l.elo - w.elo) / 400));
+      const delta = Math.round(K * (1 - expW));
+      w.elo += delta; w.wins += 1;
+      l.elo = Math.max(800, l.elo - delta); l.losses += 1;
+      board.sort((a, b) => b.elo - a.elo);
+      this.cachedBoard = board;
+      try { localStorage.setItem(this.STORAGE_KEY, JSON.stringify(board)); } catch (_) {}
+      return { delta, board };
+    },
+    resetLeaderboard() {
+      if (this.connected) {
+        this.post('/api/leaderboard/reset', {}).then(res => { this.cachedBoard = res.board; renderLeaderboard(); }).catch(() => {});
+      }
+      this.cachedBoard = null;
+      try { localStorage.removeItem(this.STORAGE_KEY); } catch (_) {}
+      return this.getLeaderboard();
+    },
+    sendChat(sender, text) {
+      if (this.connected) {
+        this.post('/api/chat', { sender, text, roomCode: STATE.roomCode }).catch(() => addLog(`${sender}: ${text}`, 'chat'));
+      } else {
+        addLog(`${sender}: ${text}`, 'chat');
+      }
+    }
+  };
+
+  /* ============================================================================
+     2. WEB AUDIO SYNTH (Muted by default)
+     ============================================================================ */
+  const Sound = {
+    enabled: false,
+    ctx: null,
+    toggle() {
+      this.enabled = !this.enabled;
+      if (this.enabled) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!this.ctx && AC) this.ctx = new AC();
+        if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
+        // Immediate two-note chime so you hear audio is live
+        this.tone(440, 0.08, 'triangle', 0.22, 0);
+        this.tone(660, 0.12, 'triangle', 0.22, 0.07);
+      }
+      document.getElementById('soundBtn').textContent = this.enabled ? 'SOUND: ON' : 'SOUND: OFF';
+    },
+    tone(freq, dur = 0.09, type = 'triangle', gain = 0.22, delay = 0, endFreq = null) {
+      if (!this.enabled || !this.ctx) return;
+      if (this.ctx.state === 'suspended') this.ctx.resume();
+      const t0 = this.ctx.currentTime + delay;
+      const o = this.ctx.createOscillator();
+      const g = this.ctx.createGain();
+      o.type = type;
+      o.frequency.setValueAtTime(freq, t0);
+      if (endFreq) o.frequency.exponentialRampToValueAtTime(endFreq, t0 + dur);
+      g.gain.setValueAtTime(0.001, t0);
+      g.gain.linearRampToValueAtTime(gain, t0 + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+      o.connect(g); g.connect(this.ctx.destination);
+      o.start(t0); o.stop(t0 + dur + 0.01);
+    },
+    click() { this.tone(520, 0.05, 'sine', 0.16); },
+    move() { this.tone(240, 0.08, 'triangle', 0.22, 0, 340); },
+    hit() {
+      this.tone(180, 0.14, 'sawtooth', 0.26, 0, 68);
+      this.tone(95, 0.16, 'triangle', 0.24, 0.02, 48);
+    },
+    card() {
+      this.tone(480, 0.09, 'triangle', 0.2, 0);
+      this.tone(720, 0.14, 'sine', 0.2, 0.06);
+    },
+    kill() {
+      this.tone(150, 0.26, 'sawtooth', 0.28, 0, 42);
+      this.tone(110, 0.3, 'square', 0.16, 0.06, 35);
+    }
+  };
+
+  /* ============================================================================
+     3. GAME DATA: ROLES, WEIGHT CLASSES, BLOOD CARDS, CALLSIGNS
+     ============================================================================ */
+  const ROLES = {
+    vanguard: {
+      name: 'Vanguard', symbol: '◈', atkMod: 0, armMod: 2, movBase: 2, rngBase: 1,
+      specialName: 'FORTIFY', specialDesc: '2 AP: Gain +6 Shield until next turn.',
+      dial: [
+        { label: 'FRESH', atk: 0, arm: 0, mov: 0, rng: 0, note: 'Steady' },
+        { label: 'BLOODIED', atk: 1, arm: 1, mov: 0, rng: 0, note: '+1 ATK/ARM' },
+        { label: 'CRITICAL', atk: 4, arm: 2, mov: 0, rng: 0, note: 'Last Stand' }
+      ]
+    },
+    striker: {
+      name: 'Striker', symbol: '▲', atkMod: 3, armMod: 0, movBase: 4, rngBase: 1,
+      specialName: 'EXECUTE', specialDesc: '2 AP: Strike adjacent foe (+5 DMG if wounded).',
+      dial: [
+        { label: 'FRESH', atk: 0, arm: 0, mov: 0, rng: 0, note: 'Poised' },
+        { label: 'BLOODIED', atk: 2, arm: 0, mov: 1, rng: 0, note: '+2 ATK +1 MOV' },
+        { label: 'CRITICAL', atk: 4, arm: -1, mov: 1, rng: 0, note: 'Glass Edge' }
+      ]
+    },
+    arcanist: {
+      name: 'Arcanist', symbol: '✦', atkMod: 1, armMod: 0, movBase: 2, rngBase: 3, piercing: true,
+      specialName: 'OVERCHARGE', specialDesc: '2 AP + 4 Self-HP: Piercing blast (+5 DMG, Rng 4).',
+      dial: [
+        { label: 'FRESH', atk: 0, arm: 0, mov: 0, rng: 0, note: 'Focused' },
+        { label: 'BLOODIED', atk: 2, arm: 0, mov: -1, rng: 0, note: '+2 ATK -1 MOV' },
+        { label: 'CRITICAL', atk: 3, arm: 0, mov: -1, rng: -1, note: 'Unstable' }
+      ]
+    },
+    catalyst: {
+      name: 'Catalyst', symbol: '✚', atkMod: -2, armMod: 1, movBase: 3, rngBase: 2,
+      specialName: 'TRANSFUSE', specialDesc: '2 AP: Transfer 8 HP to an ally within 3 tiles.',
+      dial: [
+        { label: 'FRESH', atk: 0, arm: 0, mov: 0, rng: 0, note: 'Channeling' },
+        { label: 'BLOODIED', atk: 0, arm: 1, mov: 0, rng: 1, note: '+1 ARM +1 RNG' },
+        { label: 'CRITICAL', atk: 0, arm: 2, mov: 0, rng: 1, note: 'Martyr Grace' }
+      ]
+    }
+  };
+
+  const CARD_CATALOG = [
+    { id: 'phase', name: 'Phase Step', cost: 4, target: 'tile_ally', desc: 'Teleport paying unit up to 3 open tiles.' },
+    { id: 'aegis', name: 'Aegis Pulse', cost: 5, target: 'self_or_ally', desc: 'Grant paying unit +7 Shield until next turn.' },
+    { id: 'surge', name: 'Blood Surge', cost: 6, target: 'self_or_ally', desc: 'Paying unit deals +7 bonus DMG on next attack.' },
+    { id: 'sever', name: 'Sever & Push', cost: 4, target: 'enemy_4', desc: 'Strip enemy Shield (Rng 4) & knock back 1 tile.' },
+    { id: 'siphon', name: 'Siphon Bolt', cost: 5, target: 'enemy_4', desc: 'Deal 6 piercing DMG (Rng 4) & heal payer 3 HP.' },
+    { id: 'overdrive', name: 'Overdrive', cost: 7, target: 'instant', desc: 'Immediately gain +2 Action Points this turn.' }
+  ];
+
+  const CALLSIGNS = ['AEGIS', 'VEX', 'SOL', 'KESTREL', 'BASTION', 'LYNX', 'ORION', 'PYRE', 'WARD', 'TALON', 'NOVA', 'RUNE'];
+
+  function getWeightClass(maxHP) {
+    if (maxHP < 25) return { id: 'swarm', label: 'SWARM', armBonus: 0, movBonus: 1, perk: 'Pack Tactics (+2 ATK per adjacent ally)' };
+    if (maxHP < 50) return { id: 'skirmisher', label: 'SKIRMISHER', armBonus: 0, movBonus: 0, perk: 'Flanker (+2 ATK vs enemies next to an ally)' };
+    if (maxHP < 80) return { id: 'champion', label: 'CHAMPION', armBonus: 1, movBonus: 0, perk: 'Momentum (+1 AP refund on kill)' };
+    return { id: 'titan', label: 'TITAN', armBonus: 2, movBonus: 0, perk: 'Cleave (50% splash) & Double-Strike (2 attacks/turn)' };
+  }
+
+  function getDialTier(hp, maxHP) {
+    const pct = hp / maxHP;
+    if (pct > 0.66) return 0;
+    if (pct > 0.33) return 1;
+    return 2;
+  }
+
+  function computeUnitStats(unit, tileType = 'floor') {
+    const role = ROLES[unit.role];
+    const wc = getWeightClass(unit.maxHP);
+    const tier = getDialTier(unit.hp, unit.maxHP);
+    const d = role.dial[tier];
+    const baseAtk = Math.round(5 + Math.sqrt(unit.maxHP) * 1.45);
+    const conduitAtk = tileType === 'conduit' ? 2 : 0;
+    const conduitRng = tileType === 'conduit' ? 1 : 0;
+    return {
+      atk: Math.max(2, baseAtk + role.atkMod + d.atk + conduitAtk + (unit.surgeBonus || 0)),
+      arm: Math.max(0, role.armMod + wc.armBonus + d.arm),
+      mov: Math.max(1, role.movBase + wc.movBonus + d.mov),
+      rng: Math.max(1, role.rngBase + d.rng + conduitRng),
+      tier,
+      wc,
+      role
+    };
+  }
+
+  /* ============================================================================
+     4. APPLICATION STATE
+     ============================================================================ */
+  const COLS = 8, ROWS = 6;
+  const STATE = {
+    mode: 'ai',
+    localPlayerNum: 1,
+    roomCode: null,
+    onlineSeed: null,
+    poolHP: 100,
+    p1Name: 'Commander',
+    p2Name: 'AI Commander',
+    aiDoctrine: 'random',
+    forgeOwner: 1,
+    forgeDrafts: { 1: [], 2: [] },
+    // Battle state
+    grid: [],
+    units: [],
+    turn: 1,
+    activePlayer: 1,
+    ap: 4,
+    maxAP: 4,
+    selectedUnitId: null,
+    actionMode: 'normal', // 'normal' | 'special' | 'card'
+    activeCardIndex: null,
+    decks: { 1: [], 2: [] },
+    hands: { 1: [], 2: [] },
+    hoverCell: null,
+    floatingTexts: [],
+    vfx: [],
+    gameOver: false,
+    aiBusy: false
+  };
+
+  /* ============================================================================
+     5. SCREEN NAVIGATION & LOBBY
+     ============================================================================ */
+  const screens = {
+    lobby: document.getElementById('lobbyScreen'),
+    forge: document.getElementById('forgeScreen'),
+    battle: document.getElementById('battleScreen')
+  };
+
+  function showScreen(name) {
+    Object.values(screens).forEach(s => s.classList.remove('active'));
+    screens[name].classList.add('active');
+    document.getElementById('battleHud').style.display = name === 'battle' ? 'flex' : 'none';
+    document.getElementById('newMatchBtn').style.display = name === 'lobby' ? 'none' : 'inline-block';
+    if (name === 'battle') {
+      resizeCanvas();
+      requestAnimationFrame(() => resizeCanvas());
+      renderBattleUI();
+    }
+  }
+
+  // Lobby bindings
+  const poolSlider = document.getElementById('poolSlider');
+  const poolValLabel = document.getElementById('poolValLabel');
+  const poolPresetBtns = document.querySelectorAll('#poolPresets button');
+
+  function setPool(val) {
+    STATE.poolHP = Math.max(40, Math.min(240, Number(val)));
+    poolSlider.value = STATE.poolHP;
+    poolValLabel.textContent = `${STATE.poolHP} HP`;
+    poolPresetBtns.forEach(b => b.classList.toggle('selected', Number(b.dataset.pool) === STATE.poolHP));
+  }
+  poolSlider.addEventListener('input', e => setPool(e.target.value));
+  poolPresetBtns.forEach(b => b.addEventListener('click', () => { Sound.click(); setPool(b.dataset.pool); }));
+
+  function renderOpenRooms() {
+    const box = document.getElementById('openRoomsList');
+    if (!box) return;
+    if (!NetworkAdapter.connected) {
+      box.innerHTML = '';
+      return;
+    }
+    if (!NetworkAdapter.openRooms.length) {
+      box.innerHTML = '<div style="font-size:11px; color:var(--muted);">No open rooms yet — create one to host.</div>';
+      return;
+    }
+    box.innerHTML = '';
+    NetworkAdapter.openRooms.forEach(rm => {
+      const b = document.createElement('button');
+      b.style.cssText = 'display:flex; justify-content:space-between; width:100%; font-family:var(--font-mono); font-size:11.5px; padding:5px 8px;';
+      b.innerHTML = `<span><strong>${rm.code}</strong> · ${rm.hostName}</span><span style="color:var(--brass);">${rm.poolHP} HP · JOIN</span>`;
+      b.addEventListener('click', () => joinOnlineRoom(rm.code));
+      box.appendChild(b);
+    });
+  }
+
+  async function joinOnlineRoom(code) {
+    const status = document.getElementById('onlineStatusBox');
+    if (!NetworkAdapter.connected) {
+      status.textContent = 'Start "Start FRACTURE Server.command" and open http://localhost:3000 first.';
+      status.style.color = 'var(--warn)';
+      return;
+    }
+    try {
+      Sound.click();
+      const name = document.getElementById('playerNameInput').value.trim() || 'Challenger';
+      STATE.localPlayerNum = 2;
+      const data = await NetworkAdapter.joinRoom(code, name);
+      STATE.mode = 'online';
+      STATE.roomCode = data.code;
+      STATE.poolHP = data.poolHP;
+      STATE.p1Name = data.p1Name;
+      STATE.p2Name = data.p2Name;
+      applySplitPreset(3, 2);
+      openForgeFor(2);
+    } catch (err) {
+      status.textContent = err.message;
+      status.style.color = 'var(--crit)';
+    }
+  }
+
+  document.getElementById('createRoomBtn').addEventListener('click', async () => {
+    const status = document.getElementById('onlineStatusBox');
+    if (!NetworkAdapter.connected) {
+      status.textContent = 'Start "Start FRACTURE Server.command" and open http://localhost:3000 first.';
+      status.style.color = 'var(--warn)';
+      return;
+    }
+    try {
+      Sound.click();
+      const hostName = document.getElementById('playerNameInput').value.trim() || 'Commander';
+      STATE.localPlayerNum = 1;
+      const data = await NetworkAdapter.createRoom(hostName, STATE.poolHP);
+      STATE.roomCode = data.code;
+      STATE.mode = 'online';
+      status.innerHTML = `Room <strong style="color:var(--brass); font-size:13px;">${data.code}</strong> created (${data.poolHP} HP) — share this code and wait for opponent...`;
+      status.style.color = 'var(--good)';
+    } catch (err) {
+      status.textContent = err.message;
+      status.style.color = 'var(--crit)';
+    }
+  });
+
+  document.getElementById('joinRoomBtn').addEventListener('click', () => {
+    const code = document.getElementById('joinCodeInput').value.trim();
+    if (code.length === 4) joinOnlineRoom(code);
+  });
+
+  document.getElementById('modeSelect').addEventListener('change', e => {
+    STATE.mode = e.target.value;
+    document.getElementById('aiDoctrineGroup').style.display = STATE.mode === 'ai' ? 'block' : 'none';
+    document.getElementById('onlinePanel').style.display = STATE.mode === 'online' ? 'block' : 'none';
+    document.getElementById('localStartBtns').style.display = STATE.mode === 'online' ? 'none' : 'flex';
+    if (STATE.mode === 'online') renderOpenRooms();
+  });
+
+  document.getElementById('startForgeBtn').addEventListener('click', () => {
+    Sound.click();
+    STATE.p1Name = document.getElementById('playerNameInput').value.trim() || 'Commander';
+    STATE.mode = document.getElementById('modeSelect').value;
+    STATE.aiDoctrine = document.getElementById('aiDoctrineSelect').value;
+    STATE.p2Name = STATE.mode === 'ai' ? 'AI Commander' : 'Player 2';
+    STATE.roomCode = null;
+    STATE.onlineSeed = null;
+    STATE.localPlayerNum = 1;
+    STATE.forgeOwner = 1;
+    applySplitPreset(3, 1);
+    openForgeFor(1);
+  });
+
+  document.getElementById('quickBattleBtn').addEventListener('click', () => {
+    Sound.click();
+    STATE.p1Name = document.getElementById('playerNameInput').value.trim() || 'Commander';
+    STATE.mode = 'ai';
+    STATE.aiDoctrine = document.getElementById('aiDoctrineSelect').value;
+    applySplitPreset(3, 1);
+    buildAISquad();
+    startBattle();
+  });
+
+  document.getElementById('soundBtn').addEventListener('click', () => Sound.toggle());
+  document.getElementById('newMatchBtn').addEventListener('click', () => {
+    Sound.click();
+    showScreen('lobby');
+  });
+
+  /* ============================================================================
+     6. THE FRACTURE FORGE (HP-POOL SQUAD BUILDER)
+     ============================================================================ */
+  function applySplitPreset(count, owner = STATE.forgeOwner) {
+    const pool = STATE.poolHP;
+    const rolesCycle = count === 1 ? ['vanguard'] :
+      count === 2 ? ['vanguard', 'arcanist'] :
+      count === 3 ? ['vanguard', 'striker', 'arcanist'] :
+      ['vanguard', 'striker', 'striker', 'arcanist', 'catalyst'];
+    const weights = count === 3 ? [0.45, 0.35, 0.20] : Array(count).fill(1 / count);
+    let remaining = pool;
+    const list = [];
+    for (let i = 0; i < count; i++) {
+      let hp = i === count - 1 ? remaining : Math.max(10, Math.round(pool * weights[i]));
+      if (i < count - 1 && remaining - hp < (count - 1 - i) * 10) {
+        hp = remaining - (count - 1 - i) * 10;
+      }
+      remaining -= hp;
+      list.push({
+        name: `${CALLSIGNS[(i + (owner === 2 ? 6 : 0)) % CALLSIGNS.length]}-0${i + 1}`,
+        role: rolesCycle[i % rolesCycle.length],
+        maxHP: hp
+      });
+    }
+    STATE.forgeDrafts[owner] = list;
+  }
+
+  function openForgeFor(owner) {
+    STATE.forgeOwner = owner;
+    const label = owner === 1 ? `${STATE.p1Name.toUpperCase()} — FRACTURE FORGE` : `PLAYER 2 — FRACTURE FORGE`;
+    document.getElementById('forgePlayerTitle').textContent = label;
+    document.getElementById('matchBadge').textContent = `${STATE.poolHP} HP BATTLE POOL`;
+    renderForge();
+    showScreen('forge');
+  }
+
+  function renderForge() {
+    const list = STATE.forgeDrafts[STATE.forgeOwner];
+    const total = list.reduce((s, u) => s + u.maxHP, 0);
+    const rem = STATE.poolHP - total;
+
+    document.getElementById('forgeAllocatedText').textContent = `ALLOCATED: ${total} / ${STATE.poolHP} HP`;
+    const remEl = document.getElementById('forgeRemainingText');
+    remEl.textContent = rem === 0 ? 'EXACT POOL MATCHED ✓' : (rem > 0 ? `${rem} HP UNSPENT` : `${Math.abs(rem)} HP OVER POOL!`);
+    remEl.style.color = rem === 0 ? 'var(--good)' : (rem > 0 ? 'var(--warn)' : 'var(--crit)');
+
+    const fill = document.getElementById('forgeMeterFill');
+    fill.style.width = `${Math.min(100, (total / STATE.poolHP) * 100)}%`;
+    fill.style.background = rem === 0 ? 'var(--good)' : (rem < 0 ? 'var(--crit)' : 'var(--brass)');
+
+    const grid = document.getElementById('forgeGrid');
+    grid.innerHTML = '';
+
+    list.forEach((u, idx) => {
+      const dummy = { ...u, hp: u.maxHP };
+      const st = computeUnitStats(dummy);
+      const maxAllowed = Math.max(10, u.maxHP + Math.max(0, rem));
+
+      const card = document.createElement('div');
+      card.className = 'unit-forge-card';
+      card.innerHTML = `
+        <div class="uf-top">
+          <input type="text" value="${u.name}" maxlength="14" data-idx="${idx}" class="uf-name-input" />
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span class="weight-badge">${st.wc.label}</span>
+            ${list.length > 1 ? `<button class="danger uf-del" data-idx="${idx}" style="padding:3px 7px;">×</button>` : ''}
+          </div>
+        </div>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <select class="uf-role-select" data-idx="${idx}" style="flex:1;">
+            ${Object.entries(ROLES).map(([k, r]) => `<option value="${k}" ${u.role === k ? 'selected' : ''}>${r.symbol} ${r.name}</option>`).join('')}
+          </select>
+        </div>
+        <div class="uf-hp-row">
+          <input type="range" min="10" max="${STATE.poolHP}" step="1" value="${u.maxHP}" data-idx="${idx}" class="uf-hp-slider" />
+          <span class="uf-hp-num">${u.maxHP} HP</span>
+        </div>
+        <div class="uf-stats">
+          <div><div class="uf-stat-lbl">ATK</div><div class="uf-stat-val">${st.atk}</div></div>
+          <div><div class="uf-stat-lbl">ARM</div><div class="uf-stat-val">${st.arm}</div></div>
+          <div><div class="uf-stat-lbl">MOV</div><div class="uf-stat-val">${st.mov}</div></div>
+          <div><div class="uf-stat-lbl">RNG</div><div class="uf-stat-val">${st.rng}</div></div>
+        </div>
+        <div class="uf-perk">
+          <strong>${st.wc.label}:</strong> ${st.wc.perk}<br/>
+          <strong>${st.role.specialName}:</strong> ${st.role.specialDesc}
+        </div>
+      `;
+      grid.appendChild(card);
+    });
+
+    grid.querySelectorAll('.uf-name-input').forEach(inp => {
+      inp.addEventListener('input', e => {
+        list[Number(e.target.dataset.idx)].name = e.target.value.toUpperCase() || 'UNIT';
+      });
+    });
+    grid.querySelectorAll('.uf-role-select').forEach(sel => {
+      sel.addEventListener('change', e => {
+        Sound.click();
+        list[Number(e.target.dataset.idx)].role = e.target.value;
+        renderForge();
+      });
+    });
+    grid.querySelectorAll('.uf-hp-slider').forEach(sl => {
+      sl.addEventListener('input', e => {
+        const idx = Number(e.target.dataset.idx);
+        const others = list.reduce((s, x, i) => i === idx ? s : s + x.maxHP, 0);
+        const cap = Math.max(10, STATE.poolHP - others);
+        list[idx].maxHP = Math.min(cap, Math.max(10, Number(e.target.value)));
+        renderForge();
+      });
+    });
+    grid.querySelectorAll('.uf-del').forEach(btn => {
+      btn.addEventListener('click', e => {
+        Sound.click();
+        list.splice(Number(e.target.dataset.idx), 1);
+        renderForge();
+      });
+    });
+
+    document.getElementById('addUnitBtn').disabled = list.length >= 6 || rem < 10;
+    document.getElementById('lockSquadBtn').disabled = rem !== 0 || list.length === 0;
+    document.getElementById('forgeSummary').textContent =
+      `${list.length} Fighter${list.length > 1 ? 's' : ''} · Archetype: ${classifySquadStyle(list)}`;
+  }
+
+  function classifySquadStyle(list) {
+    if (list.length === 1) return 'Titan';
+    if (list.length === 2) return 'Twins';
+    if (list.length === 3) return 'Triad';
+    if (list.length >= 5) return 'Swarm';
+    return 'Squad';
+  }
+
+  document.querySelectorAll('.forge-presets button[data-split]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      Sound.click();
+      applySplitPreset(Number(btn.dataset.split));
+      renderForge();
+    });
+  });
+
+  document.getElementById('addUnitBtn').addEventListener('click', () => {
+    Sound.click();
+    const list = STATE.forgeDrafts[STATE.forgeOwner];
+    const total = list.reduce((s, u) => s + u.maxHP, 0);
+    const rem = STATE.poolHP - total;
+    if (list.length >= 6 || rem < 10) return;
+    list.push({
+      name: `${CALLSIGNS[(list.length + 2) % CALLSIGNS.length]}-0${list.length + 1}`,
+      role: ['vanguard', 'striker', 'arcanist', 'catalyst'][list.length % 4],
+      maxHP: Math.min(rem, Math.max(10, Math.round(rem / 2)))
+    });
+    renderForge();
+  });
+
+  document.getElementById('backToLobbyBtn').addEventListener('click', () => {
+    Sound.click();
+    showScreen('lobby');
+  });
+
+  document.getElementById('lockSquadBtn').addEventListener('click', async () => {
+    Sound.click();
+    if (STATE.mode === 'online' && STATE.roomCode) {
+      try {
+        const res = await NetworkAdapter.submitSquad(STATE.roomCode, STATE.localPlayerNum, STATE.forgeDrafts[STATE.localPlayerNum]);
+        if (!res.bothReady) {
+          showModal(
+            `ROOM ${STATE.roomCode} — SQUAD LOCKED`,
+            `Your ${STATE.poolHP} HP squad is secretly locked in. Waiting for your opponent to finish forging their fighters...`,
+            []
+          );
+        }
+      } catch (err) {
+        addLog(err.message, 'sys');
+      }
+      return;
+    }
+    if (STATE.mode === 'hotseat' && STATE.forgeOwner === 1) {
+      applySplitPreset(3, 2);
+      showModal(
+        'PASS DEVICE TO PLAYER 2',
+        `${STATE.p1Name} has secretly locked their ${STATE.poolHP} HP squad. Hand the screen to Player 2 to forge their counter-squad.`,
+        [{ label: 'Open Player 2 Forge', primary: true, onClick: () => { hideModal(); openForgeFor(2); } }]
+      );
+      return;
+    }
+    if (STATE.mode === 'ai') {
+      buildAISquad();
+    }
+    startBattle();
+  });
+
+  function buildAISquad() {
+    let doc = STATE.aiDoctrine;
+    if (doc === 'random') {
+      const picks = ['monolith', 'twins', 'triad', 'swarm'];
+      doc = picks[Math.floor(Math.random() * picks.length)];
+    }
+    const labels = {
+      monolith: 'AI: The Monolith',
+      twins: 'AI: Iron Phalanx',
+      triad: 'AI: Combined Arms',
+      swarm: 'AI: The Hive'
+    };
+    STATE.p2Name = labels[doc];
+    const count = doc === 'monolith' ? 1 : doc === 'twins' ? 2 : doc === 'triad' ? 3 : 5;
+    applySplitPreset(count, 2);
+  }
+
+  /* ============================================================================
+     7. BATTLE INITIALIZATION & MAP GENERATION
+     ============================================================================ */
+  function seededRand(seed) {
+    let a = seed >>> 0;
+    return () => {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  function buildDeck(seedOffset = 0) {
+    const deck = [];
+    for (let c = 0; c < 2; c++) {
+      CARD_CATALOG.forEach(card => deck.push({ ...card }));
+    }
+    const rng = STATE.onlineSeed !== null ? seededRand(STATE.onlineSeed + seedOffset) : Math.random;
+    for (let i = deck.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [deck[i], deck[j]] = [deck[j], deck[i]];
+    }
+    return deck;
+  }
+
+  function drawCard(owner) {
+    if (STATE.hands[owner].length >= 3) return;
+    if (STATE.decks[owner].length === 0) {
+      STATE.decks[owner] = buildDeck();
+    }
+    STATE.hands[owner].push(STATE.decks[owner].pop());
+  }
+
+  function startBattle() {
+    STATE.grid = Array.from({ length: ROWS }, () => Array(COLS).fill('floor'));
+    // Symmetric tactical arena layout
+    const pillars = [[1, 2], [4, 2], [1, 5], [4, 5]];
+    const conduits = [[2, 3], [3, 4], [0, 3], [5, 4]];
+    const rifts = [[2, 4], [3, 3]];
+    pillars.forEach(([r, c]) => { STATE.grid[r][c] = 'pillar'; });
+    conduits.forEach(([r, c]) => { STATE.grid[r][c] = 'conduit'; });
+    rifts.forEach(([r, c]) => { STATE.grid[r][c] = 'rift'; });
+
+    STATE.units = [];
+    let uid = 1;
+    [1, 2].forEach(owner => {
+      const list = STATE.forgeDrafts[owner];
+      const spawnCol = owner === 1 ? 0 : COLS - 1;
+      const startRow = Math.floor((ROWS - list.length) / 2);
+      list.forEach((draft, i) => {
+        const r = Math.min(ROWS - 1, Math.max(0, startRow + i));
+        STATE.units.push({
+          id: uid++,
+          owner,
+          name: draft.name,
+          role: draft.role,
+          maxHP: draft.maxHP,
+          hp: draft.maxHP,
+          shield: 0,
+          surgeBonus: 0,
+          r, c: spawnCol,
+          drawX: spawnCol, drawY: r,
+          lungeX: 0, lungeY: 0,
+          hitFlash: 0,
+          attacksThisTurn: 0,
+          movedThisTurn: false,
+          alive: true
+        });
+      });
+    });
+
+    STATE.turn = 1;
+    STATE.activePlayer = 1;
+    STATE.ap = STATE.maxAP;
+    STATE.selectedUnitId = STATE.units.find(u => u.owner === 1)?.id || null;
+    STATE.actionMode = 'normal';
+    STATE.activeCardIndex = null;
+    STATE.gameOver = false;
+    STATE.aiBusy = false;
+    STATE.floatingTexts = [];
+    STATE.vfx = [];
+
+    STATE.decks = { 1: buildDeck(17), 2: buildDeck(97) };
+    STATE.hands = { 1: [], 2: [] };
+    for (let i = 0; i < 3; i++) { drawCard(1); drawCard(2); }
+
+    document.getElementById('logList').innerHTML = '';
+    addLog(`Battle started — Agreed Pool: ${STATE.poolHP} HP each.`, 'sys');
+    addLog(`${STATE.p1Name} deploys ${STATE.forgeDrafts[1].length} fighter(s) (${classifySquadStyle(STATE.forgeDrafts[1])}).`, 'p1');
+    addLog(`${STATE.p2Name} deploys ${STATE.forgeDrafts[2].length} fighter(s) (${classifySquadStyle(STATE.forgeDrafts[2])}).`, 'p2');
+
+    showScreen('battle');
+    renderLeaderboard();
+  }
+
+  /* ============================================================================
+     8. TACTICAL RULES: DISTANCE, LINE OF SIGHT, COMBAT, ABILITIES
+     ============================================================================ */
+  function dist(r1, c1, r2, c2) {
+    return Math.abs(r1 - r2) + Math.abs(c1 - c2);
+  }
+
+  function unitAt(r, c) {
+    return STATE.units.find(u => u.alive && u.r === r && u.c === c);
+  }
+
+  function hasLineOfSight(r1, c1, r2, c2) {
+    const steps = Math.max(Math.abs(r2 - r1), Math.abs(c2 - c1)) * 4;
+    if (steps === 0) return true;
+    for (let i = 1; i < steps; i++) {
+      const t = i / steps;
+      const rr = Math.round(r1 + (r2 - r1) * t);
+      const cc = Math.round(c1 + (c2 - c1) * t);
+      if ((rr !== r1 || cc !== c1) && (rr !== r2 || cc !== c2)) {
+        if (STATE.grid[rr][cc] === 'pillar') return false;
+      }
+    }
+    return true;
+  }
+
+  function getReachableTiles(unit) {
+    const st = computeUnitStats(unit, STATE.grid[unit.r][unit.c]);
+    const visited = new Map();
+    const q = [{ r: unit.r, c: unit.c, d: 0 }];
+    visited.set(`${unit.r},${unit.c}`, 0);
+    const results = [];
+    while (q.length) {
+      const cur = q.shift();
+      if (cur.d > 0) results.push({ r: cur.r, c: cur.c });
+      if (cur.d >= st.mov) continue;
+      for (const [dr, dc] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+        const nr = cur.r + dr, nc = cur.c + dc;
+        if (nr < 0 || nr >= ROWS || nc < 0 || nc >= COLS) continue;
+        if (STATE.grid[nr][nc] === 'pillar') continue;
+        if (unitAt(nr, nc)) continue;
+        const key = `${nr},${nc}`;
+        if (!visited.has(key)) {
+          visited.set(key, cur.d + 1);
+          q.push({ r: nr, c: nc, d: cur.d + 1 });
+        }
+      }
+    }
+    return results;
+  }
+
+  function canUnitAttack(unit) {
+    const wc = getWeightClass(unit.maxHP);
+    const maxAttacks = wc.id === 'titan' ? 2 : 1;
+    return unit.attacksThisTurn < maxAttacks && STATE.ap >= 2;
+  }
+
+  function getAttackableTargets(unit, overrideRng = null) {
+    const st = computeUnitStats(unit, STATE.grid[unit.r][unit.c]);
+    const rng = overrideRng ?? st.rng;
+    return STATE.units.filter(t =>
+      t.alive && t.owner !== unit.owner &&
+      dist(unit.r, unit.c, t.r, t.c) <= rng &&
+      hasLineOfSight(unit.r, unit.c, t.r, t.c)
+    );
+  }
+
+  function previewAttackDamage(attacker, target, bonusDmg = 0, forcePierce = false) {
+    const aSt = computeUnitStats(attacker, STATE.grid[attacker.r][attacker.c]);
+    const tSt = computeUnitStats(target, STATE.grid[target.r][target.c]);
+    let raw = aSt.atk + bonusDmg;
+
+    // Weight class bonuses
+    if (aSt.wc.id === 'swarm') {
+      const adjAllies = STATE.units.filter(u => u.alive && u.owner === attacker.owner && u.id !== attacker.id && dist(u.r, u.c, attacker.r, attacker.c) === 1).length;
+      raw += adjAllies * 2;
+    } else if (aSt.wc.id === 'skirmisher') {
+      const flanked = STATE.units.some(u => u.alive && u.owner === attacker.owner && u.id !== attacker.id && dist(u.r, u.c, target.r, target.c) === 1);
+      if (flanked) raw += 2;
+    }
+
+    const effArm = (forcePierce || aSt.role.piercing) ? Math.floor(tSt.arm * 0.5) : tSt.arm;
+    const afterArm = Math.max(2, raw - effArm);
+    const shieldAbsorb = Math.min(target.shield, afterArm);
+    const hpDmg = afterArm - shieldAbsorb;
+    return { total: afterArm, shieldAbsorb, hpDmg, lethal: hpDmg >= target.hp };
+  }
+
+  function applyDamage(target, amount, sourceLabel, ignoreArmor = false, attacker = null) {
+    let dmg = amount;
+    if (!ignoreArmor) {
+      const tSt = computeUnitStats(target, STATE.grid[target.r][target.c]);
+      dmg = Math.max(1, dmg - tSt.arm);
+    }
+    const absorb = Math.min(target.shield, dmg);
+    target.shield -= absorb;
+    const hpDmg = dmg - absorb;
+    target.hp = Math.max(0, target.hp - hpDmg);
+    target.hitFlash = 1.0;
+    spawnShockwave(target.r, target.c, hpDmg > 0 ? '#f43f5e' : '#38bdf8', 0.65);
+    spawnFloat(target.r, target.c, hpDmg > 0 ? `-${hpDmg}` : `BLOCKED`, hpDmg > 0 ? '#f43f5e' : '#38bdf8');
+    if (target.hp <= 0) {
+      target.alive = false;
+      spawnShockwave(target.r, target.c, '#ef4444', 1.1);
+      Sound.kill();
+      addLog(`${target.name} was shattered by ${sourceLabel}!`, target.owner === 1 ? 'p2' : 'p1');
+      if (attacker && getWeightClass(attacker.maxHP).id === 'champion') {
+        STATE.ap = Math.min(STATE.maxAP + 2, STATE.ap + 1);
+        spawnFloat(attacker.r, attacker.c, '+1 AP', '#d4a359');
+        addLog(`${attacker.name} triggers Momentum (+1 AP).`, attacker.owner === 1 ? 'p1' : 'p2');
+      }
+      checkVictory();
+    }
+  }
+
+  function isMyTurn() {
+    if (STATE.gameOver || STATE.aiBusy) return false;
+    if (STATE.mode === 'online') return STATE.activePlayer === STATE.localPlayerNum;
+    return true;
+  }
+
+  function executeMove(unit, r, c, isRemote = false) {
+    if (STATE.mode === 'online' && !isRemote) {
+      NetworkAdapter.sendAction(STATE.roomCode, { type: 'move', unitId: unit.id, r, c });
+    }
+    STATE.ap -= 1;
+    unit.r = r; unit.c = c;
+    unit.movedThisTurn = true;
+    Sound.move();
+    addLog(`${unit.name} advances to (${c + 1},${r + 1}).`, unit.owner === 1 ? 'p1' : 'p2');
+    renderBattleUI();
+  }
+
+  function executeAttack(attacker, target, bonusDmg = 0, forcePierce = false, label = 'attacks', isRemote = false) {
+    if (STATE.mode === 'online' && !isRemote) {
+      NetworkAdapter.sendAction(STATE.roomCode, { type: 'attack', attackerId: attacker.id, targetId: target.id, bonusDmg, forcePierce, label });
+    }
+    const prev = previewAttackDamage(attacker, target, bonusDmg, forcePierce);
+    STATE.ap -= 2;
+    attacker.attacksThisTurn += 1;
+    attacker.surgeBonus = 0;
+
+    const aSt = computeUnitStats(attacker, STATE.grid[attacker.r][attacker.c]);
+    const teamColor = attacker.owner === 1 ? '#38bdf8' : '#f43f5e';
+    const dx = target.c - attacker.c, dy = target.r - attacker.r;
+    const dLen = Math.hypot(dx, dy) || 1;
+    attacker.lungeX = (dx / dLen) * 0.32;
+    attacker.lungeY = (dy / dLen) * 0.32;
+    target.hitFlash = 1.0;
+
+    if (dist(attacker.r, attacker.c, target.r, target.c) <= 1) {
+      spawnSlash(attacker.r, attacker.c, target.r, target.c, label === 'EXECUTES' ? '#f59e0b' : teamColor);
+    } else {
+      spawnBeam(attacker.r, attacker.c, target.r, target.c, forcePierce ? '#a855f7' : teamColor);
+    }
+    spawnShockwave(target.r, target.c, prev.hpDmg > 0 ? teamColor : '#38bdf8', 0.8);
+    Sound.hit();
+
+    target.shield -= prev.shieldAbsorb;
+    target.hp = Math.max(0, target.hp - prev.hpDmg);
+    spawnFloat(target.r, target.c, prev.hpDmg > 0 ? `-${prev.hpDmg}` : 'SHIELDED', prev.hpDmg > 0 ? '#f43f5e' : '#38bdf8');
+    addLog(`${attacker.name} ${label} ${target.name} for ${prev.hpDmg} HP${prev.shieldAbsorb ? ` (${prev.shieldAbsorb} blocked)` : ''}.`, attacker.owner === 1 ? 'p1' : 'p2');
+
+    if (target.hp <= 0) {
+      target.alive = false;
+      spawnShockwave(target.r, target.c, '#ef4444', 1.25);
+      Sound.kill();
+      addLog(`${target.name} is eliminated!`, attacker.owner === 1 ? 'p1' : 'p2');
+      if (getWeightClass(attacker.maxHP).id === 'champion') {
+        STATE.ap = Math.min(STATE.maxAP + 2, STATE.ap + 1);
+        spawnFloat(attacker.r, attacker.c, '+1 AP', '#d4a359');
+      }
+    }
+
+    // Titan Cleave (melee only)
+    if (aSt.wc.id === 'titan' && aSt.rng === 1) {
+      const splash = Math.max(2, Math.floor(prev.total * 0.5));
+      const adjFoes = STATE.units.filter(u => u.alive && u.owner !== attacker.owner && u.id !== target.id && dist(u.r, u.c, target.r, target.c) === 1);
+      if (adjFoes.length) {
+        spawnShockwave(target.r, target.c, '#f59e0b', 1.45);
+        adjFoes.forEach(adj => {
+          applyDamage(adj, splash, `${attacker.name}'s Cleave`, true, attacker);
+        });
+      }
+    }
+
+    checkVictory();
+    renderBattleUI();
+  }
+
+  function executeSpecial(unit, target = null, isRemote = false) {
+    if (STATE.ap < 2) return;
+    if (STATE.mode === 'online' && !isRemote) {
+      NetworkAdapter.sendAction(STATE.roomCode, { type: 'special', unitId: unit.id, targetId: target ? target.id : null });
+    }
+    if (unit.role === 'vanguard') {
+      STATE.ap -= 2;
+      unit.shield += 6;
+      Sound.card();
+      spawnShockwave(unit.r, unit.c, '#38bdf8', 0.9);
+      spawnFloat(unit.r, unit.c, '+6 SHD', '#38bdf8');
+      addLog(`${unit.name} activates FORTIFY (+6 Shield).`, unit.owner === 1 ? 'p1' : 'p2');
+    } else if (unit.role === 'striker' && target) {
+      const bonus = target.hp < target.maxHP ? 5 : 1;
+      executeAttack(unit, target, bonus, false, 'EXECUTES', true);
+      return;
+    } else if (unit.role === 'arcanist' && target) {
+      if (unit.hp <= 4) return;
+      unit.hp -= 4;
+      spawnFloat(unit.r, unit.c, '-4 HP', '#fda4af');
+      executeAttack(unit, target, 5, true, 'OVERCHARGES', true);
+      return;
+    } else if (unit.role === 'catalyst' && target) {
+      if (unit.hp <= 8) return;
+      STATE.ap -= 2;
+      const tier = getDialTier(unit.hp, unit.maxHP);
+      const healAmt = 8 + (tier === 2 ? 2 : 0);
+      unit.hp -= 8;
+      const actual = Math.min(target.maxHP - target.hp, healAmt);
+      target.hp += actual;
+      Sound.card();
+      spawnBeam(unit.r, unit.c, target.r, target.c, '#10b981');
+      spawnShockwave(target.r, target.c, '#10b981', 0.85);
+      spawnFloat(unit.r, unit.c, '-8 HP', '#fda4af');
+      spawnFloat(target.r, target.c, `+${actual} HP`, '#10b981');
+      addLog(`${unit.name} transfuses ${actual} HP into ${target.name}.`, unit.owner === 1 ? 'p1' : 'p2');
+    }
+    STATE.actionMode = 'normal';
+    renderBattleUI();
+  }
+
+  function playBloodCard(cardIdx, payer, targetObj = null, isRemote = false) {
+    const hand = STATE.hands[STATE.activePlayer];
+    const card = hand[cardIdx];
+    if (!card || !payer || payer.hp <= card.cost) return false;
+    if (STATE.mode === 'online' && !isRemote) {
+      NetworkAdapter.sendAction(STATE.roomCode, {
+        type: 'card', cardIdx, payerId: payer.id,
+        targetUnitId: targetObj && targetObj.id ? targetObj.id : null,
+        targetTile: targetObj && !targetObj.id ? targetObj : null
+      });
+    }
+
+    payer.hp -= card.cost;
+    spawnFloat(payer.r, payer.c, `-${card.cost} BLOOD`, '#fda4af');
+    Sound.card();
+
+    if (card.id === 'phase' && targetObj) {
+      payer.r = targetObj.r; payer.c = targetObj.c;
+      addLog(`${payer.name} pays ${card.cost} HP for Phase Step to (${payer.c + 1},${payer.r + 1}).`, payer.owner === 1 ? 'p1' : 'p2');
+    } else if (card.id === 'aegis') {
+      payer.shield += 7;
+      spawnShockwave(payer.r, payer.c, '#38bdf8', 0.8);
+      spawnFloat(payer.r, payer.c, '+7 SHD', '#38bdf8');
+      addLog(`${payer.name} pays ${card.cost} HP for Aegis Pulse (+7 Shield).`, payer.owner === 1 ? 'p1' : 'p2');
+    } else if (card.id === 'surge') {
+      payer.surgeBonus = (payer.surgeBonus || 0) + 7;
+      spawnShockwave(payer.r, payer.c, '#f59e0b', 0.8);
+      spawnFloat(payer.r, payer.c, '+7 ATK', '#f59e0b');
+      addLog(`${payer.name} pays ${card.cost} HP for Blood Surge (+7 next ATK).`, payer.owner === 1 ? 'p1' : 'p2');
+    } else if (card.id === 'overdrive') {
+      STATE.ap += 2;
+      spawnFloat(payer.r, payer.c, '+2 AP', '#d4a359');
+      addLog(`${payer.name} pays ${card.cost} HP for Overdrive (+2 AP).`, payer.owner === 1 ? 'p1' : 'p2');
+    } else if (card.id === 'siphon' && targetObj) {
+      spawnBeam(payer.r, payer.c, targetObj.r, targetObj.c, '#a855f7');
+      applyDamage(targetObj, 6, `${payer.name}'s Siphon Bolt`, true, payer);
+      const healed = Math.min(payer.maxHP - payer.hp, 3);
+      payer.hp += healed;
+      if (healed > 0) spawnFloat(payer.r, payer.c, `+${healed} HP`, '#10b981');
+      addLog(`${payer.name} casts Siphon Bolt on ${targetObj.name} (-6 HP, +${healed} self).`, payer.owner === 1 ? 'p1' : 'p2');
+    } else if (card.id === 'sever' && targetObj) {
+      spawnBeam(payer.r, payer.c, targetObj.r, targetObj.c, '#f59e0b');
+      targetObj.shield = 0;
+      const dr = Math.sign(targetObj.r - payer.r);
+      const dc = Math.sign(targetObj.c - payer.c);
+      const nr = targetObj.r + dr, nc = targetObj.c + dc;
+      let extra = '';
+      if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
+        if (STATE.grid[nr][nc] === 'pillar' || unitAt(nr, nc)) {
+          applyDamage(targetObj, 5, 'Wall Impact', true, payer);
+          extra = ' (+5 slam DMG)';
+        } else {
+          targetObj.r = nr; targetObj.c = nc;
+          if (STATE.grid[nr][nc] === 'rift') {
+            applyDamage(targetObj, 5, 'Rift Knockback', true, payer);
+            extra = ' (+5 Rift DMG)';
+          }
+        }
+      }
+      addLog(`${payer.name} casts Sever & Push on ${targetObj.name}${extra}.`, payer.owner === 1 ? 'p1' : 'p2');
+    }
+
+    hand.splice(cardIdx, 1);
+    STATE.actionMode = 'normal';
+    STATE.activeCardIndex = null;
+    checkVictory();
+    renderBattleUI();
+    return true;
+  }
+
+  function endTurn(isRemote = false) {
+    if (STATE.gameOver) return;
+    if (STATE.mode === 'online' && !isRemote) {
+      NetworkAdapter.sendAction(STATE.roomCode, { type: 'endTurn' });
+    }
+    STATE.units.filter(u => u.alive && u.owner === STATE.activePlayer && STATE.grid[u.r][u.c] === 'rift')
+      .forEach(u => {
+        applyDamage(u, 3, 'Rift Hazard', true);
+      });
+    if (STATE.gameOver) return;
+
+    STATE.activePlayer = STATE.activePlayer === 1 ? 2 : 1;
+    if (STATE.activePlayer === 1) STATE.turn += 1;
+    STATE.ap = STATE.maxAP;
+    STATE.actionMode = 'normal';
+    STATE.activeCardIndex = null;
+
+    STATE.units.filter(u => u.alive && u.owner === STATE.activePlayer).forEach(u => {
+      u.shield = Math.floor(u.shield * 0.5);
+      u.attacksThisTurn = 0;
+      u.movedThisTurn = false;
+    });
+    drawCard(STATE.activePlayer);
+
+    const firstAlive = STATE.units.find(u => u.alive && u.owner === STATE.activePlayer);
+    STATE.selectedUnitId = firstAlive ? firstAlive.id : null;
+
+    addLog(`— Turn ${STATE.turn}: ${STATE.activePlayer === 1 ? STATE.p1Name : STATE.p2Name} (${STATE.ap} AP) —`, 'sys');
+    renderBattleUI();
+
+    if (STATE.mode === 'ai' && STATE.activePlayer === 2 && !STATE.gameOver) {
+      runAITurn();
+    }
+  }
+
+  function handleRemoteAction(msg) {
+    if (STATE.mode !== 'online' || STATE.gameOver) return;
+    const byId = id => STATE.units.find(u => u.id === id);
+    if (msg.type === 'move') {
+      const u = byId(msg.unitId);
+      if (u) executeMove(u, msg.r, msg.c, true);
+    } else if (msg.type === 'attack') {
+      const a = byId(msg.attackerId), t = byId(msg.targetId);
+      if (a && t) executeAttack(a, t, msg.bonusDmg || 0, !!msg.forcePierce, msg.label || 'attacks', true);
+    } else if (msg.type === 'special') {
+      const u = byId(msg.unitId), t = msg.targetId ? byId(msg.targetId) : null;
+      if (u) executeSpecial(u, t, true);
+    } else if (msg.type === 'card') {
+      const p = byId(msg.payerId);
+      const tgt = msg.targetUnitId ? byId(msg.targetUnitId) : msg.targetTile;
+      if (p) playBloodCard(msg.cardIdx, p, tgt, true);
+    } else if (msg.type === 'endTurn') {
+      endTurn(true);
+    }
+  }
+
+  function checkVictory() {
+    const p1Alive = STATE.units.some(u => u.alive && u.owner === 1);
+    const p2Alive = STATE.units.some(u => u.alive && u.owner === 2);
+    if (p1Alive && p2Alive) return;
+    STATE.gameOver = true;
+    const winner = p1Alive ? 1 : 2;
+    const wName = winner === 1 ? STATE.p1Name : STATE.p2Name;
+    const lName = winner === 1 ? STATE.p2Name : STATE.p1Name;
+    const wStyle = classifySquadStyle(STATE.forgeDrafts[winner]);
+    const lStyle = classifySquadStyle(STATE.forgeDrafts[winner === 1 ? 2 : 1]);
+    let deltaText = '';
+    if (STATE.mode !== 'online' || STATE.localPlayerNum === 1) {
+      const res = NetworkAdapter.recordMatch(wName, lName, wStyle, lStyle);
+      deltaText = ` ELO swing: +${res.delta} / -${res.delta}.`;
+    }
+    renderLeaderboard();
+
+    showModal(
+      `${wName.toUpperCase()} WINS!`,
+      `Victory in ${STATE.turn} turns on a ${STATE.poolHP} HP Pool (${wStyle} defeated ${lStyle}).${deltaText}`,
+      [
+        {
+          label: 'Rematch (Forge)', primary: true,
+          onClick: () => {
+            hideModal();
+            if (STATE.mode === 'online' && STATE.roomCode) {
+              NetworkAdapter.requestRematch(STATE.roomCode);
+            } else {
+              openForgeFor(1);
+            }
+          }
+        },
+        { label: 'Back to Lobby', primary: false, onClick: () => { hideModal(); showScreen('lobby'); } }
+      ]
+    );
+  }
+
+  /* ============================================================================
+     9. TACTICAL AI (Plays Titan, Twins, Triad, or Swarm intelligently)
+     ============================================================================ */
+  async function runAITurn() {
+    STATE.aiBusy = true;
+    const wait = ms => new Promise(res => setTimeout(res, ms));
+    await wait(450);
+
+    // Opportunistic Blood Card check
+    const aiUnits = () => STATE.units.filter(u => u.alive && u.owner === 2);
+    const enemies = () => STATE.units.filter(u => u.alive && u.owner === 1);
+
+    const hand = STATE.hands[2];
+    for (let i = hand.length - 1; i >= 0; i--) {
+      if (STATE.gameOver) break;
+      const card = hand[i];
+      const healthy = aiUnits().sort((a, b) => b.hp - a.hp)[0];
+      if (!healthy || healthy.hp <= card.cost + 8) continue;
+      if (card.id === 'aegis' && healthy.hp < healthy.maxHP * 0.7) {
+        playBloodCard(i, healthy);
+        await wait(400);
+        break;
+      }
+      if (card.id === 'siphon') {
+        const tgt = enemies().find(e => dist(healthy.r, healthy.c, e.r, e.c) <= 4);
+        if (tgt) {
+          playBloodCard(i, healthy, tgt);
+          await wait(400);
+          break;
+        }
+      }
+    }
+
+    let safety = 0;
+    while (STATE.ap > 0 && !STATE.gameOver && safety < 10) {
+      safety++;
+      const myUnits = aiUnits();
+      const foes = enemies();
+      if (!myUnits.length || !foes.length) break;
+
+      // 1. Check if any unit can attack right now (prioritize lethal or lowest HP)
+      let bestAttack = null;
+      for (const u of myUnits) {
+        if (!canUnitAttack(u)) continue;
+        const targets = getAttackableTargets(u);
+        for (const t of targets) {
+          const prev = previewAttackDamage(u, t);
+          const score = (prev.lethal ? 200 : 0) + prev.hpDmg * 3 + (100 - t.hp);
+          if (!bestAttack || score > bestAttack.score) {
+            bestAttack = { u, t, score };
+          }
+        }
+      }
+
+      if (bestAttack) {
+        STATE.selectedUnitId = bestAttack.u.id;
+        executeAttack(bestAttack.u, bestAttack.t);
+        if (Math.random() < 0.25 && !STATE.gameOver) {
+          NetworkAdapter.sendChat(STATE.p2Name, bestAttack.t.alive ? 'Pressure applied.' : `${bestAttack.t.name} down.`);
+        }
+        await wait(450);
+        continue;
+      }
+
+      // 2. Otherwise move the best unit closer to nearest enemy (or onto a Conduit)
+      if (STATE.ap >= 1) {
+        let bestMove = null;
+        for (const u of myUnits) {
+          if (u.movedThisTurn) continue;
+          const tiles = getReachableTiles(u);
+          if (!tiles.length) continue;
+          const nearest = foes.reduce((b, f) => dist(u.r, u.c, f.r, f.c) < dist(u.r, u.c, b.r, b.c) ? f : b, foes[0]);
+          const curD = dist(u.r, u.c, nearest.r, nearest.c);
+          const st = computeUnitStats(u);
+          for (const tile of tiles) {
+            const nd = dist(tile.r, tile.c, nearest.r, nearest.c);
+            const idealD = st.rng;
+            let score = (curD - nd) * 12;
+            if (nd <= idealD && hasLineOfSight(tile.r, tile.c, nearest.r, nearest.c)) score += 25;
+            if (STATE.grid[tile.r][tile.c] === 'conduit') score += 10;
+            if (STATE.grid[tile.r][tile.c] === 'rift') score -= 18;
+            if (!bestMove || score > bestMove.score) {
+              bestMove = { u, tile, score };
+            }
+          }
+        }
+        if (bestMove && bestMove.score > -5) {
+          STATE.selectedUnitId = bestMove.u.id;
+          executeMove(bestMove.u, bestMove.tile.r, bestMove.tile.c);
+          await wait(380);
+          continue;
+        }
+      }
+
+      // 3. Vanguard fortify if spare AP
+      const van = myUnits.find(u => u.role === 'vanguard' && STATE.ap >= 2 && u.shield < 4);
+      if (van) {
+        STATE.selectedUnitId = van.id;
+        executeSpecial(van);
+        await wait(380);
+        continue;
+      }
+      break;
+    }
+
+    STATE.aiBusy = false;
+    if (!STATE.gameOver) endTurn();
+  }
+
+  /* ============================================================================
+     10. CANVAS RENDERING & BOARD INTERACTION
+     ============================================================================ */
+  const canvas = document.getElementById('boardCanvas');
+  const ctx = canvas.getContext('2d');
+  let tileSize = 72, offsetX = 0, offsetY = 0;
+
+  function resizeCanvas() {
+    const wrap = document.getElementById('boardWrap');
+    const w = wrap.clientWidth - 20;
+    const h = wrap.clientHeight - 20;
+    tileSize = Math.max(44, Math.floor(Math.min(w / COLS, h / ROWS)));
+    canvas.width = tileSize * COLS;
+    canvas.height = tileSize * ROWS;
+    offsetX = 0; offsetY = 0;
+  }
+  window.addEventListener('resize', () => {
+    if (screens.battle.classList.contains('active')) resizeCanvas();
+  });
+
+  function spawnFloat(r, c, text, color) {
+    STATE.floatingTexts.push({ x: (c + 0.5) * tileSize, y: (r + 0.3) * tileSize, text, color, life: 1.0 });
+  }
+  function spawnBeam(r1, c1, r2, c2, color) {
+    STATE.vfx.push({
+      type: 'bolt',
+      x1: (c1 + 0.5) * tileSize, y1: (r1 + 0.5) * tileSize,
+      x2: (c2 + 0.5) * tileSize, y2: (r2 + 0.5) * tileSize,
+      color, life: 1.0
+    });
+  }
+  function spawnSlash(r1, c1, r2, c2, color) {
+    const angle = Math.atan2(r2 - r1, c2 - c1);
+    STATE.vfx.push({
+      type: 'slash',
+      x: (c2 + 0.5) * tileSize, y: (r2 + 0.5) * tileSize,
+      angle, color, life: 1.0
+    });
+  }
+  function spawnShockwave(r, c, color, scale = 0.8) {
+    STATE.vfx.push({
+      type: 'shockwave',
+      x: (c + 0.5) * tileSize, y: (r + 0.5) * tileSize,
+      color, scale, life: 1.0
+    });
+  }
+
+  function getCardValidTargets(card, payer) {
+    if (!card || !payer || payer.hp <= card.cost) return { tiles: [], units: [] };
+    if (card.target === 'tile_ally') {
+      const tiles = [];
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          if (STATE.grid[r][c] !== 'pillar' && !unitAt(r, c) && dist(payer.r, payer.c, r, c) <= 3 && dist(payer.r, payer.c, r, c) > 0) {
+            tiles.push({ r, c });
+          }
+        }
+      }
+      return { tiles, units: [] };
+    }
+    if (card.target === 'enemy_4') {
+      const units = STATE.units.filter(u => u.alive && u.owner !== payer.owner && dist(payer.r, payer.c, u.r, u.c) <= 4);
+      return { tiles: [], units };
+    }
+    return { tiles: [], units: [] };
+  }
+
+  function drawRoundRect(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+  }
+
+  function drawBoard() {
+    requestAnimationFrame(drawBoard);
+    if (!screens.battle.classList.contains('active') || !STATE.grid.length) return;
+    if (canvas.width < 100 || canvas.height < 100) resizeCanvas();
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const now = performance.now() * 0.004;
+
+    const sel = STATE.units.find(u => u.id === STATE.selectedUnitId && u.alive);
+    const canAct = sel && sel.owner === STATE.activePlayer && !STATE.aiBusy && !STATE.gameOver;
+
+    let moveTiles = [];
+    let attackTargets = [];
+    let specialTargets = [];
+    let cardTiles = [];
+    let cardUnits = [];
+    let activeRange = 0;
+    let rangeColor = 'rgba(244, 63, 94, 0.42)';
+
+    if (sel) {
+      const selSt = computeUnitStats(sel, STATE.grid[sel.r][sel.c]);
+      activeRange = selSt.rng;
+      rangeColor = sel.owner === 1 ? 'rgba(56, 189, 248, 0.35)' : 'rgba(244, 63, 94, 0.35)';
+    }
+
+    if (canAct) {
+      if (STATE.actionMode === 'normal') {
+        if (STATE.ap >= 1) moveTiles = getReachableTiles(sel);
+        if (canUnitAttack(sel)) attackTargets = getAttackableTargets(sel);
+      } else if (STATE.actionMode === 'special' && STATE.ap >= 2) {
+        if (sel.role === 'striker') { specialTargets = getAttackableTargets(sel, 1); activeRange = 1; rangeColor = 'rgba(245, 158, 11, 0.55)'; }
+        else if (sel.role === 'arcanist' && sel.hp > 4) { specialTargets = getAttackableTargets(sel, 4); activeRange = 4; rangeColor = 'rgba(168, 85, 247, 0.55)'; }
+        else if (sel.role === 'catalyst' && sel.hp > 8) {
+          specialTargets = STATE.units.filter(u => u.alive && u.owner === sel.owner && u.id !== sel.id && dist(sel.r, sel.c, u.r, u.c) <= 3);
+          activeRange = 3; rangeColor = 'rgba(16, 185, 129, 0.55)';
+        }
+      } else if (STATE.actionMode === 'card' && STATE.activeCardIndex !== null) {
+        const card = STATE.hands[STATE.activePlayer][STATE.activeCardIndex];
+        const res = getCardValidTargets(card, sel);
+        cardTiles = res.tiles;
+        cardUnits = res.units;
+        activeRange = card.target === 'tile_ally' ? 3 : 4;
+        rangeColor = 'rgba(212, 163, 89, 0.55)';
+      }
+    }
+
+    // Draw grid tiles
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const x = c * tileSize, y = r * tileSize;
+        const type = STATE.grid[r][c];
+
+        ctx.fillStyle = (r + c) % 2 === 0 ? '#12161f' : '#151a24';
+        ctx.fillRect(x, y, tileSize, tileSize);
+
+        if (type === 'pillar') {
+          ctx.fillStyle = '#090b10';
+          ctx.fillRect(x + 5, y + 5, tileSize - 10, tileSize - 10);
+          ctx.strokeStyle = '#334155';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(x + 6, y + 6, tileSize - 12, tileSize - 12);
+          ctx.beginPath();
+          ctx.moveTo(x + 12, y + 12); ctx.lineTo(x + tileSize - 12, y + tileSize - 12);
+          ctx.moveTo(x + tileSize - 12, y + 12); ctx.lineTo(x + 12, y + tileSize - 12);
+          ctx.strokeStyle = 'rgba(148,163,184,0.22)';
+          ctx.stroke();
+        } else if (type === 'conduit') {
+          ctx.fillStyle = 'rgba(212, 163, 89, 0.1)';
+          ctx.fillRect(x + 2, y + 2, tileSize - 4, tileSize - 4);
+          ctx.strokeStyle = 'rgba(212, 163, 89, 0.45)';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(x + tileSize / 2, y + 10);
+          ctx.lineTo(x + tileSize - 10, y + tileSize / 2);
+          ctx.lineTo(x + tileSize / 2, y + tileSize - 10);
+          ctx.lineTo(x + 10, y + tileSize / 2);
+          ctx.closePath();
+          ctx.stroke();
+        } else if (type === 'rift') {
+          ctx.fillStyle = 'rgba(168, 85, 247, 0.14)';
+          ctx.fillRect(x + 2, y + 2, tileSize - 4, tileSize - 4);
+          ctx.strokeStyle = 'rgba(168, 85, 247, 0.5)';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.arc(x + tileSize / 2, y + tileSize / 2, tileSize * 0.25, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+
+        // Highlights
+        if (moveTiles.some(t => t.r === r && t.c === c)) {
+          ctx.fillStyle = 'rgba(56, 189, 248, 0.14)';
+          ctx.fillRect(x + 2, y + 2, tileSize - 4, tileSize - 4);
+        }
+        if (cardTiles.some(t => t.r === r && t.c === c)) {
+          ctx.fillStyle = 'rgba(212, 163, 89, 0.24)';
+          ctx.fillRect(x + 2, y + 2, tileSize - 4, tileSize - 4);
+        }
+        if (attackTargets.some(t => t.r === r && t.c === c) || cardUnits.some(t => t.r === r && t.c === c)) {
+          ctx.fillStyle = 'rgba(244, 63, 94, 0.28)';
+          ctx.fillRect(x + 2, y + 2, tileSize - 4, tileSize - 4);
+        }
+        if (specialTargets.some(t => t.r === r && t.c === c)) {
+          ctx.fillStyle = sel.role === 'catalyst' ? 'rgba(16, 185, 129, 0.26)' : 'rgba(245, 158, 11, 0.28)';
+          ctx.fillRect(x + 2, y + 2, tileSize - 4, tileSize - 4);
+        }
+
+        ctx.strokeStyle = '#1f2634';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y, tileSize, tileSize);
+      }
+    }
+
+    // Range Ring & Tactical Threat Perimeter for Selected Unit
+    if (sel && activeRange > 0) {
+      const scx = (sel.drawX + 0.5) * tileSize;
+      const scy = (sel.drawY + 0.5) * tileSize;
+
+      const inRange = (rr, cc) => rr >= 0 && rr < ROWS && cc >= 0 && cc < COLS &&
+        STATE.grid[rr][cc] !== 'pillar' &&
+        dist(sel.r, sel.c, rr, cc) <= activeRange &&
+        (STATE.actionMode === 'card' || hasLineOfSight(sel.r, sel.c, rr, cc));
+
+      ctx.save();
+      ctx.strokeStyle = rangeColor;
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5, 4]);
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          if (!inRange(r, c)) continue;
+          const x = c * tileSize, y = r * tileSize;
+          if (!inRange(r - 1, c)) { ctx.beginPath(); ctx.moveTo(x, y + 1); ctx.lineTo(x + tileSize, y + 1); ctx.stroke(); }
+          if (!inRange(r + 1, c)) { ctx.beginPath(); ctx.moveTo(x, y + tileSize - 1); ctx.lineTo(x + tileSize, y + tileSize - 1); ctx.stroke(); }
+          if (!inRange(r, c - 1)) { ctx.beginPath(); ctx.moveTo(x + 1, y); ctx.lineTo(x + 1, y + tileSize); ctx.stroke(); }
+          if (!inRange(r, c + 1)) { ctx.beginPath(); ctx.moveTo(x + tileSize - 1, y); ctx.lineTo(x + tileSize - 1, y + tileSize); ctx.stroke(); }
+        }
+      }
+      ctx.setLineDash([3, 6]);
+      ctx.lineWidth = 1.25;
+      ctx.beginPath();
+      ctx.arc(scx, scy, activeRange * tileSize, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Hover outline + Live Line-of-Sight Attack Preview
+    let hoverPreview = null;
+    if (STATE.hoverCell) {
+      const { r, c } = STATE.hoverCell;
+      ctx.strokeStyle = 'rgba(212, 163, 89, 0.72)';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(c * tileSize + 2, r * tileSize + 2, tileSize - 4, tileSize - 4);
+
+      const hUnit = unitAt(r, c);
+      if (canAct && hUnit) {
+        if (STATE.actionMode === 'normal' && attackTargets.includes(hUnit)) {
+          hoverPreview = { target: hUnit, prev: previewAttackDamage(sel, hUnit), color: '#f43f5e' };
+        } else if (STATE.actionMode === 'special' && specialTargets.includes(hUnit)) {
+          const isHeal = sel.role === 'catalyst';
+          hoverPreview = {
+            target: hUnit,
+            prev: isHeal ? { label: '+8 HP' } : previewAttackDamage(sel, hUnit, sel.role === 'arcanist' ? 5 : (hUnit.hp < hUnit.maxHP ? 5 : 1), sel.role === 'arcanist'),
+            color: isHeal ? '#10b981' : '#f59e0b'
+          };
+        } else if (STATE.actionMode === 'card' && cardUnits.includes(hUnit)) {
+          const card = STATE.hands[STATE.activePlayer][STATE.activeCardIndex];
+          hoverPreview = { target: hUnit, prev: { label: card.id === 'siphon' ? '-6 HP' : 'PUSH' }, color: '#d4a359' };
+        }
+      }
+    }
+
+    if (hoverPreview && sel) {
+      const x1 = (sel.drawX + 0.5) * tileSize, y1 = (sel.drawY + 0.5) * tileSize;
+      const x2 = (hoverPreview.target.drawX + 0.5) * tileSize, y2 = (hoverPreview.target.drawY + 0.5) * tileSize;
+      ctx.save();
+      ctx.strokeStyle = hoverPreview.color;
+      ctx.lineWidth = 2.25;
+      ctx.setLineDash([6, 4]);
+      ctx.lineDashOffset = -now * 16;
+      ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+      ctx.setLineDash([]);
+      const rr = tileSize * 0.42 + Math.sin(now * 2) * 2;
+      ctx.beginPath(); ctx.arc(x2, y2, rr, 0, Math.PI * 2); ctx.stroke();
+      ctx.restore();
+    }
+
+    // Draw Units with HeroClix-style radial Wound Dials & Clear Nameplates
+    STATE.units.filter(u => u.alive).forEach(u => {
+      u.drawX += (u.c - u.drawX) * 0.24;
+      u.drawY += (u.r - u.drawY) * 0.24;
+      u.lungeX *= 0.72;
+      u.lungeY *= 0.72;
+      if (u.hitFlash > 0) u.hitFlash = Math.max(0, u.hitFlash - 0.08);
+
+      const shakeX = u.hitFlash > 0 ? Math.sin(u.hitFlash * 28) * 3.5 : 0;
+      const cx = (u.drawX + u.lungeX + 0.5) * tileSize + shakeX;
+      const cy = (u.drawY + u.lungeY + 0.45) * tileSize;
+      const wc = getWeightClass(u.maxHP);
+      const radius = tileSize * (wc.id === 'titan' ? 0.36 : wc.id === 'champion' ? 0.33 : wc.id === 'skirmisher' ? 0.31 : 0.28);
+
+      // Selection ring
+      if (u.id === STATE.selectedUnitId) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius + 5, 0, Math.PI * 2);
+        ctx.strokeStyle = '#d4a359';
+        ctx.lineWidth = 2.25;
+        ctx.setLineDash([5, 3]);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // Base disc
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+      ctx.fillStyle = u.hitFlash > 0.3 ? '#3b1520' : '#0e121a';
+      ctx.fill();
+      ctx.lineWidth = 2.25;
+      ctx.strokeStyle = u.owner === 1 ? '#38bdf8' : '#f43f5e';
+      ctx.stroke();
+
+      // Radial Wound Dial Arc (HP %)
+      const hpPct = Math.max(0, u.hp / u.maxHP);
+      const tier = getDialTier(u.hp, u.maxHP);
+      const dialColor = tier === 0 ? '#10b981' : tier === 1 ? '#f59e0b' : '#ef4444';
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius - 4, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * hpPct);
+      ctx.strokeStyle = dialColor;
+      ctx.lineWidth = 3.5;
+      ctx.stroke();
+
+      // Weight-class pips on top rim (1=Swarm .. 4=Titan)
+      const pipCount = wc.id === 'titan' ? 4 : wc.id === 'champion' ? 3 : wc.id === 'skirmisher' ? 2 : 1;
+      for (let p = 0; p < pipCount; p++) {
+        const ang = -Math.PI / 2 + (p - (pipCount - 1) / 2) * 0.28;
+        const px = cx + Math.cos(ang) * (radius + 1.5);
+        const py = cy + Math.sin(ang) * (radius + 1.5);
+        ctx.beginPath();
+        ctx.arc(px, py, 2.2, 0, Math.PI * 2);
+        ctx.fillStyle = '#d4a359';
+        ctx.fill();
+      }
+
+      // Role symbol
+      ctx.fillStyle = '#e8ecf2';
+      ctx.font = `700 ${Math.round(radius * 0.66)}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(ROLES[u.role].symbol, cx, cy - radius * 0.16);
+
+      // Crisp HP/MaxHP inside token
+      ctx.fillStyle = '#e8ecf2';
+      ctx.font = `700 ${Math.max(9, Math.round(tileSize * 0.135))}px monospace`;
+      ctx.fillText(`${u.hp}/${u.maxHP}`, cx, cy + radius * 0.36);
+
+      // Crisp Nameplate pill beneath token
+      const lbl = u.name.length > 9 ? u.name.slice(0, 9) : u.name;
+      ctx.font = `700 ${Math.max(9, Math.round(tileSize * 0.125))}px monospace`;
+      const tw = ctx.measureText(lbl).width + 8;
+      const nh = Math.max(13, Math.round(tileSize * 0.18));
+      const ny = cy + radius + 2;
+      drawRoundRect(cx - tw / 2, ny, tw, nh, 4);
+      ctx.fillStyle = 'rgba(10, 13, 20, 0.9)';
+      ctx.fill();
+      ctx.strokeStyle = u.owner === 1 ? 'rgba(56, 189, 248, 0.55)' : 'rgba(244, 63, 94, 0.55)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.fillStyle = '#e8ecf2';
+      ctx.fillText(lbl, cx, ny + nh / 2 + 0.5);
+
+      // Shield badge pill
+      if (u.shield > 0) {
+        const stxt = `+${u.shield}`;
+        ctx.font = '700 9.5px monospace';
+        const sw = ctx.measureText(stxt).width + 8;
+        drawRoundRect(cx + radius * 0.45, cy - radius - 2, sw, 14, 7);
+        ctx.fillStyle = '#0c4a6e';
+        ctx.fill();
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.fillStyle = '#e0f2fe';
+        ctx.fillText(stxt, cx + radius * 0.45 + sw / 2, cy - radius + 5.5);
+      }
+      // Surge badge
+      if (u.surgeBonus > 0) {
+        ctx.fillStyle = '#f59e0b';
+        ctx.font = '700 12px monospace';
+        ctx.fillText('⚡', cx - radius * 0.85, cy - radius * 0.65);
+      }
+    });
+
+    // Inline Damage Preview Pill on Hover
+    if (hoverPreview) {
+      const t = hoverPreview.target;
+      const tx = (t.drawX + 0.5) * tileSize;
+      const ty = (t.drawY + 0.12) * tileSize;
+      const txt = hoverPreview.prev.label ? hoverPreview.prev.label :
+        (hoverPreview.prev.lethal ? `-${hoverPreview.prev.hpDmg} LETHAL` : `-${hoverPreview.prev.hpDmg} HP`);
+      ctx.save();
+      ctx.font = '800 11px monospace';
+      const pw = ctx.measureText(txt).width + 12;
+      drawRoundRect(tx - pw / 2, Math.max(4, ty - 12), pw, 18, 9);
+      ctx.fillStyle = 'rgba(12, 14, 19, 0.94)';
+      ctx.fill();
+      ctx.strokeStyle = hoverPreview.color;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      ctx.fillStyle = hoverPreview.color;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(txt, tx, Math.max(4, ty - 12) + 9.5);
+      ctx.restore();
+    }
+
+    // Richer VFX: traveling bolts, melee slash arcs, expanding shockwaves
+    for (let i = STATE.vfx.length - 1; i >= 0; i--) {
+      const v = STATE.vfx[i];
+      ctx.save();
+      if (v.type === 'bolt') {
+        const t = 1 - v.life;
+        const bx = v.x1 + (v.x2 - v.x1) * Math.min(1, t * 1.8);
+        const by = v.y1 + (v.y2 - v.y1) * Math.min(1, t * 1.8);
+        ctx.globalAlpha = v.life * 0.6;
+        ctx.strokeStyle = v.color;
+        ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.moveTo(v.x1, v.y1); ctx.lineTo(v.x2, v.y2); ctx.stroke();
+        ctx.globalAlpha = v.life;
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(v.x1, v.y1); ctx.lineTo(bx, by); ctx.stroke();
+        ctx.beginPath(); ctx.arc(bx, by, 5, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffffff'; ctx.fill();
+        v.life -= 0.055;
+      } else if (v.type === 'slash') {
+        const prog = 1 - v.life;
+        ctx.globalAlpha = v.life;
+        ctx.strokeStyle = v.color;
+        ctx.lineWidth = 5 * v.life + 1;
+        ctx.lineCap = 'round';
+        const rArc = tileSize * (0.36 + prog * 0.18);
+        ctx.beginPath();
+        ctx.arc(v.x, v.y, rArc, v.angle - 1.15, v.angle + 1.15);
+        ctx.stroke();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(v.x, v.y, rArc - 3, v.angle - 0.85, v.angle + 0.85);
+        ctx.stroke();
+        v.life -= 0.065;
+      } else if (v.type === 'shockwave') {
+        const prog = 1 - v.life;
+        ctx.globalAlpha = v.life * 0.85;
+        ctx.strokeStyle = v.color;
+        ctx.lineWidth = 3 * v.life + 1;
+        ctx.beginPath();
+        ctx.arc(v.x, v.y, tileSize * (0.18 + prog * v.scale), 0, Math.PI * 2);
+        ctx.stroke();
+        v.life -= 0.05;
+      }
+      ctx.restore();
+      if (v.life <= 0) STATE.vfx.splice(i, 1);
+    }
+
+    // Floating combat numbers
+    for (let i = STATE.floatingTexts.length - 1; i >= 0; i--) {
+      const f = STATE.floatingTexts[i];
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, f.life);
+      ctx.font = '800 14px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = f.color;
+      ctx.fillText(f.text, f.x, f.y);
+      ctx.restore();
+      f.y -= 0.7;
+      f.life -= 0.02;
+      if (f.life <= 0) STATE.floatingTexts.splice(i, 1);
+    }
+
+  }
+  requestAnimationFrame(drawBoard);
+
+  canvas.addEventListener('mousemove', e => {
+    const rect = canvas.getBoundingClientRect();
+    const c = Math.floor((e.clientX - rect.left) / tileSize);
+    const r = Math.floor((e.clientY - rect.top) / tileSize);
+    if (r < 0 || r >= ROWS || c < 0 || c >= COLS) {
+      STATE.hoverCell = null;
+      document.getElementById('hoverTooltip').classList.remove('visible');
+      return;
+    }
+    STATE.hoverCell = { r, c };
+    updateHoverTooltip(r, c);
+  });
+
+  canvas.addEventListener('mouseleave', () => {
+    STATE.hoverCell = null;
+    document.getElementById('hoverTooltip').classList.remove('visible');
+  });
+
+  function updateHoverTooltip(r, c) {
+    const tip = document.getElementById('hoverTooltip');
+    const sel = STATE.units.find(u => u.id === STATE.selectedUnitId && u.alive);
+    const target = unitAt(r, c);
+    const tile = STATE.grid[r][c];
+    let text = '';
+
+    if (sel && sel.owner === STATE.activePlayer && target && target.owner !== sel.owner && canUnitAttack(sel) && getAttackableTargets(sel).includes(target)) {
+      const prev = previewAttackDamage(sel, target);
+      text = `ATTACK ${target.name}: ${prev.hpDmg} HP DMG${prev.shieldAbsorb ? ` (+${prev.shieldAbsorb} SHD)` : ''}${prev.lethal ? ' [LETHAL]' : ''}`;
+    } else if (target) {
+      const st = computeUnitStats(target, tile);
+      text = `${target.name} (${st.wc.label} ${st.role.name}) · ${target.hp}/${target.maxHP} HP · ATK ${st.atk} ARM ${st.arm}`;
+    } else if (tile === 'conduit') {
+      text = 'CONDUIT TILE: +2 ATK & +1 RNG while standing here';
+    } else if (tile === 'rift') {
+      text = 'RIFT HAZARD: -3 HP at end of turn (+5 if knocked in)';
+    } else if (tile === 'pillar') {
+      text = 'OBSIDIAN PILLAR: Impassable · Blocks Line-of-Sight';
+    }
+
+    if (text) {
+      tip.textContent = text;
+      tip.classList.add('visible');
+    } else {
+      tip.classList.remove('visible');
+    }
+  }
+
+  canvas.addEventListener('click', e => {
+    if (STATE.gameOver) return;
+    const rect = canvas.getBoundingClientRect();
+    const c = Math.floor((e.clientX - rect.left) / tileSize);
+    const r = Math.floor((e.clientY - rect.top) / tileSize);
+    if (r < 0 || r >= ROWS || c < 0 || c >= COLS) return;
+
+    const clickedUnit = unitAt(r, c);
+    const sel = STATE.units.find(u => u.id === STATE.selectedUnitId && u.alive);
+
+    if (isMyTurn()) {
+      // Card targeting mode
+      if (STATE.actionMode === 'card' && sel && STATE.activeCardIndex !== null) {
+        const card = STATE.hands[STATE.activePlayer][STATE.activeCardIndex];
+        const valid = getCardValidTargets(card, sel);
+        if (card.target === 'tile_ally' && valid.tiles.some(t => t.r === r && t.c === c)) {
+          playBloodCard(STATE.activeCardIndex, sel, { r, c });
+          return;
+        }
+        if (card.target === 'enemy_4' && clickedUnit && valid.units.includes(clickedUnit)) {
+          playBloodCard(STATE.activeCardIndex, sel, clickedUnit);
+          return;
+        }
+        STATE.actionMode = 'normal';
+        STATE.activeCardIndex = null;
+        renderBattleUI();
+        return;
+      }
+
+      // Special targeting mode
+      if (STATE.actionMode === 'special' && sel && sel.owner === STATE.activePlayer && STATE.ap >= 2) {
+        if (sel.role === 'striker' && clickedUnit && getAttackableTargets(sel, 1).includes(clickedUnit)) {
+          executeSpecial(sel, clickedUnit); return;
+        }
+        if (sel.role === 'arcanist' && clickedUnit && getAttackableTargets(sel, 4).includes(clickedUnit)) {
+          executeSpecial(sel, clickedUnit); return;
+        }
+        if (sel.role === 'catalyst' && clickedUnit && clickedUnit.owner === sel.owner && clickedUnit.id !== sel.id && dist(sel.r, sel.c, clickedUnit.r, clickedUnit.c) <= 3) {
+          executeSpecial(sel, clickedUnit); return;
+        }
+        STATE.actionMode = 'normal';
+        renderBattleUI();
+        return;
+      }
+
+      // Normal mode: click enemy to attack, click reachable tile to move, or select unit
+      if (sel && sel.owner === STATE.activePlayer) {
+        if (clickedUnit && clickedUnit.owner !== sel.owner && canUnitAttack(sel) && getAttackableTargets(sel).includes(clickedUnit)) {
+          executeAttack(sel, clickedUnit);
+          return;
+        }
+        if (!clickedUnit && STATE.ap >= 1 && getReachableTiles(sel).some(t => t.r === r && t.c === c)) {
+          executeMove(sel, r, c);
+          return;
+        }
+      }
+    }
+
+    if (clickedUnit) {
+      Sound.click();
+      STATE.selectedUnitId = clickedUnit.id;
+      STATE.actionMode = 'normal';
+      STATE.activeCardIndex = null;
+      renderBattleUI();
+    }
+  });
+
+  /* ============================================================================
+     11. UI RENDERING (HUD, INSPECTOR, ROSTER, HAND, LEADERBOARD, LOG/CHAT)
+     ============================================================================ */
+  function renderBattleUI() {
+    // Top HUD
+    const activeName = STATE.activePlayer === 1 ? STATE.p1Name : STATE.p2Name;
+    const suffix = STATE.mode === 'online' ? (isMyTurn() ? ' (YOUR TURN)' : ' (OPPONENT)') : '';
+    document.getElementById('turnLabel').textContent = `TURN ${STATE.turn} — ${activeName.toUpperCase()}${suffix}`;
+    document.getElementById('turnDot').style.background = STATE.activePlayer === 1 ? 'var(--p1)' : 'var(--p2)';
+    document.getElementById('endTurnBtn').disabled = !isMyTurn();
+
+    const pips = document.getElementById('apPips');
+    pips.innerHTML = '';
+    const totalPips = Math.max(STATE.maxAP, STATE.ap);
+    for (let i = 0; i < totalPips; i++) {
+      const d = document.createElement('div');
+      d.className = 'ap-pip' + (i < STATE.ap ? ' filled' : '');
+      pips.appendChild(d);
+    }
+
+    const p1HP = STATE.units.filter(u => u.alive && u.owner === 1).reduce((s, u) => s + u.hp, 0);
+    const p2HP = STATE.units.filter(u => u.alive && u.owner === 2).reduce((s, u) => s + u.hp, 0);
+    document.getElementById('poolTotalsBadge').textContent = `P1 ${p1HP} HP · P2 ${p2HP} HP`;
+
+    // Banner for targeting mode
+    const banner = document.getElementById('boardBanner');
+    if (STATE.actionMode === 'special') {
+      banner.textContent = 'SELECT TARGET FOR ROLE SPECIAL (ESC TO CANCEL)';
+      banner.classList.add('visible');
+    } else if (STATE.actionMode === 'card' && STATE.activeCardIndex !== null) {
+      const card = STATE.hands[STATE.activePlayer][STATE.activeCardIndex];
+      banner.textContent = `TARGET FOR ${card.name.toUpperCase()} (PAYS ${card.cost} HP · ESC TO CANCEL)`;
+      banner.classList.add('visible');
+    } else {
+      banner.classList.remove('visible');
+    }
+
+    // Inspector
+    const sel = STATE.units.find(u => u.id === STATE.selectedUnitId && u.alive);
+    const insp = document.getElementById('inspectorBox');
+    if (!sel) {
+      insp.innerHTML = `<div class="insp-card" style="color:var(--muted); font-size:12px;">Click a unit on the board to inspect its Wound Dial and abilities.</div>`;
+    } else {
+      const st = computeUnitStats(sel, STATE.grid[sel.r][sel.c]);
+      const pct = Math.round((sel.hp / sel.maxHP) * 100);
+      const hpColor = st.tier === 0 ? 'var(--good)' : st.tier === 1 ? 'var(--warn)' : 'var(--crit)';
+      const isMine = sel.owner === STATE.activePlayer && isMyTurn();
+      const canSpec = isMine && STATE.ap >= 2 && (
+        sel.role === 'vanguard' || sel.role === 'striker' ||
+        (sel.role === 'arcanist' && sel.hp > 4) || (sel.role === 'catalyst' && sel.hp > 8)
+      );
+
+      insp.innerHTML = `
+        <div class="insp-card">
+          <div class="insp-title-row">
+            <span class="insp-name" style="color:${sel.owner === 1 ? 'var(--p1)' : 'var(--p2)'};">${st.role.symbol} ${sel.name}</span>
+            <span class="weight-badge">${st.wc.label}</span>
+          </div>
+          <div style="display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:11.5px;">
+            <span>HP: <strong>${sel.hp} / ${sel.maxHP}</strong></span>
+            <span>${sel.shield > 0 ? `SHD +${sel.shield}` : st.role.name}</span>
+          </div>
+          <div class="insp-hp-bar"><div class="insp-hp-fill" style="width:${pct}%; background:${hpColor};"></div></div>
+          <div class="uf-stats">
+            <div><div class="uf-stat-lbl">ATK</div><div class="uf-stat-val">${st.atk}</div></div>
+            <div><div class="uf-stat-lbl">ARM</div><div class="uf-stat-val">${st.arm}</div></div>
+            <div><div class="uf-stat-lbl">MOV</div><div class="uf-stat-val">${st.mov}</div></div>
+            <div><div class="uf-stat-lbl">RNG</div><div class="uf-stat-val">${st.rng}</div></div>
+          </div>
+          <div class="dial-tiers">
+            ${st.role.dial.map((d, idx) => `<div class="dial-tier ${st.tier === idx ? 'active' : ''}"><div>${d.label}</div><div style="font-size:9px;">${d.note}</div></div>`).join('')}
+          </div>
+          <div class="uf-perk" style="margin-top:8px;">
+            <strong>${st.wc.label}:</strong> ${st.wc.perk}
+          </div>
+          ${isMine ? `
+            <div class="action-btns">
+              <button id="specialBtn" class="${STATE.actionMode === 'special' ? 'primary' : ''}" ${canSpec ? '' : 'disabled'}>${st.role.specialName} (2 AP)</button>
+              <button id="cancelModeBtn" ${STATE.actionMode === 'normal' ? 'disabled' : ''}>Cancel [Esc]</button>
+            </div>
+            <div style="font-size:11px; color:var(--muted); margin-top:6px;">${st.role.specialDesc}</div>
+          ` : ''}
+        </div>
+      `;
+
+      const specBtn = document.getElementById('specialBtn');
+      if (specBtn) {
+        specBtn.addEventListener('click', () => {
+          Sound.click();
+          if (sel.role === 'vanguard') {
+            executeSpecial(sel);
+          } else {
+            STATE.actionMode = STATE.actionMode === 'special' ? 'normal' : 'special';
+            STATE.activeCardIndex = null;
+            renderBattleUI();
+          }
+        });
+      }
+      const cancelBtn = document.getElementById('cancelModeBtn');
+      if (cancelBtn) {
+        cancelBtn.addEventListener('click', () => {
+          STATE.actionMode = 'normal'; STATE.activeCardIndex = null; renderBattleUI();
+        });
+      }
+    }
+
+    // Roster list
+    const roster = document.getElementById('rosterList');
+    roster.innerHTML = '';
+    STATE.units.forEach(u => {
+      const div = document.createElement('div');
+      div.className = `roster-item ${u.id === STATE.selectedUnitId ? 'selected' : ''} ${u.alive ? '' : 'dead'}`;
+      div.innerHTML = `
+        <span style="color:${u.owner === 1 ? 'var(--p1)' : 'var(--p2)'}; font-weight:700;">${ROLES[u.role].symbol} ${u.name}</span>
+        <span style="font-family:var(--font-mono);">${u.hp}/${u.maxHP} HP</span>
+      `;
+      div.addEventListener('click', () => {
+        if (!u.alive) return;
+        Sound.click();
+        STATE.selectedUnitId = u.id;
+        STATE.actionMode = 'normal';
+        STATE.activeCardIndex = null;
+        renderBattleUI();
+      });
+      roster.appendChild(div);
+    });
+
+    // Blood-cost hand
+    const viewer = STATE.mode === 'online' ? STATE.localPlayerNum : ((STATE.mode === 'ai') ? 1 : STATE.activePlayer);
+    const hand = STATE.hands[viewer];
+    document.getElementById('deckCountLabel').textContent = `DECK: ${STATE.decks[viewer].length}`;
+    const cardsRow = document.getElementById('cardsRow');
+    cardsRow.innerHTML = '';
+    hand.forEach((card, idx) => {
+      const cEl = document.createElement('div');
+      cEl.className = 'cmd-card' + (STATE.actionMode === 'card' && STATE.activeCardIndex === idx ? ' active-card' : '');
+      cEl.innerHTML = `
+        <div class="cmd-card-top">
+          <span class="cmd-card-name">${card.name}</span>
+          <span class="blood-cost">-${card.cost} HP</span>
+        </div>
+        <div class="cmd-card-desc">${card.desc}</div>
+      `;
+      cEl.addEventListener('click', () => {
+        if (!isMyTurn() || viewer !== STATE.activePlayer) return;
+        const payer = STATE.units.find(u => u.id === STATE.selectedUnitId && u.alive && u.owner === STATE.activePlayer);
+        if (!payer) {
+          addLog('Select one of your units to pay the Blood Cost.', 'sys');
+          return;
+        }
+        if (payer.hp <= card.cost) {
+          addLog(`${payer.name} needs more than ${card.cost} HP to pay for ${card.name}.`, 'sys');
+          return;
+        }
+        Sound.click();
+        if (card.target === 'instant' || card.target === 'self_or_ally') {
+          playBloodCard(idx, payer);
+        } else {
+          STATE.actionMode = 'card';
+          STATE.activeCardIndex = idx;
+          renderBattleUI();
+        }
+      });
+      cardsRow.appendChild(cEl);
+    });
+  }
+
+  function addLog(text, cls = 'sys') {
+    const list = document.getElementById('logList');
+    const div = document.createElement('div');
+    div.className = `log-entry ${cls}`;
+    div.textContent = text;
+    list.appendChild(div);
+    list.scrollTop = list.scrollHeight;
+  }
+
+  function renderLeaderboard() {
+    const rows = NetworkAdapter.getLeaderboard();
+    const tbody = document.getElementById('lbBody');
+    tbody.innerHTML = rows.map((r, i) => `
+      <tr>
+        <td>${i + 1}</td>
+        <td style="font-weight:700; color:var(--ink);">${r.name}</td>
+        <td style="color:var(--brass);">${r.elo}</td>
+        <td>${r.wins}-${r.losses}</td>
+        <td style="color:var(--muted);">${r.style}</td>
+      </tr>
+    `).join('');
+  }
+
+  // Right-side tabs
+  document.querySelectorAll('.tab-bar button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      Sound.click();
+      document.querySelectorAll('.tab-bar button').forEach(b => b.classList.remove('active-tab'));
+      btn.classList.add('active-tab');
+      document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+      document.getElementById(`tab-${btn.dataset.tab}`).classList.add('active');
+    });
+  });
+
+  document.getElementById('chatForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const inp = document.getElementById('chatInput');
+    const txt = inp.value.trim();
+    if (!txt) return;
+    const sender = STATE.mode === 'online'
+      ? (STATE.localPlayerNum === 1 ? STATE.p1Name : STATE.p2Name)
+      : (STATE.activePlayer === 1 ? STATE.p1Name : STATE.p2Name);
+    NetworkAdapter.sendChat(sender, txt);
+    inp.value = '';
+  });
+
+  document.getElementById('resetLbBtn').addEventListener('click', () => {
+    Sound.click();
+    NetworkAdapter.resetLeaderboard();
+    renderLeaderboard();
+  });
+
+  document.getElementById('endTurnBtn').addEventListener('click', () => {
+    if (!isMyTurn()) return;
+    Sound.click();
+    endTurn();
+  });
+
+  // Keyboard shortcuts
+  window.addEventListener('keydown', e => {
+    if (document.activeElement && ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) return;
+    if (!screens.battle.classList.contains('active')) return;
+    if (e.code === 'Escape') {
+      STATE.actionMode = 'normal';
+      STATE.activeCardIndex = null;
+      renderBattleUI();
+    } else if (e.code === 'Space') {
+      e.preventDefault();
+      if (isMyTurn()) endTurn();
+    }
+  });
+
+  // Modal helpers
+  function showModal(title, body, buttons) {
+    document.getElementById('modalTitle').textContent = title;
+    document.getElementById('modalBody').textContent = body;
+    const wrap = document.getElementById('modalButtons');
+    wrap.innerHTML = '';
+    buttons.forEach(b => {
+      const btn = document.createElement('button');
+      btn.textContent = b.label;
+      if (b.primary) btn.className = 'primary';
+      btn.addEventListener('click', b.onClick);
+      wrap.appendChild(btn);
+    });
+    document.getElementById('modalOverlay').classList.add('active');
+  }
+  function hideModal() {
+    document.getElementById('modalOverlay').classList.remove('active');
+  }
+
+  renderLeaderboard();
+  NetworkAdapter.init();
+})();
+</script>
+</body>
+</html>
