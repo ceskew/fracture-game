@@ -1063,6 +1063,13 @@
             • <strong>Rift (Violet):</strong> -3 HP at end of turn (+5 if pushed in).
           </div>
           <div>
+            <strong style="color:var(--ink);">Fighter Roles:</strong><br/>
+            • <strong>◈ Vanguard (Tank):</strong> Frontline bruiser with high Armor; <em>FORTIFY</em> adds +6 Shield and <em>Last Stand</em> spikes ATK/ARM at low HP.<br/>
+            • <strong>▲ Striker (Assassin):</strong> Fast melee flanker (4 MOV, high ATK); <em>EXECUTE</em> deals +5 bonus damage to wounded foes.<br/>
+            • <strong>✦ Arcanist (Ranged):</strong> Long-range caster (3 RNG) that pierces 50% of enemy Armor; <em>OVERCHARGE</em> burns 4 HP for a Range-4 blast.<br/>
+            • <strong>✚ Catalyst (Support):</strong> Tactical healer/mid-range fighter; <em>TRANSFUSE</em> transfers 8 HP directly from itself to an ally within 3 tiles.
+          </div>
+          <div>
             <strong style="color:var(--ink);">Weight Classes &amp; Wound Dials:</strong><br/>
             • <strong>Swarm (&lt;25 HP):</strong> +1 MOV, Pack Tactics (+2 ATK/adj ally).<br/>
             • <strong>Skirmisher (25–49):</strong> Flanker (+2 ATK vs flanked foe).<br/>
@@ -1370,6 +1377,7 @@
   const ROLES = {
     vanguard: {
       name: 'Vanguard', symbol: '◈', atkMod: 0, armMod: 2, movBase: 2, rngBase: 1,
+      desc: 'Frontline tank — high Armor, shields up with FORTIFY, and spikes in power at Critical HP.',
       specialName: 'FORTIFY', specialDesc: '2 AP: Gain +6 Shield until next turn.',
       dial: [
         { label: 'FRESH', atk: 0, arm: 0, mov: 0, rng: 0, note: 'Steady' },
@@ -1379,6 +1387,7 @@
     },
     striker: {
       name: 'Striker', symbol: '▲', atkMod: 3, armMod: 0, movBase: 4, rngBase: 1,
+      desc: 'Fast melee assassin — high speed & ATK; hunts wounded enemies with EXECUTE.',
       specialName: 'EXECUTE', specialDesc: '2 AP: Strike adjacent foe (+5 DMG if wounded).',
       dial: [
         { label: 'FRESH', atk: 0, arm: 0, mov: 0, rng: 0, note: 'Poised' },
@@ -1388,6 +1397,7 @@
     },
     arcanist: {
       name: 'Arcanist', symbol: '✦', atkMod: 1, armMod: 0, movBase: 2, rngBase: 3, piercing: true,
+      desc: 'Ranged artillery — attacks from 3 tiles away, pierces 50% Armor, and fires OVERCHARGE blasts.',
       specialName: 'OVERCHARGE', specialDesc: '2 AP + 4 Self-HP: Piercing blast (+5 DMG, Rng 4).',
       dial: [
         { label: 'FRESH', atk: 0, arm: 0, mov: 0, rng: 0, note: 'Focused' },
@@ -1397,6 +1407,7 @@
     },
     catalyst: {
       name: 'Catalyst', symbol: '✚', atkMod: -2, armMod: 1, movBase: 3, rngBase: 2,
+      desc: 'Tactical support — mid-range fighter that transfers its own HP to heal allies via TRANSFUSE.',
       specialName: 'TRANSFUSE', specialDesc: '2 AP: Transfer 8 HP to an ally within 3 tiles.',
       dial: [
         { label: 'FRESH', atk: 0, arm: 0, mov: 0, rng: 0, note: 'Channeling' },
@@ -1776,6 +1787,7 @@
             ${Object.entries(ROLES).map(([k, r]) => `<option value="${k}" ${u.role === k ? 'selected' : ''}>${r.symbol} ${r.name}</option>`).join('')}
           </select>
         </div>
+        <div style="font-size:11.5px; color:var(--muted); line-height:1.35;">${st.role.desc}</div>
         <div class="uf-hp-row">
           <input type="range" min="10" max="${STATE.poolHP}" step="1" value="${u.maxHP}" data-idx="${idx}" class="uf-hp-slider" />
           <span class="uf-hp-num">${u.maxHP} HP</span>
@@ -3480,15 +3492,19 @@
       html: `<p style="margin-bottom:8px;">Both players agree on the exact same <strong>Battle HP Pool</strong> (e.g., 100 HP) and secretly split it across <strong>1 to 6 fighters</strong> in the Fracture Forge.</p><p>Pour all 100 HP into one unstoppable <strong>Titan</strong> (Cleave + Double-Strike), build a balanced <strong>Triad</strong>, or deploy a 5-unit <strong>Swarm</strong> with Pack Tactics.</p>`
     },
     {
-      title: '2. 4 AP Turns & Tactical Terrain',
+      title: '2. The 4 Fighter Roles',
+      html: `<p style="margin-bottom:6px;"><strong>◈ Vanguard (Tank):</strong> High Armor frontline bruiser; uses <em>FORTIFY</em> (+6 Shield) and gains Last Stand power when low on HP.</p><p style="margin-bottom:6px;"><strong>▲ Striker (Assassin):</strong> Fast melee flanker (4 MOV, high ATK); finishes hurt enemies with <em>EXECUTE</em> (+5 DMG).</p><p style="margin-bottom:6px;"><strong>✦ Arcanist (Ranged):</strong> Fires from 3 tiles away, pierces 50% Armor, and burns 4 HP for a Range-4 <em>OVERCHARGE</em> blast.</p><p><strong>✚ Catalyst (Support):</strong> Mid-range healer that transfers 8 of its own HP to an ally via <em>TRANSFUSE</em>.</p>`
+    },
+    {
+      title: '3. 4 AP Turns & Tactical Terrain',
       html: `<p style="margin-bottom:8px;">Each turn you get <strong>4 shared Action Points (AP)</strong>: Move costs <strong>1 AP</strong> (teal tiles), Attack or Role Special costs <strong>2 AP</strong> (red targets).</p><p>Route around <strong>Trees</strong> (block movement &amp; Line of Sight) and <strong>Water</strong> (ranged units can shoot across!), take <strong>Brush</strong> (+2 ARM cover), and claim brass <strong>Conduits</strong> (+2 ATK, +1 RNG).</p>`
     },
     {
-      title: '3. 2d6 RNG Hits & Wound Dials',
+      title: '4. 2d6 RNG Hits & Wound Dials',
       html: `<p style="margin-bottom:8px;">Every attack rolls <strong>2d6</strong> and displays exact damage taken: <strong>2–3 Glance</strong> (65%), <strong>4–9 Hit</strong> (100%), <strong>10–11 Heavy</strong> (125%), and <strong>12 CRIT!</strong> (150% + Armor Pierce).</p><p>Each token's inner ring is a HeroClix-style <strong>Wound Dial</strong>—shifting Green → Amber → Red as its combat stats evolve.</p>`
     },
     {
-      title: '4. Blood-Cost Cards & Online PvP',
+      title: '5. Blood-Cost Cards & Online PvP',
       html: `<p style="margin-bottom:8px;">Command cards at the bottom cost <strong>0 AP</strong>—instead, pay their <strong>Blood Cost</strong> from your selected unit's HP to teleport, shield, surge, or siphon.</p><p>To duel a friend live, select <strong>Online PvP</strong>, create or join a 4-letter room code, and check the right-side <strong>Rules</strong> tab anytime for the full Acronym Glossary.</p>`
     }
   ];
