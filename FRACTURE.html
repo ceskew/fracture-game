@@ -2033,6 +2033,7 @@
           hitFlash: 0,
           attacksThisTurn: 0,
           movedThisTurn: false,
+          dmgDealt: 0,
           alive: true
         });
       });
@@ -2051,6 +2052,10 @@
     STATE.traps = { 1: [], 2: [] };
     STATE.lastMove = null;
     STATE.freeDeployActive = { 1: true, 2: true };
+    STATE.stats = {
+      1: { dmg: 0, crits: 0, traps: 0, blood: 0 },
+      2: { dmg: 0, crits: 0, traps: 0, blood: 0 }
+    };
 
     STATE.decks = { 1: buildDeck(17), 2: buildDeck(97) };
     STATE.hands = { 1: [], 2: [] };
@@ -2177,6 +2182,10 @@
     target.shield -= absorb;
     const hpDmg = dmg - absorb;
     target.hp = Math.max(0, target.hp - hpDmg);
+    if (attacker && hpDmg > 0) {
+      attacker.dmgDealt = (attacker.dmgDealt || 0) + hpDmg;
+      if (STATE.stats && STATE.stats[attacker.owner]) STATE.stats[attacker.owner].dmg += hpDmg;
+    }
     target.hitFlash = 1.0;
     spawnShockwave(target.r, target.c, hpDmg > 0 ? '#f43f5e' : '#38bdf8', 0.65);
     spawnFloat(target.r, target.c, hpDmg > 0 ? `-${hpDmg}` : `BLOCKED`, hpDmg > 0 ? '#f43f5e' : '#38bdf8');
@@ -2237,6 +2246,7 @@
     const idx = STATE.traps[defender].findIndex(t => t.id === 'trap_counter');
     if (idx === -1) return;
     STATE.traps[defender].splice(idx, 1);
+    if (STATE.stats && STATE.stats[defender]) STATE.stats[defender].traps += 1;
     STATE.units.filter(u => u.alive && u.owner === defender).forEach(u => {
       u.shield += 4;
       spawnShockwave(u.r, u.c, '#38bdf8', 0.75);
@@ -2266,6 +2276,7 @@
       const triggeredBy = STATE.units.find(e => e.alive && e.owner === opp && dist(e.r, e.c, unit.r, unit.c) <= 2);
       if (triggeredBy) {
         STATE.traps[opp].splice(ambIdx, 1);
+        if (STATE.stats && STATE.stats[opp]) STATE.stats[opp].traps += 1;
         STATE.lastMove = null; // cannot undo after springing a secret trap
         Sound.hit();
         spawnBeam(triggeredBy.r, triggeredBy.c, unit.r, unit.c, '#facc15');
@@ -2295,6 +2306,7 @@
     let deflected = false;
     if (defTrapIdx !== -1) {
       STATE.traps[target.owner].splice(defTrapIdx, 1);
+      if (STATE.stats && STATE.stats[target.owner]) STATE.stats[target.owner].traps += 1;
       rolledTotal = Math.max(1, Math.floor(rolledTotal * 0.5));
       deflected = true;
     }
@@ -2305,6 +2317,14 @@
     STATE.ap -= 2;
     attacker.attacksThisTurn += 1;
     attacker.surgeBonus = 0;
+
+    if (hpDmg > 0) {
+      attacker.dmgDealt = (attacker.dmgDealt || 0) + hpDmg;
+      if (STATE.stats && STATE.stats[attacker.owner]) STATE.stats[attacker.owner].dmg += hpDmg;
+    }
+    if (roll.sum === 12 && STATE.stats && STATE.stats[attacker.owner]) {
+      STATE.stats[attacker.owner].crits += 1;
+    }
 
     const aSt = computeUnitStats(attacker, STATE.grid[attacker.r][attacker.c]);
     const teamColor = attacker.owner === 1 ? '#38bdf8' : '#f43f5e';
@@ -2425,6 +2445,7 @@
     }
 
     payer.hp -= card.cost;
+    if (STATE.stats && STATE.stats[payer.owner]) STATE.stats[payer.owner].blood += card.cost;
     spawnFloat(payer.r, payer.c, `-${card.cost} BLOOD`, '#fda4af');
     Sound.card();
     triggerCounterTrap(payer.owner);
@@ -2432,7 +2453,7 @@
     if (card.target === 'trap') {
       STATE.traps[payer.owner].push({ id: card.id, name: card.name });
       spawnShockwave(payer.r, payer.c, '#d4a359', 0.85);
-      const isSecret = STATE.mode === 'online' && payer.owner !== STATE.localPlayerNum;
+      const isSecret = (STATE.mode === 'online' && payer.owner !== STATE.localPlayerNum) || (STATE.mode === 'ai' && payer.owner === 2);
       addLog(`${payer.name} pays ${card.cost} HP to arm a face-down SECRET TRAP${isSecret ? '.' : ` (${card.name}).`}`, payer.owner === 1 ? 'p1' : 'p2');
     } else if (card.id === 'phase' && targetObj) {
       payer.r = targetObj.r; payer.c = targetObj.c;
@@ -2569,6 +2590,27 @@
     }
     renderLeaderboard();
 
+    const s1 = STATE.stats?.[1] || { dmg: 0, crits: 0, traps: 0, blood: 0 };
+    const s2 = STATE.stats?.[2] || { dmg: 0, crits: 0, traps: 0, blood: 0 };
+    const mvp = [...STATE.units].sort((a, b) => (b.dmgDealt || 0) - (a.dmgDealt || 0))[0];
+    const mvpLine = mvp && mvp.dmgDealt > 0
+      ? `<div style="margin-top:8px; padding:6px 8px; border-radius:6px; background:var(--brass-dim); color:var(--brass); font-family:var(--font-mono); font-size:11.5px;">★ MATCH MVP: <strong>${mvp.name}</strong> (${ROLES[mvp.role].name}) — ${mvp.dmgDealt} DMG</div>`
+      : '';
+    const statsHtml = `
+      <div style="margin:12px 0 4px; text-align:left; background:#0f131b; border:1px solid var(--border); border-radius:8px; padding:10px;">
+        <table class="lb-table" style="font-size:11.5px;">
+          <thead><tr><th>Stat</th><th style="color:var(--p1);">${STATE.p1Name}</th><th style="color:var(--p2);">${STATE.p2Name}</th></tr></thead>
+          <tbody>
+            <tr><td>Damage Dealt</td><td>${s1.dmg} HP</td><td>${s2.dmg} HP</td></tr>
+            <tr><td>2d6 Crits Landed</td><td>${s1.crits}</td><td>${s2.crits}</td></tr>
+            <tr><td>Traps Sprung</td><td>${s1.traps}</td><td>${s2.traps}</td></tr>
+            <tr><td>Blood HP Spent</td><td>${s1.blood} HP</td><td>${s2.blood} HP</td></tr>
+          </tbody>
+        </table>
+        ${mvpLine}
+      </div>
+    `;
+
     showModal(
       `${wName.toUpperCase()} WINS!`,
       `Victory in ${STATE.turn} turns on a ${STATE.poolHP} HP Pool (${wStyle} defeated ${lStyle}).${deltaText}`,
@@ -2585,7 +2627,8 @@
           }
         },
         { label: 'Back to Lobby', primary: false, onClick: () => { hideModal(); showScreen('lobby'); } }
-      ]
+      ],
+      statsHtml
     );
   }
 
@@ -2601,7 +2644,7 @@
     const aiUnits = () => STATE.units.filter(u => u.alive && u.owner === 2);
     const enemies = () => STATE.units.filter(u => u.alive && u.owner === 1);
 
-    // Blood-Cost Card Phase (Recruit skips cards; Tactician plays safe cards; Warlord chains combos)
+    // Blood-Cost Card Phase (Recruit skips cards; Tactician plays safe cards; Warlord chains combos + Secret Traps)
     if (diff !== 'easy') {
       const hand = STATE.hands[2];
       let cardsPlayed = 0;
@@ -2613,6 +2656,10 @@
         const hpBuffer = diff === 'hard' ? 5 : 9;
         if (!healthy || healthy.hp <= card.cost + hpBuffer) continue;
 
+        if (card.target === 'trap' && diff === 'hard') {
+          const alreadyArmed = STATE.traps[2].some(t => t.id === card.id);
+          if (!alreadyArmed) { playBloodCard(i, healthy); cardsPlayed++; await wait(380); continue; }
+        }
         if (card.id === 'overdrive' && diff === 'hard' && STATE.turn >= 2) {
           playBloodCard(i, healthy); cardsPlayed++; await wait(380); continue;
         }
@@ -3650,9 +3697,11 @@
   });
 
   // Modal helpers
-  function showModal(title, body, buttons) {
+  function showModal(title, body, buttons, extraHtml = '') {
     document.getElementById('modalTitle').textContent = title;
-    document.getElementById('modalBody').textContent = body;
+    const bodyEl = document.getElementById('modalBody');
+    bodyEl.textContent = body;
+    if (extraHtml) bodyEl.insertAdjacentHTML('beforeend', extraHtml);
     const wrap = document.getElementById('modalButtons');
     wrap.innerHTML = '';
     buttons.forEach(b => {
