@@ -817,6 +817,7 @@
 
     <div class="topbar-actions">
       <span class="turn-pill" id="netStatusPill" style="font-size:11px; padding:4px 10px;">LOCAL MODE</span>
+      <button id="howToPlayBtn">HOW TO PLAY</button>
       <button id="soundBtn">SOUND: OFF</button>
       <button id="newMatchBtn" style="display:none;">NEW MATCH</button>
     </div>
@@ -1028,32 +1029,62 @@
       </div>
 
       <div class="tab-pane" id="tab-rules">
-        <div class="panel-body" style="font-size:12px; color:var(--muted); line-height:1.5; display:flex; flex-direction:column; gap:10px;">
+        <div class="panel-body" style="font-size:11.5px; color:var(--muted); line-height:1.48; display:flex; flex-direction:column; gap:10px;">
           <div>
             <strong style="color:var(--ink);">Turn Flow (4 AP Shared):</strong><br/>
-            Move = 1 AP · Attack = 2 AP · Role Special = 2 AP · Blood Card = 0 AP (costs unit HP). Press <code>Esc</code> to cancel targeting, <code>Space</code> to end turn.
+            Move = 1 AP · Attack = 2 AP · Role Special = 2 AP · Blood Card = 0 AP (paid from unit HP). Press <code>Esc</code> to cancel targeting, <code>Space</code> to end turn.
           </div>
           <div>
-            <strong style="color:var(--ink);">Weight Classes (By Max HP):</strong><br/>
-            • <strong>Swarm (&lt;25):</strong> +1 MOV, Pack Tactics (+2 ATK per adjacent ally).<br/>
-            • <strong>Skirmisher (25–49):</strong> Flanker (+2 ATK vs enemies next to an ally).<br/>
-            • <strong>Champion (50–79):</strong> +1 ARM, Momentum (+1 AP refund on kill).<br/>
-            • <strong>Titan (80+):</strong> +2 ARM, Cleave (50% splash to adjacent foes), can attack twice/turn.
+            <strong style="color:var(--ink);">2d6 RNG Combat Rolls:</strong><br/>
+            • <strong style="color:#f59e0b;">2–3 GLANCE:</strong> 65% damage.<br/>
+            • <strong style="color:#f43f5e;">4–9 HIT:</strong> 100% normal damage.<br/>
+            • <strong style="color:#fb923c;">10–11 HEAVY:</strong> 125% damage.<br/>
+            • <strong style="color:#facc15;">12 CRIT!:</strong> 150% damage &amp; pierces armor.
           </div>
           <div>
-            <strong style="color:var(--ink);">Terrain:</strong><br/>
-            • <strong>Pillar:</strong> Impassable, blocks line-of-sight.<br/>
-            • <strong>Conduit (Brass):</strong> +2 ATK &amp; +1 RNG while standing on it.<br/>
-            • <strong>Rift (Violet):</strong> -3 HP at end of turn; +5 impact damage if pushed in.
+            <strong style="color:var(--ink);">Terrain Guide:</strong><br/>
+            • <strong>Tree (Green):</strong> Impassable (go around), blocks LOS.<br/>
+            • <strong>Water (Blue):</strong> Impassable to walk, ranged can shoot across.<br/>
+            • <strong>Brush (Cover):</strong> Walkable, grants <strong>+2 ARM</strong>.<br/>
+            • <strong>Pillar (Dark):</strong> Impassable, blocks LOS.<br/>
+            • <strong>Conduit (Brass):</strong> Walkable, <strong>+2 ATK &amp; +1 RNG</strong>.<br/>
+            • <strong>Rift (Violet):</strong> -3 HP at end of turn (+5 if pushed in).
           </div>
           <div>
-            <strong style="color:var(--ink);">Wound Dials:</strong><br/>
-            Fresh (&gt;66%) → Bloodied (34–66%) → Critical (≤33%). Each role's stats shift dynamically on the dial!
+            <strong style="color:var(--ink);">Weight Classes &amp; Wound Dials:</strong><br/>
+            • <strong>Swarm (&lt;25 HP):</strong> +1 MOV, Pack Tactics (+2 ATK/adj ally).<br/>
+            • <strong>Skirmisher (25–49):</strong> Flanker (+2 ATK vs flanked foe).<br/>
+            • <strong>Champion (50–79):</strong> +1 ARM, Momentum (+1 AP on kill).<br/>
+            • <strong>Titan (80+):</strong> +2 ARM, Cleave (50% splash), 2 attacks/turn.<br/>
+            • <strong>Dial Tiers:</strong> Green (&gt;66%) → Amber (34–66%) → Red (≤33%).
+          </div>
+          <div>
+            <strong style="color:var(--ink);">Acronym Glossary:</strong><br/>
+            <code>HP</code> Hit Points · <code>AP</code> Action Points · <code>ATK</code> Attack · <code>ARM</code> Armor · <code>MOV</code> Movement · <code>RNG</code> Range / Dice RNG · <code>DMG</code> Damage · <code>SHD</code> Shield · <code>LOS</code> Line of Sight · <code>2d6</code> Two 6-sided dice · <code>CRIT</code> Critical Hit · <code>PvP</code> Player vs Player · <code>ELO</code> Skill Rating.
           </div>
         </div>
       </div>
     </aside>
   </section>
+</div>
+
+<!-- QUICK-START TUTORIAL OVERLAY -->
+<div class="overlay" id="tutorialOverlay">
+  <div class="modal" style="max-width:540px; text-align:left;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+      <span id="tutStepBadge" style="font-family:var(--font-mono); font-size:11px; color:var(--brass); letter-spacing:0.08em;">STEP 1 OF 4</span>
+      <button id="tutCloseBtn" style="padding:3px 8px; font-size:11px;">Skip</button>
+    </div>
+    <h2 id="tutTitle" style="font-size:20px; margin-bottom:8px; text-align:left;"></h2>
+    <div id="tutBody" style="color:var(--muted); font-size:13.5px; line-height:1.55; margin-bottom:16px;"></div>
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+      <div id="tutDots" style="display:flex; gap:6px;"></div>
+      <div style="display:flex; gap:8px;">
+        <button id="tutPrevBtn">Back</button>
+        <button class="primary" id="tutNextBtn">Next</button>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- PASS DEVICE / VICTORY OVERLAY -->
@@ -3371,8 +3402,62 @@
     document.getElementById('modalOverlay').classList.remove('active');
   }
 
+  /* ============================================================================
+     12. QUICK-START 4-STEP WALKTHROUGH (Skippable, auto-shows once)
+     ============================================================================ */
+  const TUTORIAL_STEPS = [
+    {
+      title: '1. Hit Points Are Your Currency',
+      html: `<p style="margin-bottom:8px;">Both players agree on the exact same <strong>Battle HP Pool</strong> (e.g., 100 HP) and secretly split it across <strong>1 to 6 fighters</strong> in the Fracture Forge.</p><p>Pour all 100 HP into one unstoppable <strong>Titan</strong> (Cleave + Double-Strike), build a balanced <strong>Triad</strong>, or deploy a 5-unit <strong>Swarm</strong> with Pack Tactics.</p>`
+    },
+    {
+      title: '2. 4 AP Turns & Tactical Terrain',
+      html: `<p style="margin-bottom:8px;">Each turn you get <strong>4 shared Action Points (AP)</strong>: Move costs <strong>1 AP</strong> (teal tiles), Attack or Role Special costs <strong>2 AP</strong> (red targets).</p><p>Route around <strong>Trees</strong> (block movement &amp; Line of Sight) and <strong>Water</strong> (ranged units can shoot across!), take <strong>Brush</strong> (+2 ARM cover), and claim brass <strong>Conduits</strong> (+2 ATK, +1 RNG).</p>`
+    },
+    {
+      title: '3. 2d6 RNG Hits & Wound Dials',
+      html: `<p style="margin-bottom:8px;">Every attack rolls <strong>2d6</strong> and displays exact damage taken: <strong>2–3 Glance</strong> (65%), <strong>4–9 Hit</strong> (100%), <strong>10–11 Heavy</strong> (125%), and <strong>12 CRIT!</strong> (150% + Armor Pierce).</p><p>Each token's inner ring is a HeroClix-style <strong>Wound Dial</strong>—shifting Green → Amber → Red as its combat stats evolve.</p>`
+    },
+    {
+      title: '4. Blood-Cost Cards & Online PvP',
+      html: `<p style="margin-bottom:8px;">Command cards at the bottom cost <strong>0 AP</strong>—instead, pay their <strong>Blood Cost</strong> from your selected unit's HP to teleport, shield, surge, or siphon.</p><p>To duel a friend live, select <strong>Online PvP</strong>, create or join a 4-letter room code, and check the right-side <strong>Rules</strong> tab anytime for the full Acronym Glossary.</p>`
+    }
+  ];
+  let tutIdx = 0;
+  const TUT_KEY = 'fracture_seen_tutorial_v1';
+  function renderTutorial() {
+    const step = TUTORIAL_STEPS[tutIdx];
+    document.getElementById('tutStepBadge').textContent = `STEP ${tutIdx + 1} OF ${TUTORIAL_STEPS.length}`;
+    document.getElementById('tutTitle').textContent = step.title;
+    document.getElementById('tutBody').innerHTML = step.html;
+    document.getElementById('tutPrevBtn').disabled = tutIdx === 0;
+    document.getElementById('tutNextBtn').textContent = tutIdx === TUTORIAL_STEPS.length - 1 ? 'Start Playing' : 'Next';
+    const dots = document.getElementById('tutDots');
+    dots.innerHTML = TUTORIAL_STEPS.map((_, i) => `<span style="width:8px; height:8px; border-radius:50%; background:${i === tutIdx ? 'var(--brass)' : 'var(--border-hi)'}; display:inline-block;"></span>`).join('');
+  }
+  function openTutorial(startAt = 0) {
+    tutIdx = startAt;
+    renderTutorial();
+    document.getElementById('tutorialOverlay').classList.add('active');
+  }
+  function closeTutorial() {
+    document.getElementById('tutorialOverlay').classList.remove('active');
+    try { localStorage.setItem(TUT_KEY, '1'); } catch (_) {}
+  }
+  document.getElementById('howToPlayBtn').addEventListener('click', () => { Sound.click(); openTutorial(0); });
+  document.getElementById('tutCloseBtn').addEventListener('click', () => { Sound.click(); closeTutorial(); });
+  document.getElementById('tutPrevBtn').addEventListener('click', () => { Sound.click(); if (tutIdx > 0) { tutIdx--; renderTutorial(); } });
+  document.getElementById('tutNextBtn').addEventListener('click', () => {
+    Sound.click();
+    if (tutIdx < TUTORIAL_STEPS.length - 1) { tutIdx++; renderTutorial(); }
+    else { closeTutorial(); }
+  });
+
   renderLeaderboard();
   NetworkAdapter.init();
+  try {
+    if (!localStorage.getItem(TUT_KEY)) openTutorial(0);
+  } catch (_) {}
 })();
 </script>
 </body>
