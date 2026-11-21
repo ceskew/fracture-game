@@ -4,6 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>FRACTURE — Tactical HP-Pool Wargame</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230c0e13'/%3E%3Crect x='9' y='9' width='14' height='14' transform='rotate(45 16 16)' fill='none' stroke='%23d4a359' stroke-width='2.5'/%3E%3Crect x='13' y='13' width='6' height='6' transform='rotate(45 16 16)' fill='%23d4a359'/%3E%3C/svg%3E" />
 <style>
   :root {
     --bg: #0c0e13;
@@ -358,7 +359,7 @@
   }
 
   .forge-grid {
-    flex: 1;
+    flex: 0 1 auto;
     min-height: 0;
     overflow-y: auto;
     display: grid;
@@ -847,6 +848,7 @@
       <div class="ap-bar">
         <span>AP</span>
         <div class="ap-pips" id="apPips"></div>
+        <span id="apCountText" style="color:var(--brass); font-weight:700;">4/4</span>
       </div>
       <button id="undoMoveBtn" disabled>UNDO MOVE [Z]</button>
       <button class="primary" id="endTurnBtn">END TURN [Space]</button>
@@ -898,9 +900,9 @@
             <div>
               <label class="form-label">AI Practice Level</label>
               <select id="aiDifficultySelect" style="width:100%;">
-                <option value="easy">Recruit (Easy Practice)</option>
-                <option value="standard" selected>Tactician (Standard)</option>
-                <option value="hard">Warlord (Hard / Combos)</option>
+                <option value="easy" selected>Recruit (Unranked Practice)</option>
+                <option value="standard">Tactician (Ranked Standard)</option>
+                <option value="hard">Warlord (Ranked Hard)</option>
               </select>
             </div>
           </div>
@@ -1589,7 +1591,7 @@
     p1Name: 'Commander',
     p2Name: 'AI Commander',
     aiDoctrine: 'random',
-    aiDifficulty: 'standard',
+    aiDifficulty: 'easy',
     forgeOwner: 1,
     forgeDrafts: { 1: [], 2: [] },
     // Battle state
@@ -2751,7 +2753,10 @@
     const wStyle = classifySquadStyle(STATE.forgeDrafts[winner]);
     const lStyle = classifySquadStyle(STATE.forgeDrafts[winner === 1 ? 2 : 1]);
     let deltaText = '';
-    if (STATE.mode !== 'tutorial' && (STATE.mode !== 'online' || STATE.localPlayerNum === 1)) {
+    const isUnrankedPractice = STATE.mode === 'tutorial' || (STATE.mode === 'ai' && STATE.aiDifficulty === 'easy');
+    if (isUnrankedPractice) {
+      deltaText = ' (Unranked Practice — ELO unchanged.)';
+    } else if (STATE.mode !== 'online' || STATE.localPlayerNum === 1) {
       const res = NetworkAdapter.recordMatch(wName, lName, wStyle, lStyle);
       deltaText = ` ELO swing: +${res.delta} / -${res.delta}.`;
     }
@@ -2982,7 +2987,7 @@
   function resizeCanvas() {
     const wrap = document.getElementById('boardWrap');
     const w = wrap.clientWidth - 20;
-    const h = wrap.clientHeight - 20;
+    const h = Math.max(264, wrap.clientHeight - 76);
     tileSize = Math.max(44, Math.floor(Math.min(w / COLS, h / ROWS)));
     canvas.width = tileSize * COLS;
     canvas.height = tileSize * ROWS;
@@ -3199,16 +3204,22 @@
           ctx.fillRect(x + 2, y + 2, tileSize - 4, tileSize - 4);
         }
         if (moveTiles.some(t => t.r === r && t.c === c)) {
-          ctx.fillStyle = 'rgba(56, 189, 248, 0.14)';
+          ctx.fillStyle = 'rgba(56, 189, 248, 0.24)';
           ctx.fillRect(x + 2, y + 2, tileSize - 4, tileSize - 4);
+          ctx.strokeStyle = 'rgba(56, 189, 248, 0.65)';
+          ctx.lineWidth = 1.5;
+          ctx.strokeRect(x + 3, y + 3, tileSize - 6, tileSize - 6);
         }
         if (cardTiles.some(t => t.r === r && t.c === c)) {
-          ctx.fillStyle = 'rgba(212, 163, 89, 0.24)';
+          ctx.fillStyle = 'rgba(212, 163, 89, 0.28)';
           ctx.fillRect(x + 2, y + 2, tileSize - 4, tileSize - 4);
         }
         if (attackTargets.some(t => t.r === r && t.c === c) || cardUnits.some(t => t.r === r && t.c === c)) {
-          ctx.fillStyle = 'rgba(244, 63, 94, 0.28)';
+          ctx.fillStyle = 'rgba(244, 63, 94, 0.36)';
           ctx.fillRect(x + 2, y + 2, tileSize - 4, tileSize - 4);
+          ctx.strokeStyle = 'rgba(244, 63, 94, 0.8)';
+          ctx.lineWidth = 1.5;
+          ctx.strokeRect(x + 3, y + 3, tileSize - 6, tileSize - 6);
         }
         if (specialTargets.some(t => t.r === r && t.c === c)) {
           ctx.fillStyle = sel.role === 'catalyst' ? 'rgba(16, 185, 129, 0.26)' : 'rgba(245, 158, 11, 0.28)';
@@ -3540,7 +3551,7 @@
       text = `2d6 ATTACK ${target.name}: ${lo}–${hi} DMG (Base ${prev.hpDmg})${prev.shieldAbsorb ? ` · SHD ${prev.shieldAbsorb}` : ''}${prev.lethal ? ' [LETHAL ON HIT]' : ''}`;
     } else if (target) {
       const st = computeUnitStats(target, tile);
-      text = `${target.name} (${st.wc.label} ${st.role.name}) · ${target.hp}/${target.maxHP} HP · ATK ${st.atk} ARM ${st.arm}`;
+      text = `${target.name} (${st.wc.label} ${st.role.name}) · ${target.hp}/${target.maxHP} HP · ATK ${st.atk} ARM ${st.arm} MOV ${st.mov} RNG ${st.rng}`;
     } else if (tile === 'tree') {
       text = 'TIMBER TREE: Impassable (go around) · Blocks Line-of-Sight';
     } else if (tile === 'water') {
@@ -3651,6 +3662,8 @@
           else if (sel.movedThisTurn) showRollToast(`<strong style="color:var(--warn);">ALREADY MOVED THIS TURN</strong><br/>${sel.name} used its 1 move this turn (select another unit or attack).`, 'var(--warn)');
           else showRollToast(`<strong style="color:var(--warn);">OUT OF MOVE RANGE</strong><br/>Select a teal-highlighted tile within ${computeUnitStats(sel, STATE.grid[sel.r][sel.c]).mov} tiles.`, 'var(--warn)');
         }
+      } else if (!clickedUnit) {
+        showRollToast('<strong style="color:var(--warn);">SELECT YOUR OWN UNIT</strong><br/>Click one of your own fighters to move or attack.', 'var(--warn)');
       }
     }
 
@@ -3693,6 +3706,8 @@
       d.className = 'ap-pip' + (i < STATE.ap ? ' filled' : '');
       pips.appendChild(d);
     }
+    const apTxt = document.getElementById('apCountText');
+    if (apTxt) apTxt.textContent = `${STATE.ap}/${STATE.maxAP}`;
 
     const p1HP = STATE.units.filter(u => u.alive && u.owner === 1).reduce((s, u) => s + u.hp, 0);
     const p2HP = STATE.units.filter(u => u.alive && u.owner === 2).reduce((s, u) => s + u.hp, 0);

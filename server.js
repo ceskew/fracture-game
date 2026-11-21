@@ -167,6 +167,13 @@ const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   const pathname = url.pathname;
 
+  // Handle favicon requests cleanly without 404
+  if (req.method === 'GET' && pathname === '/favicon.ico') {
+    res.writeHead(204);
+    res.end();
+    return;
+  }
+
   // Serve FRACTURE.html
   if (req.method === 'GET' && (pathname === '/' || pathname === '/index.html' || pathname === '/FRACTURE.html')) {
     try {
