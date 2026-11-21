@@ -650,10 +650,14 @@
   }
   .cards-row {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
     gap: 8px;
     flex: 1;
     min-height: 0;
+  }
+  .cards-row.locked {
+    opacity: 0.45;
+    pointer-events: none;
   }
   .cmd-card {
     background: #101520;
@@ -950,7 +954,7 @@
           </ul>
         </div>
         <div class="net-badge" id="lobbyNetBadge">
-          LOCAL MODE: Start "Start FRACTURE Server.command" for live Online PvP, shared ELO leaderboard, and real-time chat.
+          Checking server connection...
         </div>
       </div>
     </div>
@@ -1070,7 +1074,7 @@
         <div class="panel-body" style="font-size:11.5px; color:var(--muted); line-height:1.48; display:flex; flex-direction:column; gap:10px;">
           <div>
             <strong style="color:var(--ink);">Turn Flow (4 AP Shared):</strong><br/>
-            Move = 1 AP · Attack = 2 AP (<strong>1 attack per unit/turn</strong>; Titans get 2) · Role Special = 2 AP · Blood Card = 0 AP (paid in unit HP).<br/>
+            Move = 1 AP (<strong>1 move/unit/turn; cannot move after attacking</strong>) · Attack = 2 AP (<strong>1 attack/unit/turn</strong>; Titans get 2) · Role Special = 2 AP (<em>Execute</em> &amp; <em>Overcharge</em> use your attack; <em>Fortify</em> &amp; <em>Transfuse</em> do not) · Blood Card = 0 AP (paid in unit HP).<br/>
             <strong>Turn 1 Free Deploy:</strong> Click gold back-row tiles to reposition for 0 AP before your first move/attack. Press <code>Z</code> to undo a move, <code>Esc</code> to cancel, <code>Space</code> to end turn.
           </div>
           <div>
@@ -1078,7 +1082,7 @@
             • <strong style="color:#f59e0b;">2–3 GLANCE:</strong> 65% damage.<br/>
             • <strong style="color:#f43f5e;">4–9 HIT:</strong> 100% normal damage.<br/>
             • <strong style="color:#fb923c;">10–11 HEAVY:</strong> 125% damage.<br/>
-            • <strong style="color:#facc15;">12 CRIT!:</strong> 150% damage &amp; pierces armor.
+            • <strong style="color:#facc15;">12 CRIT!:</strong> 150% damage &amp; pierces Armor (Piercing ignores Armor, still absorbed by Shield).
           </div>
           <div>
             <strong style="color:var(--ink);">Terrain Guide:</strong><br/>
@@ -1405,7 +1409,7 @@
     vanguard: {
       name: 'Vanguard', symbol: '◈', atkMod: 0, armMod: 2, movBase: 2, rngBase: 1,
       desc: 'Frontline tank — high Armor, shields up with FORTIFY, and spikes in power at Critical HP.',
-      specialName: 'FORTIFY', specialDesc: '2 AP: Gain +6 Shield until next turn.',
+      specialName: 'FORTIFY', specialDesc: '2 AP: Gain +6 Shield (max 10 SHD). Does not use your attack.',
       dial: [
         { label: 'FRESH', atk: 0, arm: 0, mov: 0, rng: 0, note: 'Steady' },
         { label: 'BLOODIED', atk: 1, arm: 1, mov: 0, rng: 0, note: '+1 ATK/ARM' },
@@ -1415,7 +1419,7 @@
     striker: {
       name: 'Striker', symbol: '▲', atkMod: 3, armMod: 0, movBase: 4, rngBase: 1,
       desc: 'Fast melee assassin — high speed & ATK; hunts wounded enemies with EXECUTE.',
-      specialName: 'EXECUTE', specialDesc: '2 AP: Strike adjacent foe (+5 DMG if wounded).',
+      specialName: 'EXECUTE', specialDesc: '2 AP (uses attack): Strike adjacent foe (+5 DMG if wounded).',
       dial: [
         { label: 'FRESH', atk: 0, arm: 0, mov: 0, rng: 0, note: 'Poised' },
         { label: 'BLOODIED', atk: 2, arm: 0, mov: 1, rng: 0, note: '+2 ATK +1 MOV' },
@@ -1424,8 +1428,8 @@
     },
     arcanist: {
       name: 'Arcanist', symbol: '✦', atkMod: 1, armMod: 0, movBase: 2, rngBase: 3, piercing: true,
-      desc: 'Ranged artillery — attacks from 3 tiles away, pierces 50% Armor, and fires OVERCHARGE blasts.',
-      specialName: 'OVERCHARGE', specialDesc: '2 AP + 4 Self-HP: Piercing blast (+5 DMG, Rng 4).',
+      desc: 'Ranged artillery — attacks from 3 tiles away, pierces 50% Armor (still hits Shield), and fires OVERCHARGE.',
+      specialName: 'OVERCHARGE', specialDesc: '2 AP + 4 HP (uses attack): Piercing blast (+5 DMG, Rng 4; ignores Armor, hits Shield).',
       dial: [
         { label: 'FRESH', atk: 0, arm: 0, mov: 0, rng: 0, note: 'Focused' },
         { label: 'BLOODIED', atk: 2, arm: 0, mov: -1, rng: 0, note: '+2 ATK -1 MOV' },
@@ -1435,7 +1439,7 @@
     catalyst: {
       name: 'Catalyst', symbol: '✚', atkMod: -2, armMod: 1, movBase: 3, rngBase: 2,
       desc: 'Tactical support — mid-range fighter that transfers its own HP to heal allies via TRANSFUSE.',
-      specialName: 'TRANSFUSE', specialDesc: '2 AP: Transfer 8 HP to an ally within 3 tiles.',
+      specialName: 'TRANSFUSE', specialDesc: '2 AP: Transfer 8 HP to an ally within 3 tiles (does not use your attack).',
       dial: [
         { label: 'FRESH', atk: 0, arm: 0, mov: 0, rng: 0, note: 'Channeling' },
         { label: 'BLOODIED', atk: 0, arm: 1, mov: 0, rng: 1, note: '+1 ARM +1 RNG' },
@@ -1449,10 +1453,10 @@
     { id: 'aegis', name: 'Aegis Pulse', cost: 5, target: 'self_or_ally', desc: 'Grant paying unit +7 Shield until next turn.' },
     { id: 'surge', name: 'Blood Surge', cost: 6, target: 'self_or_ally', desc: 'Paying unit deals +7 bonus DMG on next attack.' },
     { id: 'sever', name: 'Sever & Push', cost: 4, target: 'enemy_4', desc: 'Strip enemy Shield (Rng 4) & knock back 1 tile.' },
-    { id: 'siphon', name: 'Siphon Bolt', cost: 5, target: 'enemy_4', desc: 'Deal 6 piercing DMG (Rng 4) & heal payer 3 HP.' },
+    { id: 'siphon', name: 'Siphon Bolt', cost: 5, target: 'enemy_4', desc: 'Deal 6 DMG (ignores Armor, hits Shield; Rng 4) & heal payer 3 HP.' },
     { id: 'overdrive', name: 'Overdrive', cost: 7, target: 'instant', desc: 'Immediately gain +2 Action Points this turn.' },
     { id: 'trap_deflect', name: 'Trap: Deflect', cost: 4, target: 'trap', desc: 'SECRET TRAP: Next enemy attack deals 50% DMG & reflects 4 DMG.' },
-    { id: 'trap_ambush', name: 'Trap: Ambush', cost: 5, target: 'trap', desc: 'SECRET TRAP: Next enemy moving within 2 tiles takes 6 piercing DMG.' },
+    { id: 'trap_ambush', name: 'Trap: Ambush', cost: 5, target: 'trap', desc: 'SECRET TRAP: Next enemy moving within 2 tiles takes 6 Armor-piercing DMG.' },
     { id: 'trap_counter', name: 'Trap: Counter-Ward', cost: 4, target: 'trap', desc: 'SECRET TRAP: When enemy plays a Blood Card/Special, your squad gains +4 SHD.' }
   ];
 
@@ -1477,12 +1481,12 @@
     },
     caldera: {
       name: 'Sunken Caldera',
-      water: [[1, 3], [2, 3], [3, 4], [4, 4]],
-      pillars: [[0, 2], [5, 5]],
-      rifts: [[0, 4], [5, 3], [2, 4], [3, 3]],
-      conduits: [[1, 4], [4, 3]],
+      water: [[0, 3], [1, 3], [4, 4], [5, 4]],
+      pillars: [[1, 2], [4, 5]],
+      rifts: [[0, 4], [5, 3]],
+      conduits: [[2, 3], [3, 4]],
       trees: [[2, 1], [3, 6]],
-      brush: []
+      brush: [[2, 4], [3, 3]]
     },
     sanctuary: {
       name: 'Ruined Sanctuary',
@@ -2264,6 +2268,7 @@
     }
     STATE.freeDeployActive[unit.owner] = false;
     STATE.lastMove = { unitId: unit.id, prevR: unit.r, prevC: unit.c, prevMoved: unit.movedThisTurn };
+    unit.prevR = unit.r; unit.prevC = unit.c;
     STATE.ap -= 1;
     unit.r = r; unit.c = c;
     unit.movedThisTurn = true;
@@ -2289,9 +2294,15 @@
     renderBattleUI();
   }
 
+  function canUnitMove(unit) {
+    return STATE.ap >= 1 && !unit.movedThisTurn && unit.attacksThisTurn === 0;
+  }
+
   function executeAttack(attacker, target, bonusDmg = 0, forcePierce = false, label = 'attacks', isRemote = false, forcedRoll = null) {
     STATE.freeDeployActive[attacker.owner] = false;
     STATE.lastMove = null;
+    STATE.actionMode = 'normal';
+    STATE.activeCardIndex = null;
     const roll = rollAttack2d6(forcedRoll);
     if (STATE.mode === 'online' && !isRemote) {
       NetworkAdapter.sendAction(STATE.roomCode, {
@@ -2389,19 +2400,23 @@
 
   function executeSpecial(unit, target = null, isRemote = false) {
     if (STATE.ap < 2) return;
+    if ((unit.role === 'striker' || unit.role === 'arcanist') && !canUnitAttack(unit)) return;
     STATE.freeDeployActive[unit.owner] = false;
     STATE.lastMove = null;
+    STATE.actionMode = 'normal';
+    STATE.activeCardIndex = null;
     if (STATE.mode === 'online' && !isRemote) {
       NetworkAdapter.sendAction(STATE.roomCode, { type: 'special', unitId: unit.id, targetId: target ? target.id : null });
     }
     triggerCounterTrap(unit.owner);
     if (unit.role === 'vanguard') {
       STATE.ap -= 2;
-      unit.shield += 6;
+      const gained = Math.min(10, unit.shield + 6) - unit.shield;
+      unit.shield = Math.min(10, unit.shield + 6);
       Sound.card();
       spawnShockwave(unit.r, unit.c, '#38bdf8', 0.9);
-      spawnFloat(unit.r, unit.c, '+6 SHD', '#38bdf8');
-      addLog(`${unit.name} activates FORTIFY (+6 Shield).`, unit.owner === 1 ? 'p1' : 'p2');
+      spawnFloat(unit.r, unit.c, `+${gained} SHD`, '#38bdf8');
+      addLog(`${unit.name} activates FORTIFY (+${gained} Shield, ${unit.shield} total).`, unit.owner === 1 ? 'p1' : 'p2');
     } else if (unit.role === 'striker' && target) {
       const bonus = target.hp < target.maxHP ? 5 : 1;
       executeAttack(unit, target, bonus, false, 'EXECUTES', true);
@@ -2427,7 +2442,6 @@
       spawnFloat(target.r, target.c, `+${actual} HP`, '#10b981');
       addLog(`${unit.name} transfuses ${actual} HP into ${target.name}.`, unit.owner === 1 ? 'p1' : 'p2');
     }
-    STATE.actionMode = 'normal';
     renderBattleUI();
   }
 
@@ -2514,6 +2528,8 @@
     if (STATE.gameOver) return;
     STATE.lastMove = null;
     STATE.freeDeployActive[STATE.activePlayer] = false;
+    clearTimeout(rollToastTimer);
+    document.getElementById('rollToast')?.classList.remove('visible');
     if (STATE.mode === 'online' && !isRemote) {
       NetworkAdapter.sendAction(STATE.roomCode, { type: 'endTurn' });
     }
@@ -2529,8 +2545,9 @@
     STATE.actionMode = 'normal';
     STATE.activeCardIndex = null;
 
+    const isSecondPlayerTurn1 = STATE.turn === 1 && STATE.activePlayer !== STATE.firstPlayer;
     STATE.units.filter(u => u.alive && u.owner === STATE.activePlayer).forEach(u => {
-      u.shield = Math.floor(u.shield * 0.5);
+      if (!isSecondPlayerTurn1) u.shield = Math.floor(u.shield * 0.5);
       u.attacksThisTurn = 0;
       u.movedThisTurn = false;
     });
@@ -2743,17 +2760,18 @@
           executeAttack(bestAttack.u, bestAttack.t);
         }
         if (Math.random() < 0.25 && !STATE.gameOver) {
-          NetworkAdapter.sendChat(STATE.p2Name, bestAttack.t.alive ? 'Pressure applied.' : `${bestAttack.t.name} down.`);
+          addLog(`${STATE.p2Name}: ${bestAttack.t.alive ? 'Pressure applied.' : `${bestAttack.t.name} down.`}`, 'chat');
         }
         await wait(450);
         continue;
       }
 
-      // 2. Move toward enemies / tactical terrain
+      // 2. Move toward enemies / tactical terrain (with Cleave avoidance & anti-oscillation)
       if (STATE.ap >= 1) {
+        const enemyTitans = foes.filter(f => f.maxHP >= 80);
         let bestMove = null;
         for (const u of myUnits) {
-          if (u.movedThisTurn) continue;
+          if (!canUnitMove(u)) continue;
           const tiles = getReachableTiles(u);
           if (!tiles.length) continue;
           const nearest = foes.reduce((b, f) => dist(u.r, u.c, f.r, f.c) < dist(u.r, u.c, b.r, b.c) ? f : b, foes[0]);
@@ -2762,19 +2780,25 @@
           for (const tile of tiles) {
             const nd = dist(tile.r, tile.c, nearest.r, nearest.c);
             const idealD = st.rng;
-            let score = (curD - nd) * 12 + (diff === 'easy' ? (Math.random() * 18 - 9) : 0);
-            if (nd <= idealD && hasLineOfSight(tile.r, tile.c, nearest.r, nearest.c)) score += (diff === 'hard' ? 35 : 22);
+            let score = (curD - nd) * 14 + (diff === 'easy' ? (Math.random() * 18 - 9) : 0);
+            if (nd <= idealD && hasLineOfSight(tile.r, tile.c, nearest.r, nearest.c)) score += (diff === 'hard' ? 38 : 26);
+            if (u.prevR === tile.r && u.prevC === tile.c) score -= 20;
             if (diff !== 'easy') {
               if (STATE.grid[tile.r][tile.c] === 'conduit') score += (diff === 'hard' ? 18 : 10);
               if (STATE.grid[tile.r][tile.c] === 'brush') score += (diff === 'hard' ? 12 : 6);
               if (STATE.grid[tile.r][tile.c] === 'rift') score -= 22;
+              // Spread out when facing an enemy Titan so Cleave cannot splash multiple units
+              if (myUnits.length > 1 && enemyTitans.some(et => dist(tile.r, tile.c, et.r, et.c) <= 4)) {
+                const adjAllies = myUnits.filter(a => a.id !== u.id && dist(tile.r, tile.c, a.r, a.c) === 1).length;
+                score -= adjAllies * 18;
+              }
             }
             if (!bestMove || score > bestMove.score) {
               bestMove = { u, tile, score };
             }
           }
         }
-        if (bestMove && bestMove.score > -5) {
+        if (bestMove && bestMove.score > -12) {
           STATE.selectedUnitId = bestMove.u.id;
           executeMove(bestMove.u, bestMove.tile.r, bestMove.tile.c);
           await wait(380);
@@ -2782,9 +2806,9 @@
         }
       }
 
-      // 3. Vanguard fortify if spare AP (Tactician & Warlord)
+      // 3. Vanguard fortify only with spare AP after advancing/attacking (Tactician & Warlord)
       if (diff !== 'easy') {
-        const van = myUnits.find(u => u.role === 'vanguard' && STATE.ap >= 2 && u.shield < 4);
+        const van = myUnits.find(u => u.role === 'vanguard' && STATE.ap >= 2 && u.shield < 4 && (u.hp < u.maxHP * 0.8 || foes.some(f => dist(u.r, u.c, f.r, f.c) <= 3)));
         if (van) {
           STATE.selectedUnitId = van.id;
           executeSpecial(van);
@@ -2906,11 +2930,11 @@
 
     if (canAct) {
       if (STATE.actionMode === 'normal') {
-        if (STATE.ap >= 1) moveTiles = getReachableTiles(sel);
+        if (canUnitMove(sel)) moveTiles = getReachableTiles(sel);
         if (canUnitAttack(sel)) attackTargets = getAttackableTargets(sel);
       } else if (STATE.actionMode === 'special' && STATE.ap >= 2) {
-        if (sel.role === 'striker') { specialTargets = getAttackableTargets(sel, 1); activeRange = 1; rangeColor = 'rgba(245, 158, 11, 0.55)'; }
-        else if (sel.role === 'arcanist' && sel.hp > 4) { specialTargets = getAttackableTargets(sel, 4); activeRange = 4; rangeColor = 'rgba(168, 85, 247, 0.55)'; }
+        if (sel.role === 'striker' && canUnitAttack(sel)) { specialTargets = getAttackableTargets(sel, 1); activeRange = 1; rangeColor = 'rgba(245, 158, 11, 0.55)'; }
+        else if (sel.role === 'arcanist' && sel.hp > 4 && canUnitAttack(sel)) { specialTargets = getAttackableTargets(sel, 4); activeRange = 4; rangeColor = 'rgba(168, 85, 247, 0.55)'; }
         else if (sel.role === 'catalyst' && sel.hp > 8) {
           specialTargets = STATE.units.filter(u => u.alive && u.owner === sel.owner && u.id !== sel.id && dist(sel.r, sel.c, u.r, u.c) <= 3);
           activeRange = 3; rangeColor = 'rgba(16, 185, 129, 0.55)';
@@ -2971,10 +2995,13 @@
           ctx.fill();
         } else if (type === 'water') {
           // Impassable water (must route around, ranged can fire across)
-          ctx.fillStyle = '#0c273a';
+          ctx.fillStyle = '#0a3556';
           ctx.fillRect(x + 2, y + 2, tileSize - 4, tileSize - 4);
-          ctx.strokeStyle = 'rgba(56, 189, 248, 0.45)';
-          ctx.lineWidth = 1.25;
+          ctx.strokeStyle = 'rgba(56, 189, 248, 0.35)';
+          ctx.lineWidth = 1.2;
+          ctx.strokeRect(x + 3, y + 3, tileSize - 6, tileSize - 6);
+          ctx.strokeStyle = 'rgba(125, 211, 252, 0.72)';
+          ctx.lineWidth = 1.6;
           for (let w = 0; w < 3; w++) {
             const wy = y + tileSize * (0.28 + w * 0.22);
             ctx.beginPath();
@@ -2985,10 +3012,10 @@
           }
         } else if (type === 'brush') {
           // Walkable dense cover (+2 ARM)
-          ctx.fillStyle = 'rgba(34, 197, 94, 0.1)';
+          ctx.fillStyle = 'rgba(74, 222, 128, 0.16)';
           ctx.fillRect(x + 2, y + 2, tileSize - 4, tileSize - 4);
-          ctx.strokeStyle = 'rgba(74, 222, 128, 0.4)';
-          ctx.lineWidth = 1.2;
+          ctx.strokeStyle = 'rgba(134, 239, 172, 0.65)';
+          ctx.lineWidth = 1.5;
           const bx = x + tileSize / 2, by = y + tileSize / 2;
           ctx.beginPath();
           ctx.arc(bx - 7, by + 3, 7, Math.PI, 0);
@@ -3394,22 +3421,24 @@
         }
         STATE.actionMode = 'normal';
         STATE.activeCardIndex = null;
+        showRollToast('<strong style="color:var(--muted);">TARGETING CANCELLED</strong><br/>Returned to normal action mode.', 'var(--border-hi)');
         renderBattleUI();
         return;
       }
 
       // Special targeting mode
       if (STATE.actionMode === 'special' && sel && sel.owner === STATE.activePlayer && STATE.ap >= 2) {
-        if (sel.role === 'striker' && clickedUnit && getAttackableTargets(sel, 1).includes(clickedUnit)) {
+        if (sel.role === 'striker' && canUnitAttack(sel) && clickedUnit && getAttackableTargets(sel, 1).includes(clickedUnit)) {
           executeSpecial(sel, clickedUnit); return;
         }
-        if (sel.role === 'arcanist' && clickedUnit && getAttackableTargets(sel, 4).includes(clickedUnit)) {
+        if (sel.role === 'arcanist' && canUnitAttack(sel) && clickedUnit && getAttackableTargets(sel, 4).includes(clickedUnit)) {
           executeSpecial(sel, clickedUnit); return;
         }
         if (sel.role === 'catalyst' && clickedUnit && clickedUnit.owner === sel.owner && clickedUnit.id !== sel.id && dist(sel.r, sel.c, clickedUnit.r, clickedUnit.c) <= 3) {
           executeSpecial(sel, clickedUnit); return;
         }
         STATE.actionMode = 'normal';
+        showRollToast('<strong style="color:var(--muted);">SPECIAL CANCELLED</strong><br/>Returned to normal action mode.', 'var(--border-hi)');
         renderBattleUI();
         return;
       }
@@ -3441,7 +3470,7 @@
           executeDeploy(sel, r, c);
           return;
         }
-        if (!clickedUnit && STATE.ap >= 1 && getReachableTiles(sel).some(t => t.r === r && t.c === c)) {
+        if (!clickedUnit && canUnitMove(sel) && getReachableTiles(sel).some(t => t.r === r && t.c === c)) {
           executeMove(sel, r, c);
           return;
         }
@@ -3451,6 +3480,8 @@
           else if (tile === 'water') showRollToast(`<strong style="color:var(--warn);">BLOCKED: DEEP WATER</strong><br/>Impassable to walk — route around (ranged can shoot across).`, 'var(--warn)');
           else if (tile === 'pillar') showRollToast(`<strong style="color:var(--warn);">BLOCKED: OBSIDIAN PILLAR</strong><br/>Impassable obstacle — route around it (blocks LOS).`, 'var(--warn)');
           else if (STATE.ap < 1) showRollToast(`<strong style="color:var(--warn);">OUT OF AP</strong><br/>0 AP left — play a Blood Card (0 AP) or press End Turn [Space].`, 'var(--warn)');
+          else if (sel.attacksThisTurn > 0) showRollToast(`<strong style="color:var(--warn);">CANNOT MOVE AFTER ATTACKING</strong><br/>${sel.name} already attacked this turn (use Phase Step to reposition).`, 'var(--warn)');
+          else if (sel.movedThisTurn) showRollToast(`<strong style="color:var(--warn);">ALREADY MOVED THIS TURN</strong><br/>${sel.name} used its 1 move this turn (select another unit or attack).`, 'var(--warn)');
           else showRollToast(`<strong style="color:var(--warn);">OUT OF MOVE RANGE</strong><br/>Select a teal-highlighted tile within ${computeUnitStats(sel, STATE.grid[sel.r][sel.c]).mov} tiles.`, 'var(--warn)');
         }
       }
@@ -3528,8 +3559,10 @@
       const hpColor = st.tier === 0 ? 'var(--good)' : st.tier === 1 ? 'var(--warn)' : 'var(--crit)';
       const isMine = sel.owner === STATE.activePlayer && isMyTurn();
       const canSpec = isMine && STATE.ap >= 2 && (
-        sel.role === 'vanguard' || sel.role === 'striker' ||
-        (sel.role === 'arcanist' && sel.hp > 4) || (sel.role === 'catalyst' && sel.hp > 8)
+        sel.role === 'vanguard' ||
+        (sel.role === 'striker' && canUnitAttack(sel)) ||
+        (sel.role === 'arcanist' && sel.hp > 4 && canUnitAttack(sel)) ||
+        (sel.role === 'catalyst' && sel.hp > 8)
       );
       const maxAtks = st.wc.id === 'titan' ? 2 : 1;
       const atksLeft = Math.max(0, maxAtks - sel.attacksThisTurn);
@@ -3571,8 +3604,8 @@
           </div>
           ${modHtml}
           <div style="display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:10.5px; color:${atksLeft > 0 ? 'var(--good)' : 'var(--muted)'}; margin-top:6px;">
-            <span>ATTACKS THIS TURN: <strong>${atksLeft}/${maxAtks}</strong></span>
-            <span>${maxAtks === 2 ? 'TITAN 2×' : '1/TURN'}</span>
+            <span>ATTACKS LEFT: <strong>${atksLeft} of ${maxAtks}</strong></span>
+            <span style="color:${canUnitMove(sel) ? 'var(--p1)' : 'var(--muted)'};">MOVE: <strong>${canUnitMove(sel) ? 'READY' : 'USED'}</strong></span>
           </div>
           <div class="dial-tiers">
             ${st.role.dial.map((d, idx) => `<div class="dial-tier ${st.tier === idx ? 'active' : ''}"><div>${d.label}</div><div style="font-size:9px;">${d.note}</div></div>`).join('')}
@@ -3637,6 +3670,7 @@
     const hand = STATE.hands[viewer];
     document.getElementById('deckCountLabel').textContent = `DECK: ${STATE.decks[viewer].length}`;
     const cardsRow = document.getElementById('cardsRow');
+    cardsRow.classList.toggle('locked', !isMyTurn() || viewer !== STATE.activePlayer);
     cardsRow.innerHTML = '';
     hand.forEach((card, idx) => {
       const cEl = document.createElement('div');
@@ -3786,7 +3820,7 @@
     },
     {
       title: '3. 4 AP Turns & Tactical Terrain',
-      html: `<p style="margin-bottom:8px;">Each turn you get <strong>4 shared Action Points (AP)</strong>: Move costs <strong>1 AP</strong> (teal tiles), Attack or Role Special costs <strong>2 AP</strong> (<strong>1 attack per unit/turn</strong>; Titans get 2). On Turn 1, click gold back-row tiles to reposition for <strong>0 AP</strong> before moving or attacking.</p><p>Route around <strong>Trees</strong> (block movement &amp; Line of Sight) and <strong>Water</strong> (ranged units can shoot across!), take <strong>Brush</strong> (+2 ARM cover), and claim brass <strong>Conduits</strong> (+2 ATK, +1 RNG).</p>`
+      html: `<p style="margin-bottom:8px;">Each turn you get <strong>4 shared Action Points (AP)</strong>: Move costs <strong>1 AP</strong> (1 move/unit/turn; cannot move after attacking), Attack or Role Special costs <strong>2 AP</strong> (<strong>1 attack/unit/turn</strong>; Titans get 2). On Turn 1, click gold back-row tiles to reposition for <strong>0 AP</strong> before moving or attacking.</p><p>Route around <strong>Trees</strong> (block movement &amp; Line of Sight) and <strong>Water</strong> (ranged units can shoot across!), take <strong>Brush</strong> (+2 ARM cover), and claim brass <strong>Conduits</strong> (+2 ATK, +1 RNG). Note: <em>Piercing</em> ignores Armor but is still absorbed by Shield.</p>`
     },
     {
       title: '4. 2d6 RNG Hits & Wound Dials',
