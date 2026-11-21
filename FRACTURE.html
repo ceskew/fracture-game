@@ -792,6 +792,30 @@
     line-height: 1.5;
     margin-bottom: 18px;
   }
+
+  /* RESPONSIVE MOBILE & TABLET LAYOUT */
+  @media (max-width: 980px) {
+    html, body { overflow: auto; height: auto; }
+    .app { height: auto; min-height: 100vh; }
+    .topbar { height: auto; flex-wrap: wrap; padding: 8px 10px; gap: 8px; }
+    .brand-sub { display: none; }
+    .hud-center { order: 3; width: 100%; justify-content: space-between; flex-wrap: wrap; gap: 6px; }
+    .lobby-card { grid-template-columns: 1fr; padding: 18px; gap: 16px; }
+    .forge-header { flex-direction: column; align-items: stretch; }
+    .forge-pool-wrap { max-width: none; }
+    #battleScreen.active {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 8px;
+      overflow: visible;
+    }
+    .center-col { order: 1; }
+    .board-wrap { min-height: 300px; padding: 6px; }
+    .hand-bar { height: auto; }
+    .cards-row { grid-template-columns: 1fr; }
+    .side-col { order: 2; max-height: 360px; }
+  }
 </style>
 </head>
 <body>
@@ -812,6 +836,7 @@
         <span>AP</span>
         <div class="ap-pips" id="apPips"></div>
       </div>
+      <button id="undoMoveBtn" disabled>UNDO MOVE [Z]</button>
       <button class="primary" id="endTurnBtn">END TURN [Space]</button>
     </div>
 
@@ -999,8 +1024,9 @@
 
       <div class="hand-bar">
         <div class="hand-hdr">
-          <span>Blood-Cost Command Hand (0 AP — Pay from Selected Unit's HP)</span>
-          <span id="deckCountLabel">DECK: 9</span>
+          <span>Blood-Cost Hand (0 AP — Pay from Selected Unit's HP)</span>
+          <span id="trapStatusBar" style="color:var(--brass);"></span>
+          <span id="deckCountLabel">DECK: 15</span>
         </div>
         <div class="cards-row" id="cardsRow"></div>
       </div>
@@ -1423,7 +1449,10 @@
     { id: 'surge', name: 'Blood Surge', cost: 6, target: 'self_or_ally', desc: 'Paying unit deals +7 bonus DMG on next attack.' },
     { id: 'sever', name: 'Sever & Push', cost: 4, target: 'enemy_4', desc: 'Strip enemy Shield (Rng 4) & knock back 1 tile.' },
     { id: 'siphon', name: 'Siphon Bolt', cost: 5, target: 'enemy_4', desc: 'Deal 6 piercing DMG (Rng 4) & heal payer 3 HP.' },
-    { id: 'overdrive', name: 'Overdrive', cost: 7, target: 'instant', desc: 'Immediately gain +2 Action Points this turn.' }
+    { id: 'overdrive', name: 'Overdrive', cost: 7, target: 'instant', desc: 'Immediately gain +2 Action Points this turn.' },
+    { id: 'trap_deflect', name: 'Trap: Deflect', cost: 4, target: 'trap', desc: 'SECRET TRAP: Next enemy attack deals 50% DMG & reflects 4 DMG.' },
+    { id: 'trap_ambush', name: 'Trap: Ambush', cost: 5, target: 'trap', desc: 'SECRET TRAP: Next enemy moving within 2 tiles takes 6 piercing DMG.' },
+    { id: 'trap_counter', name: 'Trap: Counter-Ward', cost: 4, target: 'trap', desc: 'SECRET TRAP: When enemy plays a Blood Card/Special, your squad gains +4 SHD.' }
   ];
 
   const CALLSIGNS = ['AEGIS', 'VEX', 'SOL', 'KESTREL', 'BASTION', 'LYNX', 'ORION', 'PYRE', 'WARD', 'TALON', 'NOVA', 'RUNE'];
@@ -1556,6 +1585,10 @@
     activeCardIndex: null,
     decks: { 1: [], 2: [] },
     hands: { 1: [], 2: [] },
+    traps: { 1: [], 2: [] },
+    firstPlayer: 1,
+    lastMove: null,
+    freeDeployActive: { 1: true, 2: true },
     hoverCell: null,
     floatingTexts: [],
     vfx: [],
@@ -1952,8 +1985,8 @@
     return deck;
   }
 
-  function drawCard(owner) {
-    if (STATE.hands[owner].length >= 3) return;
+  function drawCard(owner, maxHand = 4) {
+    if (STATE.hands[owner].length >= maxHand) return;
     if (STATE.decks[owner].length === 0) {
       STATE.decks[owner] = buildDeck();
     }
@@ -1971,6 +2004,12 @@
     (mapDef.rifts || []).forEach(([r, c]) => { STATE.grid[r][c] = 'rift'; });
     document.getElementById('matchBadge').textContent = `${STATE.poolHP} HP · ${mapDef.name.toUpperCase()}`;
 
+    // Fair randomized first player (deterministic from onlineSeed in Online PvP)
+    STATE.firstPlayer = STATE.onlineSeed !== null
+      ? ((STATE.onlineSeed % 2) + 1)
+      : (Math.random() < 0.5 ? 1 : 2);
+    const secondPlayer = STATE.firstPlayer === 1 ? 2 : 1;
+
     STATE.units = [];
     let uid = 1;
     [1, 2].forEach(owner => {
@@ -1986,7 +2025,7 @@
           role: draft.role,
           maxHP: draft.maxHP,
           hp: draft.maxHP,
-          shield: 0,
+          shield: owner === secondPlayer ? 2 : 0,
           surgeBonus: 0,
           r, c: spawnCol,
           drawX: spawnCol, drawY: r,
@@ -2000,27 +2039,45 @@
     });
 
     STATE.turn = 1;
-    STATE.activePlayer = 1;
+    STATE.activePlayer = STATE.firstPlayer;
     STATE.ap = STATE.maxAP;
-    STATE.selectedUnitId = STATE.units.find(u => u.owner === 1)?.id || null;
+    STATE.selectedUnitId = STATE.units.find(u => u.owner === STATE.activePlayer)?.id || null;
     STATE.actionMode = 'normal';
     STATE.activeCardIndex = null;
     STATE.gameOver = false;
     STATE.aiBusy = false;
     STATE.floatingTexts = [];
     STATE.vfx = [];
+    STATE.traps = { 1: [], 2: [] };
+    STATE.lastMove = null;
+    STATE.freeDeployActive = { 1: true, 2: true };
 
     STATE.decks = { 1: buildDeck(17), 2: buildDeck(97) };
     STATE.hands = { 1: [], 2: [] };
     for (let i = 0; i < 3; i++) { drawCard(1); drawCard(2); }
+    // Second player compensation: +1 bonus Blood Card & +2 Starting Shield
+    drawCard(secondPlayer, 4);
 
+    const firstName = STATE.firstPlayer === 1 ? STATE.p1Name : STATE.p2Name;
+    const secondName = secondPlayer === 1 ? STATE.p1Name : STATE.p2Name;
     document.getElementById('logList').innerHTML = '';
     addLog(`Arena: ${mapDef.name} — Agreed Pool: ${STATE.poolHP} HP each.`, 'sys');
+    addLog(`Coin flip: ${firstName} moves first! ${secondName} gets +1 Bonus Card & +2 Starting Shield.`, 'sys');
+    addLog(`Turn 1 Free Deploy: Click your units to reposition inside your back 2 columns (0 AP) before acting.`, 'sys');
     addLog(`${STATE.p1Name} deploys ${STATE.forgeDrafts[1].length} fighter(s) (${classifySquadStyle(STATE.forgeDrafts[1])}).`, 'p1');
     addLog(`${STATE.p2Name} deploys ${STATE.forgeDrafts[2].length} fighter(s) (${classifySquadStyle(STATE.forgeDrafts[2])}).`, 'p2');
 
     showScreen('battle');
     renderLeaderboard();
+    showRollToast(
+      `<strong style="color:var(--brass);">🪙 COIN FLIP: ${firstName.toUpperCase()} GOES FIRST</strong><br/>${secondName} starts with +1 Card &amp; +2 Shield on all units.`,
+      'var(--brass)'
+    );
+
+    if (STATE.mode === 'ai' && STATE.activePlayer === 2 && !STATE.gameOver) {
+      STATE.freeDeployActive[2] = false;
+      setTimeout(() => runAITurn(), 600);
+    }
   }
 
   /* ============================================================================
@@ -2143,19 +2200,86 @@
     return true;
   }
 
+  function isInDeployZone(owner, c) {
+    return owner === 1 ? (c <= 1) : (c >= COLS - 2);
+  }
+
+  function executeDeploy(unit, r, c, isRemote = false) {
+    if (STATE.mode === 'online' && !isRemote) {
+      NetworkAdapter.sendAction(STATE.roomCode, { type: 'deploy', unitId: unit.id, r, c });
+    }
+    unit.r = r; unit.c = c;
+    Sound.click();
+    addLog(`${unit.name} deploys to (${c + 1},${r + 1}) [0 AP].`, unit.owner === 1 ? 'p1' : 'p2');
+    renderBattleUI();
+  }
+
+  function undoLastMove(isRemote = false) {
+    if (!STATE.lastMove || STATE.gameOver) return;
+    if (STATE.mode === 'online' && !isRemote) {
+      NetworkAdapter.sendAction(STATE.roomCode, { type: 'undoMove' });
+    }
+    const u = STATE.units.find(x => x.id === STATE.lastMove.unitId && x.alive);
+    if (u) {
+      u.r = STATE.lastMove.prevR;
+      u.c = STATE.lastMove.prevC;
+      u.movedThisTurn = STATE.lastMove.prevMoved;
+      STATE.ap += 1;
+      Sound.click();
+      addLog(`${u.name} undoes move (+1 AP refunded).`, 'sys');
+    }
+    STATE.lastMove = null;
+    renderBattleUI();
+  }
+
+  function triggerCounterTrap(actingOwner) {
+    const defender = actingOwner === 1 ? 2 : 1;
+    const idx = STATE.traps[defender].findIndex(t => t.id === 'trap_counter');
+    if (idx === -1) return;
+    STATE.traps[defender].splice(idx, 1);
+    STATE.units.filter(u => u.alive && u.owner === defender).forEach(u => {
+      u.shield += 4;
+      spawnShockwave(u.r, u.c, '#38bdf8', 0.75);
+      spawnFloat(u.r, u.c, '+4 SHD', '#38bdf8');
+    });
+    Sound.card();
+    showRollToast(`<strong style="color:#facc15;">🪤 TRAP TRIGGERED: COUNTER-WARD!</strong><br/>Defender's entire squad gains +4 Shield!`, '#facc15');
+    addLog(`TRAP TRIGGERED: Counter-Ward grants Player ${defender}'s squad +4 Shield!`, defender === 1 ? 'p1' : 'p2');
+  }
+
   function executeMove(unit, r, c, isRemote = false) {
     if (STATE.mode === 'online' && !isRemote) {
       NetworkAdapter.sendAction(STATE.roomCode, { type: 'move', unitId: unit.id, r, c });
     }
+    STATE.freeDeployActive[unit.owner] = false;
+    STATE.lastMove = { unitId: unit.id, prevR: unit.r, prevC: unit.c, prevMoved: unit.movedThisTurn };
     STATE.ap -= 1;
     unit.r = r; unit.c = c;
     unit.movedThisTurn = true;
     Sound.move();
     addLog(`${unit.name} advances to (${c + 1},${r + 1}).`, unit.owner === 1 ? 'p1' : 'p2');
+
+    // Check enemy Ambush Trap (triggers if moved within 2 tiles of any enemy unit)
+    const opp = unit.owner === 1 ? 2 : 1;
+    const ambIdx = STATE.traps[opp].findIndex(t => t.id === 'trap_ambush');
+    if (ambIdx !== -1) {
+      const triggeredBy = STATE.units.find(e => e.alive && e.owner === opp && dist(e.r, e.c, unit.r, unit.c) <= 2);
+      if (triggeredBy) {
+        STATE.traps[opp].splice(ambIdx, 1);
+        STATE.lastMove = null; // cannot undo after springing a secret trap
+        Sound.hit();
+        spawnBeam(triggeredBy.r, triggeredBy.c, unit.r, unit.c, '#facc15');
+        applyDamage(unit, 6, 'Ambush Trap', true, triggeredBy);
+        showRollToast(`<strong style="color:#facc15;">🪤 TRAP TRIGGERED: AMBUSH!</strong><br/>${unit.name} walked into range and took -6 piercing HP!`, '#facc15');
+        addLog(`TRAP TRIGGERED: Ambush hits ${unit.name} for 6 piercing DMG!`, opp === 1 ? 'p1' : 'p2');
+      }
+    }
     renderBattleUI();
   }
 
   function executeAttack(attacker, target, bonusDmg = 0, forcePierce = false, label = 'attacks', isRemote = false, forcedRoll = null) {
+    STATE.freeDeployActive[attacker.owner] = false;
+    STATE.lastMove = null;
     const roll = rollAttack2d6(forcedRoll);
     if (STATE.mode === 'online' && !isRemote) {
       NetworkAdapter.sendAction(STATE.roomCode, {
@@ -2164,7 +2288,17 @@
       });
     }
     const prev = previewAttackDamage(attacker, target, bonusDmg, forcePierce || roll.pierce);
-    const rolledTotal = Math.max(2, Math.round(prev.total * roll.mult));
+    let rolledTotal = Math.max(2, Math.round(prev.total * roll.mult));
+
+    // Check defender's secret Deflect Trap
+    const defTrapIdx = STATE.traps[target.owner].findIndex(t => t.id === 'trap_deflect');
+    let deflected = false;
+    if (defTrapIdx !== -1) {
+      STATE.traps[target.owner].splice(defTrapIdx, 1);
+      rolledTotal = Math.max(1, Math.floor(rolledTotal * 0.5));
+      deflected = true;
+    }
+
     const shieldAbsorb = Math.min(target.shield, rolledTotal);
     const hpDmg = rolledTotal - shieldAbsorb;
 
@@ -2193,11 +2327,17 @@
     const floatTxt = hpDmg > 0 ? `${roll.label} [${roll.sum}] -${hpDmg} HP` : `SHIELDED [${roll.sum}]`;
     spawnFloat(target.r, target.c, floatTxt, hpDmg > 0 ? roll.color : '#38bdf8');
     showRollToast(
+      (deflected ? `<strong style="color:#facc15;">🪤 DEFLECT TRAP! DMG HALVED &amp; -4 REFLECTED</strong><br/>` : '') +
       `<strong style="color:${roll.color};">🎲 2d6 = ${roll.sum} (${roll.d1}+${roll.d2}) · ${roll.label}</strong><br/>` +
       `${target.name} took <strong>-${hpDmg} HP</strong>${shieldAbsorb ? ` (${shieldAbsorb} absorbed by Shield)` : ''} · ${target.hp}/${target.maxHP} HP left`,
-      roll.color
+      deflected ? '#facc15' : roll.color
     );
-    addLog(`[2d6=${roll.sum} ${roll.label}] ${attacker.name} ${label} ${target.name} — ${hpDmg} HP taken${shieldAbsorb ? ` (${shieldAbsorb} blocked)` : ''}.`, attacker.owner === 1 ? 'p1' : 'p2');
+    addLog(`[2d6=${roll.sum} ${roll.label}] ${attacker.name} ${label} ${target.name} — ${hpDmg} HP taken${deflected ? ' (DEFLECTED!)' : ''}${shieldAbsorb ? ` (${shieldAbsorb} blocked)` : ''}.`, attacker.owner === 1 ? 'p1' : 'p2');
+
+    if (deflected) {
+      spawnBeam(target.r, target.c, attacker.r, attacker.c, '#facc15');
+      applyDamage(attacker, 4, `${target.name}'s Deflect Trap`, true, target);
+    }
 
     if (target.hp <= 0) {
       target.alive = false;
@@ -2228,9 +2368,12 @@
 
   function executeSpecial(unit, target = null, isRemote = false) {
     if (STATE.ap < 2) return;
+    STATE.freeDeployActive[unit.owner] = false;
+    STATE.lastMove = null;
     if (STATE.mode === 'online' && !isRemote) {
       NetworkAdapter.sendAction(STATE.roomCode, { type: 'special', unitId: unit.id, targetId: target ? target.id : null });
     }
+    triggerCounterTrap(unit.owner);
     if (unit.role === 'vanguard') {
       STATE.ap -= 2;
       unit.shield += 6;
@@ -2271,6 +2414,8 @@
     const hand = STATE.hands[STATE.activePlayer];
     const card = hand[cardIdx];
     if (!card || !payer || payer.hp <= card.cost) return false;
+    STATE.freeDeployActive[payer.owner] = false;
+    STATE.lastMove = null;
     if (STATE.mode === 'online' && !isRemote) {
       NetworkAdapter.sendAction(STATE.roomCode, {
         type: 'card', cardIdx, payerId: payer.id,
@@ -2282,8 +2427,14 @@
     payer.hp -= card.cost;
     spawnFloat(payer.r, payer.c, `-${card.cost} BLOOD`, '#fda4af');
     Sound.card();
+    triggerCounterTrap(payer.owner);
 
-    if (card.id === 'phase' && targetObj) {
+    if (card.target === 'trap') {
+      STATE.traps[payer.owner].push({ id: card.id, name: card.name });
+      spawnShockwave(payer.r, payer.c, '#d4a359', 0.85);
+      const isSecret = STATE.mode === 'online' && payer.owner !== STATE.localPlayerNum;
+      addLog(`${payer.name} pays ${card.cost} HP to arm a face-down SECRET TRAP${isSecret ? '.' : ` (${card.name}).`}`, payer.owner === 1 ? 'p1' : 'p2');
+    } else if (card.id === 'phase' && targetObj) {
       payer.r = targetObj.r; payer.c = targetObj.c;
       addLog(`${payer.name} pays ${card.cost} HP for Phase Step to (${payer.c + 1},${payer.r + 1}).`, payer.owner === 1 ? 'p1' : 'p2');
     } else if (card.id === 'aegis') {
@@ -2339,6 +2490,8 @@
 
   function endTurn(isRemote = false) {
     if (STATE.gameOver) return;
+    STATE.lastMove = null;
+    STATE.freeDeployActive[STATE.activePlayer] = false;
     if (STATE.mode === 'online' && !isRemote) {
       NetworkAdapter.sendAction(STATE.roomCode, { type: 'endTurn' });
     }
@@ -2349,7 +2502,7 @@
     if (STATE.gameOver) return;
 
     STATE.activePlayer = STATE.activePlayer === 1 ? 2 : 1;
-    if (STATE.activePlayer === 1) STATE.turn += 1;
+    if (STATE.activePlayer === STATE.firstPlayer) STATE.turn += 1;
     STATE.ap = STATE.maxAP;
     STATE.actionMode = 'normal';
     STATE.activeCardIndex = null;
@@ -2359,7 +2512,7 @@
       u.attacksThisTurn = 0;
       u.movedThisTurn = false;
     });
-    drawCard(STATE.activePlayer);
+    drawCard(STATE.activePlayer, 4);
 
     const firstAlive = STATE.units.find(u => u.alive && u.owner === STATE.activePlayer);
     STATE.selectedUnitId = firstAlive ? firstAlive.id : null;
@@ -2368,6 +2521,7 @@
     renderBattleUI();
 
     if (STATE.mode === 'ai' && STATE.activePlayer === 2 && !STATE.gameOver) {
+      STATE.freeDeployActive[2] = false;
       runAITurn();
     }
   }
@@ -2375,7 +2529,12 @@
   function handleRemoteAction(msg) {
     if (STATE.mode !== 'online' || STATE.gameOver) return;
     const byId = id => STATE.units.find(u => u.id === id);
-    if (msg.type === 'move') {
+    if (msg.type === 'deploy') {
+      const u = byId(msg.unitId);
+      if (u) executeDeploy(u, msg.r, msg.c, true);
+    } else if (msg.type === 'undoMove') {
+      undoLastMove(true);
+    } else if (msg.type === 'move') {
       const u = byId(msg.unitId);
       if (u) executeMove(u, msg.r, msg.c, true);
     } else if (msg.type === 'attack') {
@@ -2811,6 +2970,10 @@
         }
 
         // Highlights
+        if (canAct && STATE.actionMode === 'normal' && STATE.freeDeployActive[sel.owner] && isInDeployZone(sel.owner, c) && !isImpassable(type) && !unitAt(r, c)) {
+          ctx.fillStyle = 'rgba(212, 163, 89, 0.16)';
+          ctx.fillRect(x + 2, y + 2, tileSize - 4, tileSize - 4);
+        }
         if (moveTiles.some(t => t.r === r && t.c === c)) {
           ctx.fillStyle = 'rgba(56, 189, 248, 0.14)';
           ctx.fillRect(x + 2, y + 2, tileSize - 4, tileSize - 4);
@@ -3203,10 +3366,14 @@
         return;
       }
 
-      // Normal mode: click enemy to attack, click reachable tile to move, or select unit
+      // Normal mode: click enemy to attack, click deploy zone (0 AP on Turn 1), click reachable tile to move, or select unit
       if (sel && sel.owner === STATE.activePlayer) {
         if (clickedUnit && clickedUnit.owner !== sel.owner && canUnitAttack(sel) && getAttackableTargets(sel).includes(clickedUnit)) {
           executeAttack(sel, clickedUnit);
+          return;
+        }
+        if (!clickedUnit && STATE.freeDeployActive[sel.owner] && isInDeployZone(sel.owner, c) && !isImpassable(STATE.grid[r][c])) {
+          executeDeploy(sel, r, c);
           return;
         }
         if (!clickedUnit && STATE.ap >= 1 && getReachableTiles(sel).some(t => t.r === r && t.c === c)) {
@@ -3235,6 +3402,17 @@
     document.getElementById('turnLabel').textContent = `TURN ${STATE.turn} — ${activeName.toUpperCase()}${suffix}`;
     document.getElementById('turnDot').style.background = STATE.activePlayer === 1 ? 'var(--p1)' : 'var(--p2)';
     document.getElementById('endTurnBtn').disabled = !isMyTurn();
+    document.getElementById('undoMoveBtn').disabled = !(isMyTurn() && STATE.lastMove);
+
+    const viewerOwner = STATE.mode === 'online' ? STATE.localPlayerNum : ((STATE.mode === 'ai') ? 1 : STATE.activePlayer);
+    const enemyOwner = viewerOwner === 1 ? 2 : 1;
+    const myTraps = STATE.traps[viewerOwner] || [];
+    const oppTraps = STATE.traps[enemyOwner] || [];
+    const trapParts = [];
+    if (myTraps.length) trapParts.push(`YOUR TRAPS: ${myTraps.map(t => t.name.replace('Trap: ', '')).join(', ')}`);
+    if (oppTraps.length) trapParts.push(`ENEMY SECRET TRAPS: ${oppTraps.length}`);
+    const trapBar = document.getElementById('trapStatusBar');
+    if (trapBar) trapBar.textContent = trapParts.join(' · ');
 
     const pips = document.getElementById('apPips');
     pips.innerHTML = '';
@@ -3380,7 +3558,7 @@
           return;
         }
         Sound.click();
-        if (card.target === 'instant' || card.target === 'self_or_ally') {
+        if (card.target === 'instant' || card.target === 'self_or_ally' || card.target === 'trap') {
           playBloodCard(idx, payer);
         } else {
           STATE.actionMode = 'card';
@@ -3444,6 +3622,11 @@
     renderLeaderboard();
   });
 
+  document.getElementById('undoMoveBtn').addEventListener('click', () => {
+    if (!isMyTurn() || !STATE.lastMove) return;
+    undoLastMove();
+  });
+
   document.getElementById('endTurnBtn').addEventListener('click', () => {
     if (!isMyTurn()) return;
     Sound.click();
@@ -3458,6 +3641,8 @@
       STATE.actionMode = 'normal';
       STATE.activeCardIndex = null;
       renderBattleUI();
+    } else if (e.code === 'KeyZ') {
+      if (isMyTurn() && STATE.lastMove) undoLastMove();
     } else if (e.code === 'Space') {
       e.preventDefault();
       if (isMyTurn()) endTurn();
