@@ -608,6 +608,24 @@
     display: none;
   }
   .hover-tooltip.visible { display: block; }
+  .roll-toast {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    background: rgba(12, 14, 19, 0.94);
+    border: 1px solid var(--brass);
+    border-radius: 8px;
+    padding: 7px 12px;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    color: var(--ink);
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(-4px);
+    transition: opacity 0.18s, transform 0.18s;
+    max-width: 340px;
+  }
+  .roll-toast.visible { opacity: 1; transform: translateY(0); }
 
   /* HAND OF BLOOD CARDS */
   .hand-bar {
@@ -838,6 +856,16 @@
           </select>
         </div>
 
+        <div class="form-group">
+          <label class="form-label">Battle Arena Map</label>
+          <select id="mapSelect" style="width:100%;">
+            <option value="timberline">Timberline Crossing (Trees, River Bridges &amp; Brush Cover)</option>
+            <option value="citadel">Obsidian Citadel (Classic Pillars, Conduits &amp; Rifts)</option>
+            <option value="caldera">Sunken Caldera (Water Chasms, Pillars &amp; Chokepoints)</option>
+            <option value="sanctuary">Ruined Sanctuary (Forest Courtyard, Pools &amp; Cover)</option>
+          </select>
+        </div>
+
         <div class="form-group" id="onlinePanel" style="display:none; background:#10141c; border:1px solid var(--border); border-radius:8px; padding:12px;">
           <label class="form-label">Online Match Room</label>
           <div style="display:flex; gap:6px; margin-bottom:8px;">
@@ -952,6 +980,7 @@
       <div class="board-wrap" id="boardWrap">
         <canvas id="boardCanvas"></canvas>
         <div class="board-banner" id="boardBanner"></div>
+        <div class="roll-toast" id="rollToast"></div>
         <div class="hover-tooltip" id="hoverTooltip"></div>
       </div>
 
@@ -1088,6 +1117,7 @@
         STATE.mode = 'online';
         STATE.roomCode = data.code;
         STATE.poolHP = data.poolHP;
+        if (data.mapId && MAPS[data.mapId]) STATE.mapId = data.mapId;
         STATE.p1Name = data.p1Name;
         STATE.p2Name = data.p2Name;
         applySplitPreset(3, STATE.localPlayerNum);
@@ -1106,6 +1136,7 @@
         STATE.mode = 'online';
         STATE.roomCode = data.code;
         STATE.poolHP = data.poolHP;
+        if (data.mapId && MAPS[data.mapId]) STATE.mapId = data.mapId;
         STATE.p1Name = data.p1Name;
         STATE.p2Name = data.p2Name;
         STATE.forgeDrafts[1] = data.squads[1];
@@ -1165,8 +1196,8 @@
       if (!res.ok) throw new Error(data.error || 'Request failed');
       return data;
     },
-    async createRoom(hostName, poolHP) {
-      const data = await this.post('/api/rooms', { hostName, poolHP, clientId: this.clientId });
+    async createRoom(hostName, poolHP, mapId) {
+      const data = await this.post('/api/rooms', { hostName, poolHP, mapId, clientId: this.clientId });
       this.connectStream(data.code);
       return data;
     },
@@ -1343,6 +1374,71 @@
 
   const CALLSIGNS = ['AEGIS', 'VEX', 'SOL', 'KESTREL', 'BASTION', 'LYNX', 'ORION', 'PYRE', 'WARD', 'TALON', 'NOVA', 'RUNE'];
 
+  const MAPS = {
+    timberline: {
+      name: 'Timberline Crossing',
+      trees: [[0, 2], [2, 2], [5, 2], [0, 5], [3, 5], [5, 5]],
+      water: [[0, 3], [2, 3], [3, 4], [5, 4]],
+      brush: [[1, 2], [4, 2], [1, 5], [4, 5], [2, 4], [3, 3]],
+      conduits: [[1, 3], [4, 4]],
+      pillars: [],
+      rifts: []
+    },
+    citadel: {
+      name: 'Obsidian Citadel',
+      pillars: [[1, 2], [4, 2], [1, 5], [4, 5]],
+      conduits: [[2, 3], [3, 4], [0, 3], [5, 4]],
+      rifts: [[2, 4], [3, 3]],
+      trees: [], water: [], brush: []
+    },
+    caldera: {
+      name: 'Sunken Caldera',
+      water: [[1, 3], [2, 3], [3, 4], [4, 4]],
+      pillars: [[0, 2], [5, 5]],
+      rifts: [[0, 4], [5, 3], [2, 4], [3, 3]],
+      conduits: [[1, 4], [4, 3]],
+      trees: [[2, 1], [3, 6]],
+      brush: []
+    },
+    sanctuary: {
+      name: 'Ruined Sanctuary',
+      trees: [[1, 1], [4, 1], [1, 6], [4, 6], [2, 5], [3, 2]],
+      water: [[0, 3], [0, 4], [5, 3], [5, 4]],
+      pillars: [[2, 3], [3, 4]],
+      brush: [[1, 3], [4, 4], [2, 2], [3, 5]],
+      conduits: [[2, 4], [3, 3]],
+      rifts: []
+    }
+  };
+
+  function isImpassable(type) {
+    return type === 'pillar' || type === 'tree' || type === 'water';
+  }
+  function blocksLOS(type) {
+    return type === 'pillar' || type === 'tree';
+  }
+
+  function rollAttack2d6(forced = null) {
+    const d1 = forced ? forced.d1 : (1 + Math.floor(Math.random() * 6));
+    const d2 = forced ? forced.d2 : (1 + Math.floor(Math.random() * 6));
+    const sum = d1 + d2;
+    if (sum <= 3) return { d1, d2, sum, label: 'GLANCE', mult: 0.65, color: '#f59e0b', pierce: false };
+    if (sum <= 9) return { d1, d2, sum, label: 'HIT', mult: 1.0, color: '#f43f5e', pierce: false };
+    if (sum <= 11) return { d1, d2, sum, label: 'HEAVY', mult: 1.25, color: '#fb923c', pierce: false };
+    return { d1, d2, sum, label: 'CRIT!', mult: 1.5, color: '#facc15', pierce: true };
+  }
+
+  let rollToastTimer = null;
+  function showRollToast(html, borderColor = 'var(--brass)') {
+    const el = document.getElementById('rollToast');
+    if (!el) return;
+    el.innerHTML = html;
+    el.style.borderColor = borderColor;
+    el.classList.add('visible');
+    clearTimeout(rollToastTimer);
+    rollToastTimer = setTimeout(() => el.classList.remove('visible'), 3600);
+  }
+
   function getWeightClass(maxHP) {
     if (maxHP < 25) return { id: 'swarm', label: 'SWARM', armBonus: 0, movBonus: 1, perk: 'Pack Tactics (+2 ATK per adjacent ally)' };
     if (maxHP < 50) return { id: 'skirmisher', label: 'SKIRMISHER', armBonus: 0, movBonus: 0, perk: 'Flanker (+2 ATK vs enemies next to an ally)' };
@@ -1365,9 +1461,10 @@
     const baseAtk = Math.round(5 + Math.sqrt(unit.maxHP) * 1.45);
     const conduitAtk = tileType === 'conduit' ? 2 : 0;
     const conduitRng = tileType === 'conduit' ? 1 : 0;
+    const brushArm = tileType === 'brush' ? 2 : 0;
     return {
       atk: Math.max(2, baseAtk + role.atkMod + d.atk + conduitAtk + (unit.surgeBonus || 0)),
-      arm: Math.max(0, role.armMod + wc.armBonus + d.arm),
+      arm: Math.max(0, role.armMod + wc.armBonus + d.arm + brushArm),
       mov: Math.max(1, role.movBase + wc.movBonus + d.mov),
       rng: Math.max(1, role.rngBase + d.rng + conduitRng),
       tier,
@@ -1382,6 +1479,7 @@
   const COLS = 8, ROWS = 6;
   const STATE = {
     mode: 'ai',
+    mapId: 'timberline',
     localPlayerNum: 1,
     roomCode: null,
     onlineSeed: null,
@@ -1502,10 +1600,11 @@
       Sound.click();
       const hostName = document.getElementById('playerNameInput').value.trim() || 'Commander';
       STATE.localPlayerNum = 1;
-      const data = await NetworkAdapter.createRoom(hostName, STATE.poolHP);
+      STATE.mapId = document.getElementById('mapSelect').value || 'timberline';
+      const data = await NetworkAdapter.createRoom(hostName, STATE.poolHP, STATE.mapId);
       STATE.roomCode = data.code;
       STATE.mode = 'online';
-      status.innerHTML = `Room <strong style="color:var(--brass); font-size:13px;">${data.code}</strong> created (${data.poolHP} HP) — share this code and wait for opponent...`;
+      status.innerHTML = `Room <strong style="color:var(--brass); font-size:13px;">${data.code}</strong> created (${data.poolHP} HP · ${MAPS[STATE.mapId].name}) — share this code!`;
       status.style.color = 'var(--good)';
     } catch (err) {
       status.textContent = err.message;
@@ -1531,6 +1630,7 @@
     STATE.p1Name = document.getElementById('playerNameInput').value.trim() || 'Commander';
     STATE.mode = document.getElementById('modeSelect').value;
     STATE.aiDoctrine = document.getElementById('aiDoctrineSelect').value;
+    STATE.mapId = document.getElementById('mapSelect').value || 'timberline';
     STATE.p2Name = STATE.mode === 'ai' ? 'AI Commander' : 'Player 2';
     STATE.roomCode = null;
     STATE.onlineSeed = null;
@@ -1545,6 +1645,7 @@
     STATE.p1Name = document.getElementById('playerNameInput').value.trim() || 'Commander';
     STATE.mode = 'ai';
     STATE.aiDoctrine = document.getElementById('aiDoctrineSelect').value;
+    STATE.mapId = document.getElementById('mapSelect').value || 'timberline';
     applySplitPreset(3, 1);
     buildAISquad();
     startBattle();
@@ -1801,14 +1902,15 @@
   }
 
   function startBattle() {
+    const mapDef = MAPS[STATE.mapId] || MAPS.timberline;
     STATE.grid = Array.from({ length: ROWS }, () => Array(COLS).fill('floor'));
-    // Symmetric tactical arena layout
-    const pillars = [[1, 2], [4, 2], [1, 5], [4, 5]];
-    const conduits = [[2, 3], [3, 4], [0, 3], [5, 4]];
-    const rifts = [[2, 4], [3, 3]];
-    pillars.forEach(([r, c]) => { STATE.grid[r][c] = 'pillar'; });
-    conduits.forEach(([r, c]) => { STATE.grid[r][c] = 'conduit'; });
-    rifts.forEach(([r, c]) => { STATE.grid[r][c] = 'rift'; });
+    (mapDef.pillars || []).forEach(([r, c]) => { STATE.grid[r][c] = 'pillar'; });
+    (mapDef.trees || []).forEach(([r, c]) => { STATE.grid[r][c] = 'tree'; });
+    (mapDef.water || []).forEach(([r, c]) => { STATE.grid[r][c] = 'water'; });
+    (mapDef.brush || []).forEach(([r, c]) => { STATE.grid[r][c] = 'brush'; });
+    (mapDef.conduits || []).forEach(([r, c]) => { STATE.grid[r][c] = 'conduit'; });
+    (mapDef.rifts || []).forEach(([r, c]) => { STATE.grid[r][c] = 'rift'; });
+    document.getElementById('matchBadge').textContent = `${STATE.poolHP} HP · ${mapDef.name.toUpperCase()}`;
 
     STATE.units = [];
     let uid = 1;
@@ -1854,7 +1956,7 @@
     for (let i = 0; i < 3; i++) { drawCard(1); drawCard(2); }
 
     document.getElementById('logList').innerHTML = '';
-    addLog(`Battle started — Agreed Pool: ${STATE.poolHP} HP each.`, 'sys');
+    addLog(`Arena: ${mapDef.name} — Agreed Pool: ${STATE.poolHP} HP each.`, 'sys');
     addLog(`${STATE.p1Name} deploys ${STATE.forgeDrafts[1].length} fighter(s) (${classifySquadStyle(STATE.forgeDrafts[1])}).`, 'p1');
     addLog(`${STATE.p2Name} deploys ${STATE.forgeDrafts[2].length} fighter(s) (${classifySquadStyle(STATE.forgeDrafts[2])}).`, 'p2');
 
@@ -1881,7 +1983,7 @@
       const rr = Math.round(r1 + (r2 - r1) * t);
       const cc = Math.round(c1 + (c2 - c1) * t);
       if ((rr !== r1 || cc !== c1) && (rr !== r2 || cc !== c2)) {
-        if (STATE.grid[rr][cc] === 'pillar') return false;
+        if (blocksLOS(STATE.grid[rr][cc])) return false;
       }
     }
     return true;
@@ -1900,7 +2002,7 @@
       for (const [dr, dc] of [[1,0],[-1,0],[0,1],[0,-1]]) {
         const nr = cur.r + dr, nc = cur.c + dc;
         if (nr < 0 || nr >= ROWS || nc < 0 || nc >= COLS) continue;
-        if (STATE.grid[nr][nc] === 'pillar') continue;
+        if (isImpassable(STATE.grid[nr][nc])) continue;
         if (unitAt(nr, nc)) continue;
         const key = `${nr},${nc}`;
         if (!visited.has(key)) {
@@ -1994,11 +2096,19 @@
     renderBattleUI();
   }
 
-  function executeAttack(attacker, target, bonusDmg = 0, forcePierce = false, label = 'attacks', isRemote = false) {
+  function executeAttack(attacker, target, bonusDmg = 0, forcePierce = false, label = 'attacks', isRemote = false, forcedRoll = null) {
+    const roll = rollAttack2d6(forcedRoll);
     if (STATE.mode === 'online' && !isRemote) {
-      NetworkAdapter.sendAction(STATE.roomCode, { type: 'attack', attackerId: attacker.id, targetId: target.id, bonusDmg, forcePierce, label });
+      NetworkAdapter.sendAction(STATE.roomCode, {
+        type: 'attack', attackerId: attacker.id, targetId: target.id, bonusDmg, forcePierce, label,
+        roll: { d1: roll.d1, d2: roll.d2 }
+      });
     }
-    const prev = previewAttackDamage(attacker, target, bonusDmg, forcePierce);
+    const prev = previewAttackDamage(attacker, target, bonusDmg, forcePierce || roll.pierce);
+    const rolledTotal = Math.max(2, Math.round(prev.total * roll.mult));
+    const shieldAbsorb = Math.min(target.shield, rolledTotal);
+    const hpDmg = rolledTotal - shieldAbsorb;
+
     STATE.ap -= 2;
     attacker.attacksThisTurn += 1;
     attacker.surgeBonus = 0;
@@ -2012,17 +2122,23 @@
     target.hitFlash = 1.0;
 
     if (dist(attacker.r, attacker.c, target.r, target.c) <= 1) {
-      spawnSlash(attacker.r, attacker.c, target.r, target.c, label === 'EXECUTES' ? '#f59e0b' : teamColor);
+      spawnSlash(attacker.r, attacker.c, target.r, target.c, roll.sum === 12 ? '#facc15' : (label === 'EXECUTES' ? '#f59e0b' : teamColor));
     } else {
-      spawnBeam(attacker.r, attacker.c, target.r, target.c, forcePierce ? '#a855f7' : teamColor);
+      spawnBeam(attacker.r, attacker.c, target.r, target.c, roll.sum === 12 ? '#facc15' : (forcePierce ? '#a855f7' : teamColor));
     }
-    spawnShockwave(target.r, target.c, prev.hpDmg > 0 ? teamColor : '#38bdf8', 0.8);
+    spawnShockwave(target.r, target.c, roll.sum === 12 ? '#facc15' : (hpDmg > 0 ? roll.color : '#38bdf8'), roll.sum === 12 ? 1.2 : 0.8);
     Sound.hit();
 
-    target.shield -= prev.shieldAbsorb;
-    target.hp = Math.max(0, target.hp - prev.hpDmg);
-    spawnFloat(target.r, target.c, prev.hpDmg > 0 ? `-${prev.hpDmg}` : 'SHIELDED', prev.hpDmg > 0 ? '#f43f5e' : '#38bdf8');
-    addLog(`${attacker.name} ${label} ${target.name} for ${prev.hpDmg} HP${prev.shieldAbsorb ? ` (${prev.shieldAbsorb} blocked)` : ''}.`, attacker.owner === 1 ? 'p1' : 'p2');
+    target.shield -= shieldAbsorb;
+    target.hp = Math.max(0, target.hp - hpDmg);
+    const floatTxt = hpDmg > 0 ? `${roll.label} [${roll.sum}] -${hpDmg} HP` : `SHIELDED [${roll.sum}]`;
+    spawnFloat(target.r, target.c, floatTxt, hpDmg > 0 ? roll.color : '#38bdf8');
+    showRollToast(
+      `<strong style="color:${roll.color};">🎲 2d6 = ${roll.sum} (${roll.d1}+${roll.d2}) · ${roll.label}</strong><br/>` +
+      `${target.name} took <strong>-${hpDmg} HP</strong>${shieldAbsorb ? ` (${shieldAbsorb} absorbed by Shield)` : ''} · ${target.hp}/${target.maxHP} HP left`,
+      roll.color
+    );
+    addLog(`[2d6=${roll.sum} ${roll.label}] ${attacker.name} ${label} ${target.name} — ${hpDmg} HP taken${shieldAbsorb ? ` (${shieldAbsorb} blocked)` : ''}.`, attacker.owner === 1 ? 'p1' : 'p2');
 
     if (target.hp <= 0) {
       target.alive = false;
@@ -2037,7 +2153,7 @@
 
     // Titan Cleave (melee only)
     if (aSt.wc.id === 'titan' && aSt.rng === 1) {
-      const splash = Math.max(2, Math.floor(prev.total * 0.5));
+      const splash = Math.max(2, Math.floor(rolledTotal * 0.5));
       const adjFoes = STATE.units.filter(u => u.alive && u.owner !== attacker.owner && u.id !== target.id && dist(u.r, u.c, target.r, target.c) === 1);
       if (adjFoes.length) {
         spawnShockwave(target.r, target.c, '#f59e0b', 1.45);
@@ -2140,7 +2256,7 @@
       const nr = targetObj.r + dr, nc = targetObj.c + dc;
       let extra = '';
       if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
-        if (STATE.grid[nr][nc] === 'pillar' || unitAt(nr, nc)) {
+        if (isImpassable(STATE.grid[nr][nc]) || unitAt(nr, nc)) {
           applyDamage(targetObj, 5, 'Wall Impact', true, payer);
           extra = ' (+5 slam DMG)';
         } else {
@@ -2205,7 +2321,7 @@
       if (u) executeMove(u, msg.r, msg.c, true);
     } else if (msg.type === 'attack') {
       const a = byId(msg.attackerId), t = byId(msg.targetId);
-      if (a && t) executeAttack(a, t, msg.bonusDmg || 0, !!msg.forcePierce, msg.label || 'attacks', true);
+      if (a && t) executeAttack(a, t, msg.bonusDmg || 0, !!msg.forcePierce, msg.label || 'attacks', true, msg.roll || null);
     } else if (msg.type === 'special') {
       const u = byId(msg.unitId), t = msg.targetId ? byId(msg.targetId) : null;
       if (u) executeSpecial(u, t, true);
@@ -2417,7 +2533,7 @@
       const tiles = [];
       for (let r = 0; r < ROWS; r++) {
         for (let c = 0; c < COLS; c++) {
-          if (STATE.grid[r][c] !== 'pillar' && !unitAt(r, c) && dist(payer.r, payer.c, r, c) <= 3 && dist(payer.r, payer.c, r, c) > 0) {
+          if (!isImpassable(STATE.grid[r][c]) && !unitAt(r, c) && dist(payer.r, payer.c, r, c) <= 3 && dist(payer.r, payer.c, r, c) > 0) {
             tiles.push({ r, c });
           }
         }
@@ -2510,6 +2626,56 @@
           ctx.moveTo(x + tileSize - 12, y + 12); ctx.lineTo(x + 12, y + tileSize - 12);
           ctx.strokeStyle = 'rgba(148,163,184,0.22)';
           ctx.stroke();
+        } else if (type === 'tree') {
+          // Impassable pine/timber obstacle (blocks movement & LOS)
+          const tcx = x + tileSize / 2, tcy = y + tileSize / 2;
+          ctx.fillStyle = 'rgba(16, 185, 129, 0.08)';
+          ctx.fillRect(x + 2, y + 2, tileSize - 4, tileSize - 4);
+          ctx.beginPath();
+          ctx.arc(tcx + 3, tcy + 4, tileSize * 0.34, 0, Math.PI * 2);
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+          ctx.fill();
+          ctx.beginPath();
+          ctx.arc(tcx, tcy, tileSize * 0.34, 0, Math.PI * 2);
+          ctx.fillStyle = '#14532d';
+          ctx.fill();
+          ctx.strokeStyle = '#22c55e';
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.arc(tcx - 3, tcy - 3, tileSize * 0.21, 0, Math.PI * 2);
+          ctx.fillStyle = '#166534';
+          ctx.fill();
+          ctx.beginPath();
+          ctx.arc(tcx, tcy, tileSize * 0.09, 0, Math.PI * 2);
+          ctx.fillStyle = '#78350f';
+          ctx.fill();
+        } else if (type === 'water') {
+          // Impassable water (must route around, ranged can fire across)
+          ctx.fillStyle = '#0c273a';
+          ctx.fillRect(x + 2, y + 2, tileSize - 4, tileSize - 4);
+          ctx.strokeStyle = 'rgba(56, 189, 248, 0.45)';
+          ctx.lineWidth = 1.25;
+          for (let w = 0; w < 3; w++) {
+            const wy = y + tileSize * (0.28 + w * 0.22);
+            ctx.beginPath();
+            ctx.moveTo(x + 10, wy);
+            ctx.quadraticCurveTo(x + tileSize * 0.35, wy - 4, x + tileSize * 0.5, wy);
+            ctx.quadraticCurveTo(x + tileSize * 0.65, wy + 4, x + tileSize - 10, wy);
+            ctx.stroke();
+          }
+        } else if (type === 'brush') {
+          // Walkable dense cover (+2 ARM)
+          ctx.fillStyle = 'rgba(34, 197, 94, 0.1)';
+          ctx.fillRect(x + 2, y + 2, tileSize - 4, tileSize - 4);
+          ctx.strokeStyle = 'rgba(74, 222, 128, 0.4)';
+          ctx.lineWidth = 1.2;
+          const bx = x + tileSize / 2, by = y + tileSize / 2;
+          ctx.beginPath();
+          ctx.arc(bx - 7, by + 3, 7, Math.PI, 0);
+          ctx.arc(bx + 7, by + 3, 7, Math.PI, 0);
+          ctx.arc(bx, by - 4, 8, Math.PI, 0);
+          ctx.stroke();
         } else if (type === 'conduit') {
           ctx.fillStyle = 'rgba(212, 163, 89, 0.1)';
           ctx.fillRect(x + 2, y + 2, tileSize - 4, tileSize - 4);
@@ -2562,7 +2728,7 @@
       const scy = (sel.drawY + 0.5) * tileSize;
 
       const inRange = (rr, cc) => rr >= 0 && rr < ROWS && cc >= 0 && cc < COLS &&
-        STATE.grid[rr][cc] !== 'pillar' &&
+        !blocksLOS(STATE.grid[rr][cc]) &&
         dist(sel.r, sel.c, rr, cc) <= activeRange &&
         (STATE.actionMode === 'card' || hasLineOfSight(sel.r, sel.c, rr, cc));
 
@@ -2852,10 +3018,18 @@
 
     if (sel && sel.owner === STATE.activePlayer && target && target.owner !== sel.owner && canUnitAttack(sel) && getAttackableTargets(sel).includes(target)) {
       const prev = previewAttackDamage(sel, target);
-      text = `ATTACK ${target.name}: ${prev.hpDmg} HP DMG${prev.shieldAbsorb ? ` (+${prev.shieldAbsorb} SHD)` : ''}${prev.lethal ? ' [LETHAL]' : ''}`;
+      const lo = Math.max(2, Math.round(prev.total * 0.65));
+      const hi = Math.max(2, Math.round(prev.total * 1.5));
+      text = `2d6 ATTACK ${target.name}: ${lo}–${hi} DMG (Base ${prev.hpDmg})${prev.shieldAbsorb ? ` · SHD ${prev.shieldAbsorb}` : ''}${prev.lethal ? ' [LETHAL ON HIT]' : ''}`;
     } else if (target) {
       const st = computeUnitStats(target, tile);
       text = `${target.name} (${st.wc.label} ${st.role.name}) · ${target.hp}/${target.maxHP} HP · ATK ${st.atk} ARM ${st.arm}`;
+    } else if (tile === 'tree') {
+      text = 'TIMBER TREE: Impassable (go around) · Blocks Line-of-Sight';
+    } else if (tile === 'water') {
+      text = 'DEEP WATER: Impassable to walk (go around) · Ranged can shoot across';
+    } else if (tile === 'brush') {
+      text = 'DENSE BRUSH COVER: Walkable · Grants +2 ARM while standing here';
     } else if (tile === 'conduit') {
       text = 'CONDUIT TILE: +2 ATK & +1 RNG while standing here';
     } else if (tile === 'rift') {

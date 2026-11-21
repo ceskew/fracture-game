@@ -275,13 +275,15 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { rooms: getOpenRoomsSummary() });
     }
     if (req.method === 'POST' && pathname === '/api/rooms') {
-      const { hostName, poolHP, clientId } = await readBody(req);
+      const { hostName, poolHP, mapId, clientId } = await readBody(req);
       const code = generateRoomCode();
       const cleanHost = String(hostName || 'Commander').trim().slice(0, 20);
       const cleanPool = Math.max(40, Math.min(240, Number(poolHP) || 100));
+      const cleanMap = String(mapId || 'timberline').slice(0, 24);
       const room = {
         code,
         poolHP: cleanPool,
+        mapId: cleanMap,
         status: 'waiting', // waiting -> drafting -> battle
         players: { 1: { name: cleanHost, clientId }, 2: null },
         squads: { 1: null, 2: null },
@@ -294,7 +296,7 @@ const server = http.createServer(async (req, res) => {
         clients.get(clientId).name = cleanHost;
       }
       broadcastAll('rooms_update', { rooms: getOpenRoomsSummary() });
-      return json(res, 200, { code, playerNum: 1, poolHP: cleanPool, hostName: cleanHost });
+      return json(res, 200, { code, playerNum: 1, poolHP: cleanPool, mapId: cleanMap, hostName: cleanHost });
     }
 
     const roomMatch = pathname.match(/^\/api\/rooms\/([A-Za-z0-9]{4})\/(join|squad|action|rematch)$/);
@@ -320,6 +322,7 @@ const server = http.createServer(async (req, res) => {
         broadcastRoom(code, 'room_joined', {
           code,
           poolHP: room.poolHP,
+          mapId: room.mapId,
           p1Name: room.players[1].name,
           p2Name: cleanGuest
         });
@@ -327,6 +330,7 @@ const server = http.createServer(async (req, res) => {
           code,
           playerNum: 2,
           poolHP: room.poolHP,
+          mapId: room.mapId,
           p1Name: room.players[1].name,
           p2Name: cleanGuest
         });
@@ -350,6 +354,7 @@ const server = http.createServer(async (req, res) => {
           broadcastRoom(code, 'battle_start', {
             code,
             poolHP: room.poolHP,
+            mapId: room.mapId,
             p1Name: room.players[1].name,
             p2Name: room.players[2].name,
             squads: room.squads,
@@ -367,7 +372,7 @@ const server = http.createServer(async (req, res) => {
       if (actionType === 'rematch') {
         room.squads = { 1: null, 2: null };
         room.status = 'drafting';
-        broadcastRoom(code, 'rematch_start', { code, poolHP: room.poolHP });
+        broadcastRoom(code, 'rematch_start', { code, poolHP: room.poolHP, mapId: room.mapId });
         return json(res, 200, { ok: true });
       }
     }
