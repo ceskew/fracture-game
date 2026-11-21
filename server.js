@@ -251,7 +251,7 @@ const server = http.createServer(async (req, res) => {
     // Chat API (Global or Room-scoped)
     if (req.method === 'POST' && pathname === '/api/chat') {
       const { sender, text, roomCode } = await readBody(req);
-      const cleanSender = String(sender || 'Commander').trim().slice(0, 20);
+      const cleanSender = String(sender || 'Commander').trim().slice(0, 36);
       const cleanText = String(text || '').trim().slice(0, 160);
       if (!cleanText) return json(res, 400, { error: 'Empty message' });
 

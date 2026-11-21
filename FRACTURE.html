@@ -1070,7 +1070,8 @@
         <div class="panel-body" style="font-size:11.5px; color:var(--muted); line-height:1.48; display:flex; flex-direction:column; gap:10px;">
           <div>
             <strong style="color:var(--ink);">Turn Flow (4 AP Shared):</strong><br/>
-            Move = 1 AP · Attack = 2 AP · Role Special = 2 AP · Blood Card = 0 AP (paid from unit HP). Press <code>Esc</code> to cancel targeting, <code>Space</code> to end turn.
+            Move = 1 AP · Attack = 2 AP (<strong>1 attack per unit/turn</strong>; Titans get 2) · Role Special = 2 AP · Blood Card = 0 AP (paid in unit HP).<br/>
+            <strong>Turn 1 Free Deploy:</strong> Click gold back-row tiles to reposition for 0 AP before your first move/attack. Press <code>Z</code> to undo a move, <code>Esc</code> to cancel, <code>Space</code> to end turn.
           </div>
           <div>
             <strong style="color:var(--ink);">2d6 RNG Combat Rolls:</strong><br/>
@@ -3415,9 +3416,26 @@
 
       // Normal mode: click enemy to attack, click deploy zone (0 AP on Turn 1), click reachable tile to move, or select unit
       if (sel && sel.owner === STATE.activePlayer) {
-        if (clickedUnit && clickedUnit.owner !== sel.owner && canUnitAttack(sel) && getAttackableTargets(sel).includes(clickedUnit)) {
-          executeAttack(sel, clickedUnit);
-          return;
+        if (clickedUnit && clickedUnit.owner !== sel.owner) {
+          if (canUnitAttack(sel) && getAttackableTargets(sel).includes(clickedUnit)) {
+            executeAttack(sel, clickedUnit);
+            return;
+          }
+          // Helpful feedback why the attack didn't fire (while still inspecting the enemy)
+          const st = computeUnitStats(sel, STATE.grid[sel.r][sel.c]);
+          const maxAtk = st.wc.id === 'titan' ? 2 : 1;
+          const d = dist(sel.r, sel.c, clickedUnit.r, clickedUnit.c);
+          let reason = '';
+          if (sel.attacksThisTurn >= maxAtk) {
+            reason = `${sel.name} already attacked this turn (${maxAtk}/turn${maxAtk === 1 ? '; Titans get 2' : ''}).`;
+          } else if (STATE.ap < 2) {
+            reason = `Need 2 AP to attack (${STATE.ap} AP left).`;
+          } else if (d > st.rng) {
+            reason = `Out of range (distance ${d} > ${sel.name}'s RNG ${st.rng}).`;
+          } else if (!hasLineOfSight(sel.r, sel.c, clickedUnit.r, clickedUnit.c)) {
+            reason = `Line of Sight blocked by Tree or Pillar.`;
+          }
+          if (reason) showRollToast(`<strong style="color:var(--warn);">CANNOT ATTACK</strong><br/>${reason} Inspecting ${clickedUnit.name}.`, 'var(--warn)');
         }
         if (!clickedUnit && STATE.freeDeployActive[sel.owner] && isInDeployZone(sel.owner, c) && !isImpassable(STATE.grid[r][c])) {
           executeDeploy(sel, r, c);
@@ -3426,6 +3444,14 @@
         if (!clickedUnit && STATE.ap >= 1 && getReachableTiles(sel).some(t => t.r === r && t.c === c)) {
           executeMove(sel, r, c);
           return;
+        }
+        if (!clickedUnit) {
+          const tile = STATE.grid[r][c];
+          if (tile === 'tree') showRollToast(`<strong style="color:var(--warn);">BLOCKED: TIMBER TREE</strong><br/>Impassable obstacle — route around it (blocks LOS).`, 'var(--warn)');
+          else if (tile === 'water') showRollToast(`<strong style="color:var(--warn);">BLOCKED: DEEP WATER</strong><br/>Impassable to walk — route around (ranged can shoot across).`, 'var(--warn)');
+          else if (tile === 'pillar') showRollToast(`<strong style="color:var(--warn);">BLOCKED: OBSIDIAN PILLAR</strong><br/>Impassable obstacle — route around it (blocks LOS).`, 'var(--warn)');
+          else if (STATE.ap < 1) showRollToast(`<strong style="color:var(--warn);">OUT OF AP</strong><br/>0 AP left — play a Blood Card (0 AP) or press End Turn [Space].`, 'var(--warn)');
+          else showRollToast(`<strong style="color:var(--warn);">OUT OF MOVE RANGE</strong><br/>Select a teal-highlighted tile within ${computeUnitStats(sel, STATE.grid[sel.r][sel.c]).mov} tiles.`, 'var(--warn)');
         }
       }
     }
@@ -3474,7 +3500,7 @@
     const p2HP = STATE.units.filter(u => u.alive && u.owner === 2).reduce((s, u) => s + u.hp, 0);
     document.getElementById('poolTotalsBadge').textContent = `P1 ${p1HP} HP · P2 ${p2HP} HP`;
 
-    // Banner for targeting mode
+    // Banner for targeting mode or Turn-1 Free Deploy
     const banner = document.getElementById('boardBanner');
     if (STATE.actionMode === 'special') {
       banner.textContent = 'SELECT TARGET FOR ROLE SPECIAL (ESC TO CANCEL)';
@@ -3482,6 +3508,9 @@
     } else if (STATE.actionMode === 'card' && STATE.activeCardIndex !== null) {
       const card = STATE.hands[STATE.activePlayer][STATE.activeCardIndex];
       banner.textContent = `TARGET FOR ${card.name.toUpperCase()} (PAYS ${card.cost} HP · ESC TO CANCEL)`;
+      banner.classList.add('visible');
+    } else if (isMyTurn() && STATE.freeDeployActive[STATE.activePlayer]) {
+      banner.textContent = 'TURN 1 FREE DEPLOY (0 AP): Click gold back-row tiles to reposition — ends once you move or attack';
       banner.classList.add('visible');
     } else {
       banner.classList.remove('visible');
@@ -3493,7 +3522,8 @@
     if (!sel) {
       insp.innerHTML = `<div class="insp-card" style="color:var(--muted); font-size:12px;">Click a unit on the board to inspect its Wound Dial and abilities.</div>`;
     } else {
-      const st = computeUnitStats(sel, STATE.grid[sel.r][sel.c]);
+      const tileHere = STATE.grid[sel.r][sel.c];
+      const st = computeUnitStats(sel, tileHere);
       const pct = Math.round((sel.hp / sel.maxHP) * 100);
       const hpColor = st.tier === 0 ? 'var(--good)' : st.tier === 1 ? 'var(--warn)' : 'var(--crit)';
       const isMine = sel.owner === STATE.activePlayer && isMyTurn();
@@ -3501,6 +3531,26 @@
         sel.role === 'vanguard' || sel.role === 'striker' ||
         (sel.role === 'arcanist' && sel.hp > 4) || (sel.role === 'catalyst' && sel.hp > 8)
       );
+      const maxAtks = st.wc.id === 'titan' ? 2 : 1;
+      const atksLeft = Math.max(0, maxAtks - sel.attacksThisTurn);
+
+      // Build explicit stat modifier breakdown (dial, weight, terrain, surge)
+      const mods = [];
+      const d = st.role.dial[st.tier];
+      const dialParts = [];
+      if (d.atk) dialParts.push(`${d.atk > 0 ? '+' : ''}${d.atk} ATK`);
+      if (d.arm) dialParts.push(`${d.arm > 0 ? '+' : ''}${d.arm} ARM`);
+      if (d.mov) dialParts.push(`${d.mov > 0 ? '+' : ''}${d.mov} MOV`);
+      if (d.rng) dialParts.push(`${d.rng > 0 ? '+' : ''}${d.rng} RNG`);
+      if (dialParts.length) mods.push(`Dial (${d.label}): ${dialParts.join(', ')}`);
+      if (st.wc.armBonus) mods.push(`${st.wc.label}: +${st.wc.armBonus} ARM`);
+      if (st.wc.movBonus) mods.push(`${st.wc.label}: +${st.wc.movBonus} MOV`);
+      if (tileHere === 'brush') mods.push('Brush: +2 ARM');
+      if (tileHere === 'conduit') mods.push('Conduit: +2 ATK, +1 RNG');
+      if (sel.surgeBonus) mods.push(`Surge: +${sel.surgeBonus} ATK`);
+      const modHtml = mods.length
+        ? `<div style="font-family:var(--font-mono); font-size:10px; color:var(--brass); margin-top:6px; line-height:1.4;">${mods.join(' · ')}</div>`
+        : '';
 
       insp.innerHTML = `
         <div class="insp-card">
@@ -3518,6 +3568,11 @@
             <div><div class="uf-stat-lbl">ARM</div><div class="uf-stat-val">${st.arm}</div></div>
             <div><div class="uf-stat-lbl">MOV</div><div class="uf-stat-val">${st.mov}</div></div>
             <div><div class="uf-stat-lbl">RNG</div><div class="uf-stat-val">${st.rng}</div></div>
+          </div>
+          ${modHtml}
+          <div style="display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:10.5px; color:${atksLeft > 0 ? 'var(--good)' : 'var(--muted)'}; margin-top:6px;">
+            <span>ATTACKS THIS TURN: <strong>${atksLeft}/${maxAtks}</strong></span>
+            <span>${maxAtks === 2 ? 'TITAN 2×' : '1/TURN'}</span>
           </div>
           <div class="dial-tiers">
             ${st.role.dial.map((d, idx) => `<div class="dial-tier ${st.tier === idx ? 'active' : ''}"><div>${d.label}</div><div style="font-size:9px;">${d.note}</div></div>`).join('')}
@@ -3731,7 +3786,7 @@
     },
     {
       title: '3. 4 AP Turns & Tactical Terrain',
-      html: `<p style="margin-bottom:8px;">Each turn you get <strong>4 shared Action Points (AP)</strong>: Move costs <strong>1 AP</strong> (teal tiles), Attack or Role Special costs <strong>2 AP</strong> (red targets).</p><p>Route around <strong>Trees</strong> (block movement &amp; Line of Sight) and <strong>Water</strong> (ranged units can shoot across!), take <strong>Brush</strong> (+2 ARM cover), and claim brass <strong>Conduits</strong> (+2 ATK, +1 RNG).</p>`
+      html: `<p style="margin-bottom:8px;">Each turn you get <strong>4 shared Action Points (AP)</strong>: Move costs <strong>1 AP</strong> (teal tiles), Attack or Role Special costs <strong>2 AP</strong> (<strong>1 attack per unit/turn</strong>; Titans get 2). On Turn 1, click gold back-row tiles to reposition for <strong>0 AP</strong> before moving or attacking.</p><p>Route around <strong>Trees</strong> (block movement &amp; Line of Sight) and <strong>Water</strong> (ranged units can shoot across!), take <strong>Brush</strong> (+2 ARM cover), and claim brass <strong>Conduits</strong> (+2 ATK, +1 RNG).</p>`
     },
     {
       title: '4. 2d6 RNG Hits & Wound Dials',
