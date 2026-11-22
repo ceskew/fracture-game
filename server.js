@@ -434,6 +434,10 @@ const server = http.createServer(async (req, res) => {
         if (allReady) {
           room.status = 'battle';
           const seed = Math.floor(Math.random() * 1e9);
+          room.seq = 0;
+          room.activePlayer = (seed % maxP) + 1;
+          room.state = null;
+          room.winnerRecorded = false;
           const playerNames = getRoomPlayerNames(room);
           broadcastRoom(code, 'battle_start', {
             code,
@@ -451,13 +455,57 @@ const server = http.createServer(async (req, res) => {
       }
 
       if (actionType === 'action') {
-        broadcastRoom(code, 'action', body, body.clientId || null);
-        return json(res, 200, { ok: true });
+        const maxP = room.maxPlayers || 2;
+        let senderSeat = null;
+        for (let i = 1; i <= maxP; i++) {
+          if (room.players[i] && room.players[i].clientId === body.clientId) {
+            senderSeat = i;
+            break;
+          }
+        }
+        if (room.winnerRecorded) {
+          return json(res, 409, { error: 'Match already concluded', seq: room.seq });
+        }
+        if (room.activePlayer && senderSeat && senderSeat !== room.activePlayer) {
+          return json(res, 409, { error: 'Not your turn', activePlayer: room.activePlayer, seq: room.seq });
+        }
+        room.seq = (room.seq || 0) + 1;
+        let officialResult = null;
+        if (body.snapshot) {
+          room.state = body.snapshot;
+          if (body.snapshot.activePlayer) room.activePlayer = body.snapshot.activePlayer;
+          if (body.snapshot.gameOver && !room.winnerRecorded) {
+            room.winnerRecorded = true;
+            room.status = 'finished';
+            const aliveOwners = [...new Set((body.snapshot.units || []).filter(u => u.alive && u.hp > 0).map(u => u.owner))];
+            const winner = aliveOwners[0] || senderSeat || 1;
+            let delta = 0;
+            if (maxP === 2) {
+              const loser = winner === 1 ? 2 : 1;
+              const styleOf = sq => (!sq || sq.length === 1) ? 'Titan' : sq.length === 2 ? 'Twins' : sq.length === 3 ? 'Triad' : sq.length >= 5 ? 'Swarm' : 'Squad';
+              const resElo = recordMatchResult(
+                room.players[winner]?.name || `Player ${winner}`,
+                room.players[loser]?.name || `Player ${loser}`,
+                styleOf(room.squads[winner]),
+                styleOf(room.squads[loser])
+              );
+              delta = resElo.delta;
+            }
+            officialResult = { winner, delta };
+          }
+        }
+        const payload = { ...body, seq: room.seq, officialResult };
+        broadcastRoom(code, 'action', payload, body.clientId || null);
+        return json(res, 200, { ok: true, seq: room.seq, officialResult });
       }
 
       if (actionType === 'rematch') {
         room.squads = {};
         room.status = 'drafting';
+        room.seq = 0;
+        room.state = null;
+        room.winnerRecorded = false;
+        room.activePlayer = null;
         broadcastRoom(code, 'rematch_start', { code, poolHP: room.poolHP, mapId: room.mapId, maxPlayers: room.maxPlayers || 2 });
         return json(res, 200, { ok: true });
       }

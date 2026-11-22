@@ -849,6 +849,7 @@
         <span class="turn-dot" id="turnDot"></span>
         <span id="turnLabel">TURN 1 — PLAYER 1</span>
       </div>
+      <span id="turnTimerBadge" style="display:none; font-family:var(--font-mono); font-size:12px; font-weight:700; padding:4px 9px; border-radius:999px; border:1px solid var(--border); background:#0f131b; color:var(--brass);">60s</span>
       <div class="ap-bar">
         <span>AP</span>
         <div class="ap-pips" id="apPips"></div>
@@ -1389,7 +1390,15 @@
     },
     sendAction(code, payload) {
       if (!this.connected || !code) return;
-      this.post(`/api/rooms/${code}/action`, { ...payload, clientId: this.clientId }).catch(() => {});
+      const snapshot = captureStateSnapshot();
+      this.post(`/api/rooms/${code}/action`, { ...payload, snapshot, clientId: this.clientId })
+        .then(res => {
+          if (res && res.seq) STATE.lastSeq = Math.max(STATE.lastSeq || 0, res.seq);
+          if (res && res.officialResult) checkVictory(res.officialResult);
+        })
+        .catch(err => {
+          addLog(`Sync notice: ${err.message}`, 'sys');
+        });
     },
     requestRematch(code) {
       if (!this.connected || !code) return;
@@ -2283,8 +2292,10 @@
     STATE.floatingTexts = [];
     STATE.vfx = [];
     STATE.lastMove = null;
+    STATE.lastSeq = 0;
     STATE.tutorialStep = null;
     document.getElementById('endTurnBtn').classList.remove('tutorial-pulse');
+    resetTurnTimer();
 
     const firstName = getPlayerName(STATE.firstPlayer);
     document.getElementById('logList').innerHTML = '';
@@ -2554,21 +2565,106 @@
     return r >= ROWS - 3 && c <= 2;
   }
 
+  let turnTimerInterval = null;
+  let turnSecondsLeft = 60;
+  function stopTurnTimer() {
+    clearInterval(turnTimerInterval);
+    turnTimerInterval = null;
+    const el = document.getElementById('turnTimerBadge');
+    if (el) el.style.display = 'none';
+  }
+  function resetTurnTimer() {
+    stopTurnTimer();
+    if (STATE.mode !== 'online' || STATE.gameOver) return;
+    turnSecondsLeft = 60;
+    const el = document.getElementById('turnTimerBadge');
+    if (!el) return;
+    const paint = () => {
+      el.style.display = 'inline-block';
+      el.textContent = `${turnSecondsLeft}s`;
+      el.style.color = turnSecondsLeft <= 10 ? 'var(--crit)' : (turnSecondsLeft <= 15 ? 'var(--warn)' : 'var(--brass)');
+      el.style.borderColor = turnSecondsLeft <= 10 ? 'var(--crit)' : 'var(--border)';
+    };
+    paint();
+    turnTimerInterval = setInterval(() => {
+      if (STATE.mode !== 'online' || STATE.gameOver || !screens.battle.classList.contains('active')) {
+        stopTurnTimer();
+        return;
+      }
+      turnSecondsLeft = Math.max(0, turnSecondsLeft - 1);
+      paint();
+      if (turnSecondsLeft === 0) {
+        stopTurnTimer();
+        if (isMyTurn()) {
+          addLog('Turn timer expired (60s) — auto-ending turn.', 'sys');
+          endTurn();
+        }
+      }
+    }, 1000);
+  }
+
+  function captureStateSnapshot() {
+    return {
+      turn: STATE.turn,
+      activePlayer: STATE.activePlayer,
+      ap: STATE.ap,
+      gameOver: STATE.gameOver,
+      lastMove: STATE.lastMove ? { ...STATE.lastMove } : null,
+      freeDeployActive: { ...STATE.freeDeployActive },
+      actedTurn1: { ...STATE.actedTurn1 },
+      traps: JSON.parse(JSON.stringify(STATE.traps || {})),
+      hands: JSON.parse(JSON.stringify(STATE.hands || {})),
+      decks: JSON.parse(JSON.stringify(STATE.decks || {})),
+      stats: JSON.parse(JSON.stringify(STATE.stats || {})),
+      units: STATE.units.map(u => ({
+        id: u.id, owner: u.owner, hp: u.hp, maxHP: u.maxHP, shield: u.shield,
+        surgeBonus: u.surgeBonus || 0, r: u.r, c: u.c,
+        attacksThisTurn: u.attacksThisTurn, movedThisTurn: u.movedThisTurn,
+        dmgDealt: u.dmgDealt || 0, alive: u.alive
+      }))
+    };
+  }
+
+  function applyAuthoritativeSnapshot(snap) {
+    if (!snap || !Array.isArray(snap.units)) return;
+    STATE.turn = snap.turn;
+    STATE.activePlayer = snap.activePlayer;
+    STATE.ap = snap.ap;
+    STATE.lastMove = snap.lastMove || null;
+    if (snap.freeDeployActive) STATE.freeDeployActive = { ...snap.freeDeployActive };
+    if (snap.actedTurn1) STATE.actedTurn1 = { ...snap.actedTurn1 };
+    if (snap.traps) STATE.traps = JSON.parse(JSON.stringify(snap.traps));
+    if (snap.hands) STATE.hands = JSON.parse(JSON.stringify(snap.hands));
+    if (snap.decks) STATE.decks = JSON.parse(JSON.stringify(snap.decks));
+    if (snap.stats) STATE.stats = JSON.parse(JSON.stringify(snap.stats));
+    snap.units.forEach(su => {
+      const u = STATE.units.find(x => x.id === su.id);
+      if (!u) return;
+      u.hp = su.hp;
+      u.shield = su.shield;
+      u.surgeBonus = su.surgeBonus || 0;
+      u.r = su.r;
+      u.c = su.c;
+      u.attacksThisTurn = su.attacksThisTurn;
+      u.movedThisTurn = su.movedThisTurn;
+      u.dmgDealt = su.dmgDealt || 0;
+      u.alive = su.alive;
+    });
+    if (snap.gameOver && !STATE.gameOver) checkVictory();
+  }
+
   function executeDeploy(unit, r, c, isRemote = false) {
-    if (STATE.mode === 'online' && !isRemote) {
-      NetworkAdapter.sendAction(STATE.roomCode, { type: 'deploy', unitId: unit.id, r, c });
-    }
     unit.r = r; unit.c = c;
     Sound.click();
     addLog(`${unit.name} deploys to (${c + 1},${r + 1}) [0 AP].`, `p${unit.owner}`);
+    if (STATE.mode === 'online' && !isRemote) {
+      NetworkAdapter.sendAction(STATE.roomCode, { type: 'deploy', unitId: unit.id, r, c });
+    }
     renderBattleUI();
   }
 
   function undoLastMove(isRemote = false) {
     if (!STATE.lastMove || STATE.gameOver) return;
-    if (STATE.mode === 'online' && !isRemote) {
-      NetworkAdapter.sendAction(STATE.roomCode, { type: 'undoMove' });
-    }
     const u = STATE.units.find(x => x.id === STATE.lastMove.unitId && x.alive);
     if (u) {
       u.r = STATE.lastMove.prevR;
@@ -2579,6 +2675,9 @@
       addLog(`${u.name} undoes move (+1 AP refunded).`, 'sys');
     }
     STATE.lastMove = null;
+    if (STATE.mode === 'online' && !isRemote) {
+      NetworkAdapter.sendAction(STATE.roomCode, { type: 'undoMove' });
+    }
     renderBattleUI();
   }
 
@@ -2601,9 +2700,6 @@
   }
 
   function executeMove(unit, r, c, isRemote = false) {
-    if (STATE.mode === 'online' && !isRemote) {
-      NetworkAdapter.sendAction(STATE.roomCode, { type: 'move', unitId: unit.id, r, c });
-    }
     STATE.freeDeployActive[unit.owner] = false;
     STATE.lastMove = { unitId: unit.id, prevR: unit.r, prevC: unit.c, prevMoved: unit.movedThisTurn };
     unit.prevR = unit.r; unit.prevC = unit.c;
@@ -2635,6 +2731,9 @@
         }
       }
     }
+    if (STATE.mode === 'online' && !isRemote) {
+      NetworkAdapter.sendAction(STATE.roomCode, { type: 'move', unitId: unit.id, r, c });
+    }
     renderBattleUI();
   }
 
@@ -2648,12 +2747,6 @@
     STATE.actionMode = 'normal';
     STATE.activeCardIndex = null;
     const roll = rollAttack2d6(forcedRoll);
-    if (STATE.mode === 'online' && !isRemote) {
-      NetworkAdapter.sendAction(STATE.roomCode, {
-        type: 'attack', attackerId: attacker.id, targetId: target.id, bonusDmg, forcePierce, label,
-        roll: { d1: roll.d1, d2: roll.d2 }
-      });
-    }
     const prev = previewAttackDamage(attacker, target, bonusDmg, forcePierce || roll.pierce);
     let rolledTotal = Math.max(2, Math.round(prev.total * roll.mult));
 
@@ -2723,6 +2816,7 @@
       if (getWeightClass(attacker.maxHP).id === 'champion') {
         STATE.ap = Math.min(STATE.maxAP + 2, STATE.ap + 1);
         spawnFloat(attacker.r, attacker.c, '+1 AP', '#d4a359');
+        addLog(`${attacker.name} triggers Momentum (+1 AP).`, `p${attacker.owner}`);
       }
     }
 
@@ -2742,20 +2836,24 @@
       STATE.tutorialStep = 3;
     }
     checkVictory();
+    if (STATE.mode === 'online' && !isRemote) {
+      NetworkAdapter.sendAction(STATE.roomCode, {
+        type: 'attack', attackerId: attacker.id, targetId: target.id, bonusDmg, forcePierce, label,
+        roll: { d1: roll.d1, d2: roll.d2 }
+      });
+    }
     renderBattleUI();
   }
 
-  function executeSpecial(unit, target = null, isRemote = false) {
+  function executeSpecial(unit, target = null, isRemote = false, forcedRoll = null) {
     if (STATE.ap < 2) return;
     if ((unit.role === 'striker' || unit.role === 'arcanist') && !canUnitAttack(unit)) return;
     STATE.freeDeployActive[unit.owner] = false;
     STATE.lastMove = null;
     STATE.actionMode = 'normal';
     STATE.activeCardIndex = null;
-    if (STATE.mode === 'online' && !isRemote) {
-      NetworkAdapter.sendAction(STATE.roomCode, { type: 'special', unitId: unit.id, targetId: target ? target.id : null });
-    }
     triggerCounterTrap(unit.owner);
+    let specialRoll = null;
     if (unit.role === 'vanguard') {
       STATE.ap -= 2;
       const gained = Math.min(10, unit.shield + 6) - unit.shield;
@@ -2766,14 +2864,14 @@
       addLog(`${unit.name} activates FORTIFY (+${gained} Shield, ${unit.shield} total).`, `p${unit.owner}`);
     } else if (unit.role === 'striker' && target) {
       const bonus = target.hp < target.maxHP ? 5 : 1;
-      executeAttack(unit, target, bonus, false, 'EXECUTES', true);
-      return;
+      specialRoll = rollAttack2d6(forcedRoll);
+      executeAttack(unit, target, bonus, false, 'EXECUTES', true, specialRoll);
     } else if (unit.role === 'arcanist' && target) {
       if (unit.hp <= 4) return;
       unit.hp -= 4;
       spawnFloat(unit.r, unit.c, '-4 HP', '#fda4af');
-      executeAttack(unit, target, 5, true, 'OVERCHARGES', true);
-      return;
+      specialRoll = rollAttack2d6(forcedRoll);
+      executeAttack(unit, target, 5, true, 'OVERCHARGES', true, specialRoll);
     } else if (unit.role === 'catalyst' && target) {
       if (unit.hp <= 8) return;
       STATE.ap -= 2;
@@ -2789,6 +2887,12 @@
       spawnFloat(target.r, target.c, `+${actual} HP`, '#10b981');
       addLog(`${unit.name} transfuses ${actual} HP into ${target.name}.`, `p${unit.owner}`);
     }
+    if (STATE.mode === 'online' && !isRemote) {
+      NetworkAdapter.sendAction(STATE.roomCode, {
+        type: 'special', unitId: unit.id, targetId: target ? target.id : null,
+        roll: specialRoll ? { d1: specialRoll.d1, d2: specialRoll.d2 } : null
+      });
+    }
     renderBattleUI();
   }
 
@@ -2798,13 +2902,6 @@
     if (!card || !payer || payer.hp <= card.cost) return false;
     STATE.freeDeployActive[payer.owner] = false;
     STATE.lastMove = null;
-    if (STATE.mode === 'online' && !isRemote) {
-      NetworkAdapter.sendAction(STATE.roomCode, {
-        type: 'card', cardIdx, payerId: payer.id,
-        targetUnitId: targetObj && targetObj.id ? targetObj.id : null,
-        targetTile: targetObj && !targetObj.id ? targetObj : null
-      });
-    }
 
     payer.hp -= card.cost;
     if (STATE.stats && STATE.stats[payer.owner]) STATE.stats[payer.owner].blood += card.cost;
@@ -2871,6 +2968,13 @@
       showRollToast('<strong style="color:var(--brass);">STEP 4/4: END TURN</strong><br/>Secret Deflect Trap armed for 0 AP! Press <strong>END TURN [Space]</strong> to watch it spring.', 'var(--brass)');
     }
     checkVictory();
+    if (STATE.mode === 'online' && !isRemote) {
+      NetworkAdapter.sendAction(STATE.roomCode, {
+        type: 'card', cardIdx, cardId: card.id, payerId: payer.id,
+        targetUnitId: targetObj && targetObj.id ? targetObj.id : null,
+        targetTile: targetObj && !targetObj.id ? targetObj : null
+      });
+    }
     renderBattleUI();
     return true;
   }
@@ -2881,14 +2985,14 @@
     STATE.freeDeployActive[STATE.activePlayer] = false;
     clearTimeout(rollToastTimer);
     document.getElementById('rollToast')?.classList.remove('visible');
-    if (STATE.mode === 'online' && !isRemote) {
-      NetworkAdapter.sendAction(STATE.roomCode, { type: 'endTurn' });
-    }
     STATE.units.filter(u => u.alive && u.owner === STATE.activePlayer && STATE.grid[u.r][u.c] === 'rift')
       .forEach(u => {
         applyDamage(u, 3, 'Rift Hazard', true);
       });
-    if (STATE.gameOver) return;
+    if (STATE.gameOver) {
+      if (STATE.mode === 'online' && !isRemote) NetworkAdapter.sendAction(STATE.roomCode, { type: 'endTurn' });
+      return;
+    }
 
     const nPlayers = STATE.playerCount || 2;
     let next = STATE.activePlayer;
@@ -2917,6 +3021,10 @@
     STATE.selectedUnitId = firstAlive ? firstAlive.id : null;
 
     addLog(`— Turn ${STATE.turn}: ${getPlayerName(STATE.activePlayer)} (${STATE.ap} AP) —`, 'sys');
+    if (STATE.mode === 'online' && !isRemote) {
+      NetworkAdapter.sendAction(STATE.roomCode, { type: 'endTurn' });
+    }
+    resetTurnTimer();
     renderBattleUI();
 
     if (STATE.mode === 'tutorial' && STATE.activePlayer === 2 && !STATE.gameOver) {
@@ -2928,40 +3036,55 @@
   }
 
   function handleRemoteAction(msg) {
-    if (STATE.mode !== 'online' || STATE.gameOver) return;
+    if (STATE.mode !== 'online') return;
+    if (msg.seq && msg.seq <= (STATE.lastSeq || 0)) return;
+    if (msg.seq) STATE.lastSeq = msg.seq;
     const byId = id => STATE.units.find(u => u.id === id);
-    if (msg.type === 'deploy') {
-      const u = byId(msg.unitId);
-      if (u) executeDeploy(u, msg.r, msg.c, true);
-    } else if (msg.type === 'undoMove') {
-      undoLastMove(true);
-    } else if (msg.type === 'move') {
-      const u = byId(msg.unitId);
-      if (u) executeMove(u, msg.r, msg.c, true);
-    } else if (msg.type === 'attack') {
-      const a = byId(msg.attackerId), t = byId(msg.targetId);
-      if (a && t) executeAttack(a, t, msg.bonusDmg || 0, !!msg.forcePierce, msg.label || 'attacks', true, msg.roll || null);
-    } else if (msg.type === 'special') {
-      const u = byId(msg.unitId), t = msg.targetId ? byId(msg.targetId) : null;
-      if (u) executeSpecial(u, t, true);
-    } else if (msg.type === 'card') {
-      const p = byId(msg.payerId);
-      const tgt = msg.targetUnitId ? byId(msg.targetUnitId) : msg.targetTile;
-      if (p) playBloodCard(msg.cardIdx, p, tgt, true);
-    } else if (msg.type === 'endTurn') {
-      endTurn(true);
+    if (!STATE.gameOver) {
+      if (msg.type === 'deploy') {
+        const u = byId(msg.unitId);
+        if (u) executeDeploy(u, msg.r, msg.c, true);
+      } else if (msg.type === 'undoMove') {
+        undoLastMove(true);
+      } else if (msg.type === 'move') {
+        const u = byId(msg.unitId);
+        if (u) executeMove(u, msg.r, msg.c, true);
+      } else if (msg.type === 'attack') {
+        const a = byId(msg.attackerId), t = byId(msg.targetId);
+        if (a && t) executeAttack(a, t, msg.bonusDmg || 0, !!msg.forcePierce, msg.label || 'attacks', true, msg.roll || null);
+      } else if (msg.type === 'special') {
+        const u = byId(msg.unitId), t = msg.targetId ? byId(msg.targetId) : null;
+        if (u) executeSpecial(u, t, true, msg.roll || null);
+      } else if (msg.type === 'card') {
+        const p = byId(msg.payerId);
+        const tgt = msg.targetUnitId ? byId(msg.targetUnitId) : msg.targetTile;
+        const hand = STATE.hands[STATE.activePlayer] || [];
+        let idx = msg.cardIdx;
+        if (msg.cardId && (!hand[idx] || hand[idx].id !== msg.cardId)) {
+          const found = hand.findIndex(c => c.id === msg.cardId);
+          if (found !== -1) idx = found;
+        }
+        if (p) playBloodCard(idx, p, tgt, true);
+      } else if (msg.type === 'endTurn') {
+        endTurn(true);
+      }
     }
+    if (msg.snapshot) applyAuthoritativeSnapshot(msg.snapshot);
+    if (msg.officialResult) checkVictory(msg.officialResult);
+    resetTurnTimer();
+    renderBattleUI();
   }
 
-  function checkVictory() {
+  function checkVictory(officialResult = null) {
     const nPlayers = STATE.playerCount || 2;
     const aliveOwners = [];
     for (let o = 1; o <= nPlayers; o++) {
       if (STATE.units.some(u => u.alive && u.owner === o)) aliveOwners.push(o);
     }
-    if (aliveOwners.length > 1) return;
+    if (aliveOwners.length > 1 && !officialResult) return;
     STATE.gameOver = true;
-    const winner = aliveOwners[0] || STATE.activePlayer || 1;
+    stopTurnTimer();
+    const winner = officialResult?.winner || aliveOwners[0] || STATE.activePlayer || 1;
     const wName = getPlayerName(winner);
     const wStyle = classifySquadStyle(STATE.forgeDrafts[winner] || []);
     let deltaText = '';
@@ -2970,7 +3093,9 @@
       deltaText = ` (${nPlayers}-Commander FFA — Unranked.)`;
     } else if (isUnrankedPractice) {
       deltaText = ' (Unranked Practice — ELO unchanged.)';
-    } else if (STATE.mode !== 'online' || STATE.localPlayerNum === 1) {
+    } else if (STATE.mode === 'online') {
+      deltaText = officialResult && officialResult.delta ? ` Official ELO swing: +${officialResult.delta} / -${officialResult.delta}.` : ' Official result synced with server.';
+    } else {
       const loser = winner === 1 ? 2 : 1;
       const res = NetworkAdapter.recordMatch(wName, getPlayerName(loser), wStyle, classifySquadStyle(STATE.forgeDrafts[loser] || []));
       deltaText = ` ELO swing: +${res.delta} / -${res.delta}.`;
@@ -3929,7 +4054,9 @@
     const totals = [];
     for (let o = 1; o <= (STATE.playerCount || 2); o++) {
       const hpSum = STATE.units.filter(u => u.alive && u.owner === o).reduce((s, u) => s + u.hp, 0);
-      totals.push(`P${o} ${hpSum}`);
+      const lbl = getPlayerName(o).slice(0, 8);
+      const youTag = STATE.mode === 'online' && o === STATE.localPlayerNum ? '★' : '';
+      totals.push(`${youTag}${lbl} ${hpSum}`);
     }
     document.getElementById('poolTotalsBadge').textContent = totals.join(' · ') + ' HP';
 
