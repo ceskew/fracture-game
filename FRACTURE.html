@@ -861,6 +861,7 @@
 
     <div class="topbar-actions">
       <span class="turn-pill" id="netStatusPill" style="font-size:11px; padding:4px 10px;">LOCAL MODE</span>
+      <button id="whatsNewBtn" style="position:relative; border-color:rgba(212,163,89,0.45); color:var(--brass);">v3.1 · WHAT'S NEW<span id="whatsNewDot" style="display:none; position:absolute; top:-3px; right:-3px; width:8px; height:8px; border-radius:50%; background:var(--crit); border:1px solid var(--panel);"></span></button>
       <button id="howToPlayBtn">HOW TO PLAY</button>
       <button id="soundBtn">SOUND: OFF</button>
       <button id="newMatchBtn" style="display:none;">NEW MATCH</button>
@@ -1177,6 +1178,18 @@
         <button class="primary" id="tutNextBtn">Next</button>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- WHAT'S NEW / PATCH NOTES OVERLAY -->
+<div class="overlay" id="whatsNewOverlay" style="z-index:55;">
+  <div class="modal" style="max-width:580px; text-align:left; max-height:84vh; display:flex; flex-direction:column;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-shrink:0;">
+      <span id="whatsNewVersionBadge" style="font-family:var(--font-mono); font-size:11px; color:var(--brass); letter-spacing:0.1em;">PATCH NOTES · CURRENT v3.1</span>
+      <button id="whatsNewCloseBtn" style="padding:4px 10px; font-size:11.5px;">Close</button>
+    </div>
+    <h2 style="font-size:20px; margin-bottom:10px; text-align:left; flex-shrink:0;">What's New in FRACTURE</h2>
+    <div id="whatsNewList" style="overflow-y:auto; flex:1; min-height:0; display:flex; flex-direction:column; gap:10px; padding-right:4px;"></div>
   </div>
 </div>
 
@@ -4436,6 +4449,135 @@
       if (!localStorage.getItem(TUT_KEY)) openTutorial(0);
     } catch (_) {}
   });
+
+  /* ============================================================================
+     13. WHAT'S NEW / VERSION CHANGELOG MODAL
+     ============================================================================ */
+  const APP_VERSION = '3.1';
+  const SEEN_VER_KEY = 'fracture_seen_version_v1';
+  const CHANGELOG = [
+    {
+      ver: 'v3.1',
+      tag: 'LATEST',
+      title: 'Online PvP Sync & Turn Timer',
+      items: [
+        'Server-authoritative state snapshot sync, turn-ownership validation, and single-winner ELO adjudication to eliminate PvP desyncs.',
+        'Special attacks (Execute & Overcharge) forward their exact 2d6 rolls; Blood Cards match by card ID.',
+        'Added a 60-second Online PvP turn timer badge that auto-ends the turn on timeout.',
+        'Replaced ambiguous P1/P2 pool labels with commander names (★ marks yours) and added an explicit Momentum (+1 AP) kill log.'
+      ]
+    },
+    {
+      ver: 'v3.0',
+      title: '3 & 4-Player Free-For-All (PvPvP)',
+      items: [
+        'Added 2, 3, and 4-player Free-For-All support across Online PvP, Multi-AI Skirmish, and Local Hotseat.',
+        'Introduced the 8×8 Crossfire Arena with corner deployment zones and 4 team colors (Blue, Crimson, Emerald, Amber).',
+        'Added scaling turn-order compensation (later seats start with +1 Bonus Card and +2/+3/+4 Shield) and N-column post-match stats.'
+      ]
+    },
+    {
+      ver: 'v2.6',
+      title: 'First-Visit Callsign Gate',
+      items: [
+        'Added a Choose Your Callsign welcome modal with a 🎲 Random callsign generator before entering the Lobby.',
+        'Saves your chosen callsign automatically so every player has a unique identity on the live roster and leaderboard.'
+      ]
+    },
+    {
+      ver: 'v2.5',
+      title: 'Live Commanders Online Roster',
+      items: [
+        'Added a real-time Commanders Online panel in the Lobby showing everyone connected and their current status.',
+        'Click any Hosting CODE pill in the online roster to jump straight into that room.'
+      ]
+    },
+    {
+      ver: 'v2.4',
+      title: 'New-Player Polish & Readability',
+      items: [
+        'Set Recruit (Unranked Practice) as the default AI level so practice matches do not alter the ELO leaderboard.',
+        'Brightened move/attack highlights, added numeric AP counter (4/4), clearer attack-limit wording, and enemy hover MOV/RNG stats.',
+        'Prevented board banners/toasts from overlapping tiles, tightened Forge footer spacing, and added a custom favicon.'
+      ]
+    },
+    {
+      ver: 'v2.3',
+      title: '1-Turn Interactive Playable Tutorial',
+      items: [
+        'Added a 30-second hands-on tutorial from the Lobby and How to Play modal that walks through Conduits, 2d6 attacks, and Blood Traps.'
+      ]
+    },
+    {
+      ver: 'v2.2',
+      title: 'Tactical Balance & AI Upgrades',
+      items: [
+        'Opened the Sunken Caldera bridge, capped Fortify at 10 Shield, and enforced 1 move/unit/turn with no move after attacking.',
+        'Upgraded AI to avoid Titan Cleave clustering, fixed Turn-1 shield decay for seat 2, and locked the Blood-Cost hand off-turn.'
+      ]
+    },
+    {
+      ver: 'v2.0',
+      title: 'Secret Traps, Undo Move & Mobile UI',
+      items: [
+        'Added 3 face-down Secret Trap Blood Cards (Deflect, Ambush, Counter-Ward) and Warlord AI trap tactics.',
+        'Added Turn-1 Free Deploy (0 AP), Undo Move [Z], randomized first player with P2 perk, Post-Match Stats & MVP card, and mobile layout.'
+      ]
+    },
+    {
+      ver: 'v1.5',
+      title: '4 Battle Maps, 2d6 Combat & AI Tiers',
+      items: [
+        'Added Timberline Crossing, Obsidian Citadel, Sunken Caldera, and Ruined Sanctuary with Trees, Water, Brush, Conduits, and Rifts.',
+        'Introduced 2d6 RNG combat rolls (Glance / Hit / Heavy / Crit), Recruit/Tactician/Warlord AI tiers, Quick-Start walkthrough, and Rules glossary.'
+      ]
+    },
+    {
+      ver: 'v1.0',
+      title: 'Initial Release — The Fracture Forge',
+      items: [
+        'Launched FRACTURE with the HP-Pool Squad Forge, 4 fighter roles (Vanguard, Striker, Arcanist, Catalyst), HeroClix-style Wound Dials, 4 AP shared turns, Blood-Cost cards, and Online PvP rooms.'
+      ]
+    }
+  ];
+
+  function renderWhatsNew() {
+    const list = document.getElementById('whatsNewList');
+    if (!list) return;
+    list.innerHTML = CHANGELOG.map(entry => `
+      <div style="background:#0f131b; border:1px solid ${entry.tag ? 'var(--brass)' : 'var(--border)'}; border-radius:8px; padding:11px 13px;">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:6px;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-family:var(--font-mono); font-weight:800; font-size:12px; color:var(--brass); background:var(--brass-dim); padding:2px 7px; border-radius:4px;">${entry.ver}</span>
+            <strong style="font-size:13.5px; color:var(--ink);">${entry.title}</strong>
+          </div>
+          ${entry.tag ? `<span style="font-family:var(--font-mono); font-size:10px; font-weight:700; color:#0c0e13; background:var(--brass); padding:2px 6px; border-radius:999px;">${entry.tag}</span>` : ''}
+        </div>
+        <ul style="margin:0; padding-left:18px; color:var(--muted); font-size:12px; line-height:1.48; display:flex; flex-direction:column; gap:4px;">
+          ${entry.items.map(it => `<li>${it}</li>`).join('')}
+        </ul>
+      </div>
+    `).join('');
+  }
+  function openWhatsNew() {
+    renderWhatsNew();
+    document.getElementById('whatsNewOverlay').classList.add('active');
+    document.getElementById('whatsNewDot').style.display = 'none';
+    try { localStorage.setItem(SEEN_VER_KEY, APP_VERSION); } catch (_) {}
+  }
+  function closeWhatsNew() {
+    document.getElementById('whatsNewOverlay').classList.remove('active');
+  }
+  document.getElementById('whatsNewBtn').addEventListener('click', () => { Sound.click(); openWhatsNew(); });
+  document.getElementById('whatsNewCloseBtn').addEventListener('click', () => { Sound.click(); closeWhatsNew(); });
+  document.getElementById('whatsNewOverlay').addEventListener('click', e => {
+    if (e.target.id === 'whatsNewOverlay') closeWhatsNew();
+  });
+  try {
+    if (localStorage.getItem(SEEN_VER_KEY) !== APP_VERSION) {
+      document.getElementById('whatsNewDot').style.display = 'inline-block';
+    }
+  } catch (_) {}
 
   renderLeaderboard();
   let savedCallsign = '';
