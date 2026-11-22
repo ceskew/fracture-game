@@ -987,7 +987,7 @@
           <ul class="pillar-list">
             <li><strong>HP = Currency:</strong> Every point in the agreed pool builds your roster. Weight classes (Swarm, Skirmisher, Champion, Titan) scale stats &amp; passives automatically.</li>
             <li><strong>Shared Action Economy:</strong> Both sides get <strong>4 AP</strong> per turn—Titans cleave and double-strike; Swarms flank with Pack Tactics.</li>
-            <li><strong>Wound Dials:</strong> Like HeroClix, each unit's outer ring shifts across Fresh, Bloodied, and Critical tiers as it takes damage.</li>
+            <li><strong>Wound Dials:</strong> Each unit's outer ring shifts across Fresh, Bloodied, and Critical tiers as it takes damage, dynamically altering its stats.</li>
             <li><strong>Blood-Cost Cards:</strong> Spend 0 AP—pay directly from a unit's HP to teleport, shield, surge, or siphon.</li>
           </ul>
         </div>
@@ -4228,7 +4228,7 @@
       ctx.restore();
     }
 
-    // Draw Units with HeroClix-style radial Wound Dials & Clear Nameplates
+    // Draw Units with radial Wound Dials & Clear Nameplates
     STATE.units.filter(u => u.alive).forEach(u => {
       u.drawX += (u.c - u.drawX) * 0.24;
       u.drawY += (u.r - u.drawY) * 0.24;
@@ -5043,7 +5043,7 @@
     },
     {
       title: '4. 2d6 RNG Hits & Wound Dials',
-      html: `<p style="margin-bottom:8px;">Every attack rolls <strong>2d6</strong> and displays exact damage taken: <strong>2–3 Glance</strong> (65%), <strong>4–9 Hit</strong> (100%), <strong>10–11 Heavy</strong> (125%), and <strong>12 CRIT!</strong> (150% + Armor Pierce).</p><p>Each token's inner ring is a HeroClix-style <strong>Wound Dial</strong>—shifting Green → Amber → Red as its combat stats evolve.</p>`
+      html: `<p style="margin-bottom:8px;">Every attack rolls <strong>2d6</strong> and displays exact damage taken: <strong>2–3 Glance</strong> (65%), <strong>4–9 Hit</strong> (100%), <strong>10–11 Heavy</strong> (125%), and <strong>12 CRIT!</strong> (150% + Armor Pierce).</p><p>Each token's inner ring is a dynamic <strong>Wound Dial</strong>—shifting Green → Amber → Red as its combat stats evolve.</p>`
     },
     {
       title: '5. Blood-Cost Cards & Online PvP',
@@ -5238,7 +5238,7 @@
       ver: 'v1.0',
       title: 'Initial Release — The Fracture Forge',
       items: [
-        'Launched FRACTURE with the HP-Pool Squad Forge, 4 fighter roles (Vanguard, Striker, Arcanist, Catalyst), HeroClix-style Wound Dials, 4 AP shared turns, Blood-Cost cards, and Online PvP rooms.'
+        'Launched FRACTURE with the HP-Pool Squad Forge, 4 fighter roles (Vanguard, Striker, Arcanist, Catalyst), dynamic Wound Dials, 4 AP shared turns, Blood-Cost cards, and Online PvP rooms.'
       ]
     }
   ];
