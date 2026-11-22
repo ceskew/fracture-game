@@ -858,12 +858,13 @@
       </div>
       <button id="undoMoveBtn" disabled>UNDO MOVE [Z]</button>
       <button class="primary" id="endTurnBtn">END TURN [Space]</button>
+      <button id="legendBtn" title="Visual Board & Token Legend [L]" style="border-color:rgba(56,189,248,0.45); color:#7dd3fc;">? LEGEND [L]</button>
     </div>
 
     <div class="topbar-actions">
       <span class="turn-pill" id="netStatusPill" style="font-size:11px; padding:4px 10px;">LOCAL MODE</span>
       <button id="lobbyLbBtn">LEADERBOARD</button>
-      <button id="whatsNewBtn" style="position:relative; border-color:rgba(212,163,89,0.45); color:var(--brass);">v3.3 · WHAT'S NEW<span id="whatsNewDot" style="display:none; position:absolute; top:-3px; right:-3px; width:8px; height:8px; border-radius:50%; background:var(--crit); border:1px solid var(--panel);"></span></button>
+      <button id="whatsNewBtn" style="position:relative; border-color:rgba(212,163,89,0.45); color:var(--brass);">v3.4 · WHAT'S NEW<span id="whatsNewDot" style="display:none; position:absolute; top:-3px; right:-3px; width:8px; height:8px; border-radius:50%; background:var(--crit); border:1px solid var(--panel);"></span></button>
       <button id="howToPlayBtn">HOW TO PLAY</button>
       <button id="soundBtn">SOUND: OFF</button>
       <button id="newMatchBtn" style="display:none;">NEW MATCH</button>
@@ -1205,11 +1206,97 @@
   </div>
 </div>
 
+<!-- VISUAL BOARD & TOKEN LEGEND OVERLAY -->
+<div class="overlay" id="legendOverlay" style="z-index:54;">
+  <div class="modal" style="max-width:660px; text-align:left; max-height:86vh; display:flex; flex-direction:column; padding:20px 22px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; flex-shrink:0;">
+      <span style="font-family:var(--font-mono); font-size:11px; color:#7dd3fc; letter-spacing:0.1em;">VISUAL QUICK-REFERENCE · PRESS [L] ANYTIME</span>
+      <button id="legendCloseBtn" style="padding:4px 10px; font-size:11.5px;">Close [Esc]</button>
+    </div>
+    <h2 style="font-size:19px; margin-bottom:10px; text-align:left; flex-shrink:0;">Board &amp; Token Legend</h2>
+    <div style="overflow-y:auto; flex:1; min-height:0; display:flex; flex-direction:column; gap:12px; padding-right:4px;">
+      <div style="background:#0f131b; border:1px solid var(--border); border-radius:8px; padding:10px 12px;">
+        <div style="font-family:var(--font-mono); font-size:10.5px; color:var(--brass); letter-spacing:0.08em; margin-bottom:6px;">UNIT TOKEN ANATOMY</div>
+        <svg viewBox="0 0 580 128" style="width:100%; height:auto; display:block;">
+          <circle cx="290" cy="60" r="41" fill="none" stroke="#d4a359" stroke-width="2" stroke-dasharray="5 3"/>
+          <circle cx="290" cy="60" r="35" fill="#0e121a" stroke="#38bdf8" stroke-width="2.5"/>
+          <path d="M 290 29 A 31 31 0 1 1 261 72" fill="none" stroke="#10b981" stroke-width="4" stroke-linecap="round"/>
+          <circle cx="280" cy="24" r="3" fill="#d4a359"/>
+          <circle cx="290" cy="22" r="3" fill="#d4a359"/>
+          <circle cx="300" cy="24" r="3" fill="#d4a359"/>
+          <text x="290" y="54" text-anchor="middle" fill="#e8ecf2" font-size="20" font-weight="700">◈</text>
+          <text x="290" y="73" text-anchor="middle" fill="#e8ecf2" font-family="monospace" font-size="11" font-weight="700">42/60</text>
+          <rect x="258" y="96" width="64" height="16" rx="4" fill="#0a0d14" stroke="#38bdf8" stroke-width="1"/>
+          <text x="290" y="107" text-anchor="middle" fill="#e8ecf2" font-family="monospace" font-size="9.5" font-weight="700">AEGIS-01</text>
+          <rect x="314" y="24" width="28" height="15" rx="7" fill="#0c4a6e" stroke="#38bdf8" stroke-width="1"/>
+          <text x="328" y="35" text-anchor="middle" fill="#e0f2fe" font-family="monospace" font-size="9.5" font-weight="700">+6</text>
+          <line x1="185" y1="22" x2="274" y2="22" stroke="#d4a359" stroke-width="1"/>
+          <text x="180" y="20" text-anchor="end" fill="#e8ecf2" font-family="monospace" font-size="10.5" font-weight="700">Weight Pips (1–4)</text>
+          <text x="180" y="32" text-anchor="end" fill="#8b97ad" font-family="sans-serif" font-size="9.5">Swarm · Skirm · Champ · Titan</text>
+          <line x1="185" y1="60" x2="254" y2="60" stroke="#10b981" stroke-width="1"/>
+          <text x="180" y="58" text-anchor="end" fill="#e8ecf2" font-family="monospace" font-size="10.5" font-weight="700">Wound Dial Ring</text>
+          <text x="180" y="70" text-anchor="end" fill="#8b97ad" font-family="sans-serif" font-size="9.5">Green → Amber → Red tiers</text>
+          <line x1="185" y1="104" x2="255" y2="104" stroke="#38bdf8" stroke-width="1"/>
+          <text x="180" y="102" text-anchor="end" fill="#e8ecf2" font-family="monospace" font-size="10.5" font-weight="700">Team Rim &amp; Name</text>
+          <text x="180" y="114" text-anchor="end" fill="#8b97ad" font-family="sans-serif" font-size="9.5">Dashed gold = selected</text>
+          <line x1="345" y1="31" x2="395" y2="31" stroke="#38bdf8" stroke-width="1"/>
+          <text x="400" y="29" text-anchor="start" fill="#e8ecf2" font-family="monospace" font-size="10.5" font-weight="700">Shield (+SHD)</text>
+          <text x="400" y="41" text-anchor="start" fill="#8b97ad" font-family="sans-serif" font-size="9.5">Absorbs first · halves next turn</text>
+          <line x1="328" y1="65" x2="395" y2="65" stroke="#8b97ad" stroke-width="1"/>
+          <text x="400" y="63" text-anchor="start" fill="#e8ecf2" font-family="monospace" font-size="10.5" font-weight="700">Role &amp; HP</text>
+          <text x="400" y="75" text-anchor="start" fill="#8b97ad" font-family="sans-serif" font-size="9.5">◈Tank ▲Melee ✦Ranged ✚Heal</text>
+        </svg>
+      </div>
+      <div style="background:#0f131b; border:1px solid var(--border); border-radius:8px; padding:10px 12px;">
+        <div style="font-family:var(--font-mono); font-size:10.5px; color:var(--brass); letter-spacing:0.08em; margin-bottom:8px;">TERRAIN TILES</div>
+        <div style="display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px; font-size:11.5px;">
+          <div style="display:flex; align-items:center; gap:9px;">
+            <svg width="34" height="34" viewBox="0 0 36 36" style="flex-shrink:0;"><rect x="1" y="1" width="34" height="34" rx="4" fill="#0c1c14" stroke="rgba(34,197,94,0.45)"/><rect x="15.5" y="24" width="5" height="7" fill="#78350f"/><polygon points="18,10 30,26 6,26" fill="#14532d" stroke="#22c55e" stroke-width="1.2"/><polygon points="18,4 26,17 10,17" fill="#15803d" stroke="#4ade80" stroke-width="1.1"/></svg>
+            <div><strong style="color:var(--ink);">Timber Tree</strong><div style="color:var(--muted); font-size:11px;">Impassable · blocks Line of Sight</div></div>
+          </div>
+          <div style="display:flex; align-items:center; gap:9px;">
+            <svg width="34" height="34" viewBox="0 0 36 36" style="flex-shrink:0;"><rect x="1" y="1" width="34" height="34" rx="4" fill="#0a3556" stroke="rgba(56,189,248,0.45)"/><path d="M6 12 Q12 9 18 12 T30 12 M6 19 Q12 16 18 19 T30 19 M6 26 Q12 23 18 26 T30 26" fill="none" stroke="#7dd3fc" stroke-width="1.5"/></svg>
+            <div><strong style="color:var(--ink);">Deep Water</strong><div style="color:var(--muted); font-size:11px;">No walking · ranged shoots across</div></div>
+          </div>
+          <div style="display:flex; align-items:center; gap:9px;">
+            <svg width="34" height="34" viewBox="0 0 36 36" style="flex-shrink:0;"><rect x="1" y="1" width="34" height="34" rx="4" fill="rgba(74,222,128,0.16)" stroke="rgba(134,239,172,0.5)"/><path d="M7 22 A5 5 0 0 1 17 22 M19 22 A5 5 0 0 1 29 22 M12 16 A6 6 0 0 1 24 16" fill="none" stroke="#86efac" stroke-width="1.6"/></svg>
+            <div><strong style="color:var(--ink);">Dense Brush</strong><div style="color:var(--muted); font-size:11px;">Walkable cover · grants +2 ARM</div></div>
+          </div>
+          <div style="display:flex; align-items:center; gap:9px;">
+            <svg width="34" height="34" viewBox="0 0 36 36" style="flex-shrink:0;"><rect x="1" y="1" width="34" height="34" rx="4" fill="rgba(212,163,89,0.12)" stroke="rgba(212,163,89,0.45)"/><polygon points="18,6 30,18 18,30 6,18" fill="none" stroke="#d4a359" stroke-width="1.6"/></svg>
+            <div><strong style="color:var(--ink);">Brass Conduit</strong><div style="color:var(--muted); font-size:11px;">Walkable · +2 ATK &amp; +1 RNG</div></div>
+          </div>
+          <div style="display:flex; align-items:center; gap:9px;">
+            <svg width="34" height="34" viewBox="0 0 36 36" style="flex-shrink:0;"><rect x="4" y="4" width="28" height="28" rx="3" fill="#090b10" stroke="#334155" stroke-width="1.8"/><line x1="9" y1="9" x2="27" y2="27" stroke="rgba(148,163,184,0.35)" stroke-width="1.4"/><line x1="27" y1="9" x2="9" y2="27" stroke="rgba(148,163,184,0.35)" stroke-width="1.4"/></svg>
+            <div><strong style="color:var(--ink);">Obsidian Pillar</strong><div style="color:var(--muted); font-size:11px;">Impassable · blocks Line of Sight</div></div>
+          </div>
+          <div style="display:flex; align-items:center; gap:9px;">
+            <svg width="34" height="34" viewBox="0 0 36 36" style="flex-shrink:0;"><rect x="1" y="1" width="34" height="34" rx="4" fill="rgba(168,85,247,0.15)" stroke="rgba(168,85,247,0.5)"/><circle cx="18" cy="18" r="9" fill="none" stroke="#a855f7" stroke-width="1.6"/></svg>
+            <div><strong style="color:var(--ink);">Rift Hazard</strong><div style="color:var(--muted); font-size:11px;">-3 HP end of turn (+5 if pushed in)</div></div>
+          </div>
+        </div>
+      </div>
+      <div style="background:#0f131b; border:1px solid var(--border); border-radius:8px; padding:10px 12px;">
+        <div style="font-family:var(--font-mono); font-size:10.5px; color:var(--brass); letter-spacing:0.08em; margin-bottom:8px;">BOARD HIGHLIGHTS &amp; 4-AP TURN LOOP</div>
+        <div style="display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:7px; font-size:11.5px; color:var(--muted);">
+          <div style="display:flex; align-items:center; gap:8px;"><span style="width:14px; height:14px; border-radius:3px; background:rgba(56,189,248,0.28); border:1.5px solid #38bdf8; flex-shrink:0;"></span><span><strong style="color:var(--ink);">Teal = Move (1 AP)</strong> · up to MOV tiles</span></div>
+          <div style="display:flex; align-items:center; gap:8px;"><span style="width:14px; height:14px; border-radius:3px; background:rgba(244,63,94,0.36); border:1.5px solid #f43f5e; flex-shrink:0;"></span><span><strong style="color:var(--ink);">Red = Attack (2 AP)</strong> · rolls 2d6</span></div>
+          <div style="display:flex; align-items:center; gap:8px;"><span style="width:14px; height:14px; border-radius:3px; background:rgba(212,163,89,0.22); border:1.5px solid #d4a359; flex-shrink:0;"></span><span><strong style="color:var(--ink);">Gold = Free Deploy (0 AP)</strong> · Turn 1 only</span></div>
+          <div style="display:flex; align-items:center; gap:8px;"><span style="width:14px; height:14px; border-radius:3px; background:rgba(245,158,11,0.3); border:1.5px solid #f59e0b; flex-shrink:0;"></span><span><strong style="color:var(--ink);">Amber/Green = Special (2 AP)</strong> · Role ability</span></div>
+        </div>
+        <div style="margin-top:8px; font-family:var(--font-mono); font-size:11px; color:var(--muted); border-top:1px solid var(--border); padding-top:7px;">
+          <strong style="color:var(--ink);">Blood Cards (Bottom Hand):</strong> 0 AP — pay HP from selected unit · <strong style="color:var(--ink);">Keys:</strong> <code>Z</code> Undo · <code>Esc</code> Cancel · <code>Space</code> End Turn · <code>L</code> Legend
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- WHAT'S NEW / PATCH NOTES OVERLAY -->
 <div class="overlay" id="whatsNewOverlay" style="z-index:55;">
   <div class="modal" style="max-width:580px; text-align:left; max-height:84vh; display:flex; flex-direction:column;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-shrink:0;">
-      <span id="whatsNewVersionBadge" style="font-family:var(--font-mono); font-size:11px; color:var(--brass); letter-spacing:0.1em;">PATCH NOTES · CURRENT v3.3</span>
+      <span id="whatsNewVersionBadge" style="font-family:var(--font-mono); font-size:11px; color:var(--brass); letter-spacing:0.1em;">PATCH NOTES · CURRENT v3.4</span>
       <button id="whatsNewCloseBtn" style="padding:4px 10px; font-size:11.5px;">Close</button>
     </div>
     <h2 style="font-size:20px; margin-bottom:10px; text-align:left; flex-shrink:0;">What's New in FRACTURE</h2>
@@ -2753,6 +2840,41 @@
     return results;
   }
 
+  function getMovePath(unit, targetR, targetC) {
+    const st = computeUnitStats(unit, STATE.grid[unit.r][unit.c]);
+    const startKey = `${unit.r},${unit.c}`;
+    const targetKey = `${targetR},${targetC}`;
+    const parent = new Map([[startKey, null]]);
+    const q = [{ r: unit.r, c: unit.c, d: 0 }];
+    while (q.length) {
+      const cur = q.shift();
+      const curKey = `${cur.r},${cur.c}`;
+      if (curKey === targetKey) {
+        const path = [];
+        let k = targetKey;
+        while (k) {
+          const [rr, cc] = k.split(',').map(Number);
+          path.push({ r: rr, c: cc });
+          k = parent.get(k);
+        }
+        return path.reverse();
+      }
+      if (cur.d >= st.mov) continue;
+      for (const [dr, dc] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+        const nr = cur.r + dr, nc = cur.c + dc;
+        if (nr < 0 || nr >= ROWS || nc < 0 || nc >= COLS) continue;
+        if (isImpassable(STATE.grid[nr][nc])) continue;
+        if (unitAt(nr, nc)) continue;
+        const key = `${nr},${nc}`;
+        if (!parent.has(key)) {
+          parent.set(key, curKey);
+          q.push({ r: nr, c: nc, d: cur.d + 1 });
+        }
+      }
+    }
+    return null;
+  }
+
   function canUnitAttack(unit) {
     const wc = getWeightClass(unit.maxHP);
     const maxAttacks = wc.id === 'titan' ? 2 : 1;
@@ -3931,8 +4053,9 @@
       ctx.restore();
     }
 
-    // Hover outline + Live Line-of-Sight Attack Preview
+    // Hover outline + Live Pathfinding / Line-of-Sight Action Preview
     let hoverPreview = null;
+    let hoverMovePreview = null;
     if (STATE.hoverCell) {
       const { r, c } = STATE.hoverCell;
       ctx.strokeStyle = 'rgba(212, 163, 89, 0.72)';
@@ -3942,19 +4065,57 @@
       const hUnit = unitAt(r, c);
       if (canAct && hUnit) {
         if (STATE.actionMode === 'normal' && attackTargets.includes(hUnit)) {
-          hoverPreview = { target: hUnit, prev: previewAttackDamage(sel, hUnit), color: '#f43f5e' };
+          hoverPreview = { target: hUnit, apTag: '2 AP', prev: previewAttackDamage(sel, hUnit), color: '#f43f5e' };
         } else if (STATE.actionMode === 'special' && specialTargets.includes(hUnit)) {
           const isHeal = sel.role === 'catalyst';
           hoverPreview = {
             target: hUnit,
+            apTag: '2 AP',
             prev: isHeal ? { label: '+8 HP' } : previewAttackDamage(sel, hUnit, sel.role === 'arcanist' ? 3 : (hUnit.hp < hUnit.maxHP ? 5 : 1), false),
             color: isHeal ? '#10b981' : '#f59e0b'
           };
         } else if (STATE.actionMode === 'card' && cardUnits.includes(hUnit)) {
           const card = STATE.hands[STATE.activePlayer][STATE.activeCardIndex];
-          hoverPreview = { target: hUnit, prev: { label: card.id === 'siphon' ? '-6 HP' : 'PUSH' }, color: '#d4a359' };
+          hoverPreview = { target: hUnit, apTag: '0 AP', prev: { label: card.id === 'siphon' ? '-6 HP' : 'PUSH' }, color: '#d4a359' };
+        }
+      } else if (canAct && !hUnit) {
+        if (STATE.actionMode === 'normal' && STATE.freeDeployActive[sel.owner] && isInDeployZone(sel.owner, r, c) && !isImpassable(STATE.grid[r][c])) {
+          hoverMovePreview = { path: [{ r: sel.r, c: sel.c }, { r, c }], label: '0 AP · DEPLOY', color: '#d4a359', r, c };
+        } else if (STATE.actionMode === 'normal' && moveTiles.some(t => t.r === r && t.c === c)) {
+          const path = getMovePath(sel, r, c);
+          if (path && path.length > 1) {
+            const steps = path.length - 1;
+            hoverMovePreview = { path, label: `1 AP · ${steps} ${steps === 1 ? 'TILE' : 'TILES'}`, color: '#38bdf8', r, c };
+          }
+        } else if (STATE.actionMode === 'card' && cardTiles.some(t => t.r === r && t.c === c)) {
+          const card = STATE.hands[STATE.activePlayer][STATE.activeCardIndex];
+          hoverMovePreview = { path: [{ r: sel.r, c: sel.c }, { r, c }], label: `0 AP · -${card.cost} HP`, color: '#d4a359', r, c };
         }
       }
+    }
+
+    if (hoverMovePreview && hoverMovePreview.path.length > 1) {
+      ctx.save();
+      ctx.strokeStyle = hoverMovePreview.color;
+      ctx.lineWidth = 2.6;
+      ctx.setLineDash([6, 4]);
+      ctx.lineDashOffset = -now * 16;
+      ctx.beginPath();
+      hoverMovePreview.path.forEach((pt, idx) => {
+        const px = (pt.c + 0.5) * tileSize, py = (pt.r + 0.5) * tileSize;
+        if (idx === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      });
+      ctx.stroke();
+      ctx.setLineDash([]);
+      hoverMovePreview.path.slice(1).forEach((pt, idx, arr) => {
+        const px = (pt.c + 0.5) * tileSize, py = (pt.r + 0.5) * tileSize;
+        ctx.beginPath();
+        ctx.arc(px, py, idx === arr.length - 1 ? 5.5 : 3.2, 0, Math.PI * 2);
+        ctx.fillStyle = hoverMovePreview.color;
+        ctx.fill();
+      });
+      ctx.restore();
     }
 
     if (hoverPreview && sel) {
@@ -4078,17 +4239,41 @@
       }
     });
 
-    // Inline Damage Preview Pill on Hover
+    // Inline Action & AP Cost Pill on Hover (Move / Deploy / Attack / Special / Card)
+    if (hoverMovePreview) {
+      const tx = (hoverMovePreview.c + 0.5) * tileSize;
+      const ty = hoverMovePreview.r * tileSize + 10;
+      const txt = hoverMovePreview.label;
+      ctx.save();
+      ctx.font = '800 10.5px monospace';
+      const pw = ctx.measureText(txt).width + 12;
+      const px = Math.min(canvas.width - pw - 4, Math.max(4, tx - pw / 2));
+      const py = Math.max(4, ty - 10);
+      drawRoundRect(px, py, pw, 18, 9);
+      ctx.fillStyle = 'rgba(12, 14, 19, 0.94)';
+      ctx.fill();
+      ctx.strokeStyle = hoverMovePreview.color;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      ctx.fillStyle = hoverMovePreview.color;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(txt, px + pw / 2, py + 9.5);
+      ctx.restore();
+    }
     if (hoverPreview) {
       const t = hoverPreview.target;
       const tx = (t.drawX + 0.5) * tileSize;
       const ty = (t.drawY + 0.12) * tileSize;
-      const txt = hoverPreview.prev.label ? hoverPreview.prev.label :
+      const bodyTxt = hoverPreview.prev.label ? hoverPreview.prev.label :
         (hoverPreview.prev.lethal ? `-${hoverPreview.prev.hpDmg} LETHAL` : `-${hoverPreview.prev.hpDmg} HP`);
+      const txt = `${hoverPreview.apTag || '2 AP'} · ${bodyTxt}`;
       ctx.save();
-      ctx.font = '800 11px monospace';
+      ctx.font = '800 10.5px monospace';
       const pw = ctx.measureText(txt).width + 12;
-      drawRoundRect(tx - pw / 2, Math.max(4, ty - 12), pw, 18, 9);
+      const px = Math.min(canvas.width - pw - 4, Math.max(4, tx - pw / 2));
+      const py = Math.max(4, ty - 12);
+      drawRoundRect(px, py, pw, 18, 9);
       ctx.fillStyle = 'rgba(12, 14, 19, 0.94)';
       ctx.fill();
       ctx.strokeStyle = hoverPreview.color;
@@ -4097,7 +4282,7 @@
       ctx.fillStyle = hoverPreview.color;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(txt, tx, Math.max(4, ty - 12) + 9.5);
+      ctx.fillText(txt, px + pw / 2, py + 9.5);
       ctx.restore();
     }
 
@@ -4690,11 +4875,29 @@
     endTurn();
   });
 
+  function toggleLegendOverlay(forceState = null) {
+    const el = document.getElementById('legendOverlay');
+    if (!el) return;
+    const show = forceState !== null ? forceState : !el.classList.contains('active');
+    el.classList.toggle('active', show);
+  }
+  document.getElementById('legendBtn')?.addEventListener('click', () => { Sound.click(); toggleLegendOverlay(); });
+  document.getElementById('legendCloseBtn')?.addEventListener('click', () => { Sound.click(); toggleLegendOverlay(false); });
+  document.getElementById('legendOverlay')?.addEventListener('click', e => {
+    if (e.target.id === 'legendOverlay') toggleLegendOverlay(false);
+  });
+
   // Keyboard shortcuts
   window.addEventListener('keydown', e => {
     if (document.activeElement && ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) return;
+    if (e.code === 'Escape' && document.getElementById('legendOverlay')?.classList.contains('active')) {
+      toggleLegendOverlay(false);
+      return;
+    }
     if (!screens.battle.classList.contains('active')) return;
-    if (e.code === 'Escape') {
+    if (e.code === 'KeyL') {
+      toggleLegendOverlay();
+    } else if (e.code === 'Escape') {
       STATE.actionMode = 'normal';
       STATE.activeCardIndex = null;
       renderBattleUI();
@@ -4820,12 +5023,20 @@
   /* ============================================================================
      13. WHAT'S NEW / VERSION CHANGELOG MODAL
      ============================================================================ */
-  const APP_VERSION = '3.3';
+  const APP_VERSION = '3.4';
   const SEEN_VER_KEY = 'fracture_seen_version_v1';
   const CHANGELOG = [
     {
-      ver: 'v3.3',
+      ver: 'v3.4',
       tag: 'LATEST',
+      title: 'Visual Board Legend & Live Hover Path Previews',
+      items: [
+        'Visual Board & Token Legend (? LEGEND button or L key): One-click visual reference showing Unit Token Anatomy (Weight Pips, Wound Dial ring, Role, HP, Shield), illustrated Terrain Tiles, and Board Highlight / 4-AP Turn Loop keys.',
+        'Live Hover Pathfinding & AP Badges: Hovering any reachable tile draws the exact animated dotted route around obstacles with a 1 AP · N TILES badge (or 0 AP · DEPLOY on Turn 1), and attack/special/card hover pills now display their AP cost (2 AP / 0 AP) inline.'
+      ]
+    },
+    {
+      ver: 'v3.3',
       title: 'Online Reconnects, Combat Clarity & UI Polish',
       items: [
         'PvP Slot Reservation & Reconnect: Going Back to Lobby during Forge holds your seat so you can rejoin seamlessly; explicit Leave Room cleanly frees waiting/drafting seats.',
