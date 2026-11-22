@@ -108,6 +108,25 @@ function broadcastRoom(roomCode, event, payload, excludeClientId = null) {
   }
 }
 
+function getOnlinePlayersSummary() {
+  const list = [];
+  for (const [id, c] of clients.entries()) {
+    const room = c.roomCode ? rooms.get(c.roomCode) : null;
+    const status = room
+      ? (room.status === 'waiting' ? `Hosting ${c.roomCode}` : `In Match ${c.roomCode}`)
+      : 'In Lobby';
+    list.push({ id, name: c.name || 'Commander', status, roomCode: c.roomCode || null, joinable: Boolean(room && room.status === 'waiting') });
+  }
+  return list;
+}
+
+function broadcastPresence() {
+  broadcastAll('presence_update', {
+    playersOnline: clients.size,
+    onlinePlayers: getOnlinePlayersSummary()
+  });
+}
+
 function getOpenRoomsSummary() {
   const list = [];
   const now = Date.now();
@@ -205,14 +224,17 @@ const server = http.createServer(async (req, res) => {
     });
     res.write(': connected\n\n');
 
-    clients.set(clientId, { res, roomCode, name: url.searchParams.get('name') || 'Commander' });
+    const cleanName = String(url.searchParams.get('name') || 'Commander').trim().slice(0, 18) || 'Commander';
+    clients.set(clientId, { res, roomCode, name: cleanName });
     sendSSE(res, 'hello', {
       clientId,
       playersOnline: clients.size,
+      onlinePlayers: getOnlinePlayersSummary(),
       rooms: getOpenRoomsSummary(),
       leaderboard,
       globalChat
     });
+    broadcastPresence();
 
     const keepAlive = setInterval(() => {
       try { res.write(': ping\n\n'); } catch (_) {}
@@ -228,11 +250,22 @@ const server = http.createServer(async (req, res) => {
           broadcastRoom(entry.roomCode, 'opponent_left', { name: entry.name }, clientId);
         }
       }
+      broadcastPresence();
     });
     return;
   }
 
   try {
+    // Live Presence Name Update API
+    if (req.method === 'POST' && pathname === '/api/presence') {
+      const { clientId, name } = await readBody(req);
+      if (clientId && clients.has(clientId)) {
+        clients.get(clientId).name = String(name || 'Commander').trim().slice(0, 18) || 'Commander';
+        broadcastPresence();
+      }
+      return json(res, 200, { ok: true, onlinePlayers: getOnlinePlayersSummary() });
+    }
+
     // Leaderboard API
     if (req.method === 'GET' && pathname === '/api/leaderboard') {
       return json(res, 200, { board: leaderboard });
@@ -303,6 +336,7 @@ const server = http.createServer(async (req, res) => {
         clients.get(clientId).name = cleanHost;
       }
       broadcastAll('rooms_update', { rooms: getOpenRoomsSummary() });
+      broadcastPresence();
       return json(res, 200, { code, playerNum: 1, poolHP: cleanPool, mapId: cleanMap, hostName: cleanHost });
     }
 
@@ -326,6 +360,7 @@ const server = http.createServer(async (req, res) => {
           clients.get(body.clientId).name = cleanGuest;
         }
         broadcastAll('rooms_update', { rooms: getOpenRoomsSummary() });
+        broadcastPresence();
         broadcastRoom(code, 'room_joined', {
           code,
           poolHP: room.poolHP,

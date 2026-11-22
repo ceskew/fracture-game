@@ -968,6 +968,15 @@
             <li><strong>Blood-Cost Cards:</strong> Spend 0 AP—pay directly from a unit's HP to teleport, shield, surge, or siphon.</li>
           </ul>
         </div>
+        <div style="margin-top:12px;">
+          <h3 style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+            <span>Commanders Online</span>
+            <span id="onlineCountBadge" style="color:var(--good); font-size:11px;">CHECKING...</span>
+          </h3>
+          <div id="onlinePlayersList" style="display:flex; flex-wrap:wrap; gap:5px; max-height:76px; overflow-y:auto;">
+            <span style="font-family:var(--font-mono); font-size:11px; color:var(--muted);">Connecting...</span>
+          </div>
+        </div>
         <div class="net-badge" id="lobbyNetBadge">
           Checking server connection...
         </div>
@@ -1177,16 +1186,19 @@
     es: null,
     cachedBoard: null,
     openRooms: [],
+    onlinePlayers: [],
     init() {
       if (!this.isServer) {
         this.updateStatusUI();
+        renderOnlinePlayers();
         return;
       }
       this.connectStream();
     },
     connectStream(roomCode = null) {
       if (this.es) { try { this.es.close(); } catch (_) {} }
-      const q = new URLSearchParams({ clientId: this.clientId });
+      const myName = document.getElementById('playerNameInput')?.value.trim() || 'Commander';
+      const q = new URLSearchParams({ clientId: this.clientId, name: myName });
       if (roomCode) q.set('room', roomCode);
       const es = new EventSource(`/api/stream?${q.toString()}`);
       this.es = es;
@@ -1195,9 +1207,17 @@
         this.connected = true;
         this.cachedBoard = data.leaderboard || this.cachedBoard;
         this.openRooms = data.rooms || [];
+        this.onlinePlayers = data.onlinePlayers || [];
         this.updateStatusUI(data.playersOnline);
         renderLeaderboard();
         renderOpenRooms();
+        renderOnlinePlayers();
+      });
+      es.addEventListener('presence_update', e => {
+        const data = JSON.parse(e.data);
+        this.onlinePlayers = data.onlinePlayers || [];
+        this.updateStatusUI(data.playersOnline);
+        renderOnlinePlayers();
       });
       es.addEventListener('leaderboard_update', e => {
         const data = JSON.parse(e.data);
@@ -1264,7 +1284,12 @@
       es.onerror = () => {
         this.connected = false;
         this.updateStatusUI();
+        renderOnlinePlayers();
       };
+    },
+    updatePresenceName(name) {
+      if (!this.connected) return;
+      this.post('/api/presence', { clientId: this.clientId, name }).catch(() => {});
     },
     updateStatusUI(onlineCount = 1) {
       const pill = document.getElementById('netStatusPill');
@@ -1652,6 +1677,39 @@
   }
   poolSlider.addEventListener('input', e => setPool(e.target.value));
   poolPresetBtns.forEach(b => b.addEventListener('click', () => { Sound.click(); setPool(b.dataset.pool); }));
+
+  let presenceTimer = null;
+  document.getElementById('playerNameInput').addEventListener('input', e => {
+    clearTimeout(presenceTimer);
+    const val = e.target.value.trim() || 'Commander';
+    presenceTimer = setTimeout(() => NetworkAdapter.updatePresenceName(val), 400);
+  });
+
+  function renderOnlinePlayers() {
+    const box = document.getElementById('onlinePlayersList');
+    const badge = document.getElementById('onlineCountBadge');
+    if (!box) return;
+    if (!NetworkAdapter.connected) {
+      if (badge) { badge.textContent = 'LOCAL'; badge.style.color = 'var(--muted)'; }
+      box.innerHTML = '<span style="font-family:var(--font-mono); font-size:11px; color:var(--muted);">Local mode — open on server to see live commanders.</span>';
+      return;
+    }
+    const list = NetworkAdapter.onlinePlayers || [];
+    if (badge) { badge.textContent = `${list.length} LIVE`; badge.style.color = 'var(--good)'; }
+    box.innerHTML = '';
+    list.forEach(p => {
+      const isMe = p.id === NetworkAdapter.clientId;
+      const el = document.createElement(p.joinable && !isMe ? 'button' : 'span');
+      el.style.cssText = 'display:inline-flex; align-items:center; gap:5px; padding:3px 7px; border-radius:999px; font-family:var(--font-mono); font-size:10.5px; background:#151b26; border:1px solid ' + (p.joinable && !isMe ? 'var(--brass)' : 'var(--border)') + '; color:var(--ink);';
+      const dotColor = p.joinable ? 'var(--brass)' : 'var(--good)';
+      el.innerHTML = `<span style="width:6px; height:6px; border-radius:50%; background:${dotColor};"></span><strong>${p.name}</strong>${isMe ? '<span style="color:var(--p1);">(you)</span>' : ''}<span style="color:var(--muted);">· ${p.status}</span>`;
+      if (p.joinable && !isMe && p.roomCode) {
+        el.title = `Click to join ${p.name}'s room ${p.roomCode}`;
+        el.addEventListener('click', () => joinOnlineRoom(p.roomCode));
+      }
+      box.appendChild(el);
+    });
+  }
 
   function renderOpenRooms() {
     const box = document.getElementById('openRoomsList');
