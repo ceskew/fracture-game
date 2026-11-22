@@ -108,12 +108,22 @@ function broadcastRoom(roomCode, event, payload, excludeClientId = null) {
   }
 }
 
+function getRoomPlayerNames(room) {
+  const names = {};
+  for (let i = 1; i <= (room.maxPlayers || 2); i++) {
+    if (room.players[i]) names[i] = room.players[i].name;
+  }
+  return names;
+}
+
 function getOnlinePlayersSummary() {
   const list = [];
   for (const [id, c] of clients.entries()) {
     const room = c.roomCode ? rooms.get(c.roomCode) : null;
+    const joined = room ? Object.values(room.players).filter(Boolean).length : 0;
+    const maxP = room ? (room.maxPlayers || 2) : 2;
     const status = room
-      ? (room.status === 'waiting' ? `Hosting ${c.roomCode}` : `In Match ${c.roomCode}`)
+      ? (room.status === 'waiting' ? `Hosting ${c.roomCode} (${joined}/${maxP})` : `In Match ${c.roomCode}`)
       : 'In Lobby';
     list.push({ id, name: c.name || 'Commander', status, roomCode: c.roomCode || null, joinable: Boolean(room && room.status === 'waiting') });
   }
@@ -137,10 +147,13 @@ function getOpenRoomsSummary() {
       continue;
     }
     if (room.status === 'waiting') {
+      const joinedCount = Object.values(room.players).filter(Boolean).length;
       list.push({
         code,
         hostName: room.players[1]?.name || 'Host',
-        poolHP: room.poolHP
+        poolHP: room.poolHP,
+        maxPlayers: room.maxPlayers || 2,
+        joinedCount
       });
     }
   }
@@ -246,7 +259,7 @@ const server = http.createServer(async (req, res) => {
       clients.delete(clientId);
       if (entry && entry.roomCode && rooms.has(entry.roomCode)) {
         const room = rooms.get(entry.roomCode);
-        if (room.players[1]?.clientId === clientId || room.players[2]?.clientId === clientId) {
+        if (Object.values(room.players).some(p => p && p.clientId === clientId)) {
           broadcastRoom(entry.roomCode, 'opponent_left', { name: entry.name }, clientId);
         }
       }
@@ -315,18 +328,20 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { rooms: getOpenRoomsSummary() });
     }
     if (req.method === 'POST' && pathname === '/api/rooms') {
-      const { hostName, poolHP, mapId, clientId } = await readBody(req);
+      const { hostName, poolHP, mapId, maxPlayers, clientId } = await readBody(req);
       const code = generateRoomCode();
       const cleanHost = String(hostName || 'Commander').trim().slice(0, 20);
       const cleanPool = Math.max(40, Math.min(240, Number(poolHP) || 100));
-      const cleanMap = String(mapId || 'timberline').slice(0, 24);
+      const cleanMax = Math.max(2, Math.min(4, Number(maxPlayers) || 2));
+      const cleanMap = cleanMax > 2 ? 'crossfire' : String(mapId || 'timberline').slice(0, 24);
       const room = {
         code,
         poolHP: cleanPool,
         mapId: cleanMap,
+        maxPlayers: cleanMax,
         status: 'waiting', // waiting -> drafting -> battle
-        players: { 1: { name: cleanHost, clientId }, 2: null },
-        squads: { 1: null, 2: null },
+        players: { 1: { name: cleanHost, clientId } },
+        squads: {},
         chat: [],
         createdAt: Date.now()
       };
@@ -337,7 +352,7 @@ const server = http.createServer(async (req, res) => {
       }
       broadcastAll('rooms_update', { rooms: getOpenRoomsSummary() });
       broadcastPresence();
-      return json(res, 200, { code, playerNum: 1, poolHP: cleanPool, mapId: cleanMap, hostName: cleanHost });
+      return json(res, 200, { code, playerNum: 1, poolHP: cleanPool, mapId: cleanMap, maxPlayers: cleanMax, hostName: cleanHost });
     }
 
     const roomMatch = pathname.match(/^\/api\/rooms\/([A-Za-z0-9]{4})\/(join|squad|action|rematch)$/);
@@ -349,38 +364,62 @@ const server = http.createServer(async (req, res) => {
       const body = await readBody(req);
 
       if (actionType === 'join') {
-        if (room.status !== 'waiting' || room.players[2]) {
+        const maxP = room.maxPlayers || 2;
+        let seatNum = null;
+        for (let i = 1; i <= maxP; i++) {
+          if (!room.players[i]) { seatNum = i; break; }
+        }
+        if (room.status !== 'waiting' || !seatNum) {
           return json(res, 409, { error: 'Room is already full' });
         }
         const cleanGuest = String(body.playerName || 'Challenger').trim().slice(0, 20);
-        room.players[2] = { name: cleanGuest, clientId: body.clientId };
-        room.status = 'drafting';
+        room.players[seatNum] = { name: cleanGuest, clientId: body.clientId };
+        const joinedCount = Object.values(room.players).filter(Boolean).length;
+        const allJoined = joinedCount >= maxP;
+        if (allJoined) room.status = 'drafting';
         if (body.clientId && clients.has(body.clientId)) {
           clients.get(body.clientId).roomCode = code;
           clients.get(body.clientId).name = cleanGuest;
         }
+        const playerNames = getRoomPlayerNames(room);
         broadcastAll('rooms_update', { rooms: getOpenRoomsSummary() });
         broadcastPresence();
-        broadcastRoom(code, 'room_joined', {
-          code,
-          poolHP: room.poolHP,
-          mapId: room.mapId,
-          p1Name: room.players[1].name,
-          p2Name: cleanGuest
-        });
+        if (allJoined) {
+          broadcastRoom(code, 'room_joined', {
+            code,
+            poolHP: room.poolHP,
+            mapId: room.mapId,
+            maxPlayers: maxP,
+            playerNames,
+            p1Name: playerNames[1] || 'Player 1',
+            p2Name: playerNames[2] || 'Player 2'
+          });
+        } else {
+          broadcastRoom(code, 'room_waiting', {
+            code,
+            joinedCount,
+            maxPlayers: maxP,
+            playerNames
+          });
+        }
         return json(res, 200, {
           code,
-          playerNum: 2,
+          playerNum: seatNum,
           poolHP: room.poolHP,
           mapId: room.mapId,
-          p1Name: room.players[1].name,
-          p2Name: cleanGuest
+          maxPlayers: maxP,
+          joinedCount,
+          allJoined,
+          playerNames,
+          p1Name: playerNames[1] || 'Player 1',
+          p2Name: playerNames[2] || 'Player 2'
         });
       }
 
       if (actionType === 'squad') {
+        const maxP = room.maxPlayers || 2;
         const pNum = Number(body.playerNum);
-        if ((pNum !== 1 && pNum !== 2) || !Array.isArray(body.squad)) {
+        if (pNum < 1 || pNum > maxP || !Array.isArray(body.squad)) {
           return json(res, 400, { error: 'Invalid squad submission' });
         }
         const total = body.squad.reduce((s, u) => s + Number(u.maxHP || 0), 0);
@@ -388,22 +427,27 @@ const server = http.createServer(async (req, res) => {
           return json(res, 400, { error: `Squad HP (${total}) must equal agreed pool (${room.poolHP})` });
         }
         room.squads[pNum] = body.squad;
-        broadcastRoom(code, 'squad_ready', { playerNum: pNum });
+        const readyCount = Object.values(room.squads).filter(Boolean).length;
+        const allReady = readyCount >= maxP;
+        broadcastRoom(code, 'squad_ready', { playerNum: pNum, readyCount, maxPlayers: maxP });
 
-        if (room.squads[1] && room.squads[2]) {
+        if (allReady) {
           room.status = 'battle';
           const seed = Math.floor(Math.random() * 1e9);
+          const playerNames = getRoomPlayerNames(room);
           broadcastRoom(code, 'battle_start', {
             code,
             poolHP: room.poolHP,
             mapId: room.mapId,
-            p1Name: room.players[1].name,
-            p2Name: room.players[2].name,
+            maxPlayers: maxP,
+            playerNames,
+            p1Name: playerNames[1] || 'Player 1',
+            p2Name: playerNames[2] || 'Player 2',
             squads: room.squads,
             seed
           });
         }
-        return json(res, 200, { ok: true, bothReady: Boolean(room.squads[1] && room.squads[2]) });
+        return json(res, 200, { ok: true, bothReady: allReady, readyCount, maxPlayers: maxP });
       }
 
       if (actionType === 'action') {
@@ -412,9 +456,9 @@ const server = http.createServer(async (req, res) => {
       }
 
       if (actionType === 'rematch') {
-        room.squads = { 1: null, 2: null };
+        room.squads = {};
         room.status = 'drafting';
-        broadcastRoom(code, 'rematch_start', { code, poolHP: room.poolHP, mapId: room.mapId });
+        broadcastRoom(code, 'rematch_start', { code, poolHP: room.poolHP, mapId: room.mapId, maxPlayers: room.maxPlayers || 2 });
         return json(res, 200, { ok: true });
       }
     }

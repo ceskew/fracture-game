@@ -20,6 +20,8 @@
     --p1-dim: rgba(56, 189, 248, 0.18);
     --p2: #f43f5e;
     --p2-dim: rgba(244, 63, 94, 0.18);
+    --p3: #10b981;
+    --p4: #f59e0b;
     --good: #10b981;
     --warn: #f59e0b;
     --crit: #ef4444;
@@ -748,6 +750,8 @@
   }
   .log-entry.p1 { border-left-color: var(--p1); }
   .log-entry.p2 { border-left-color: var(--p2); }
+  .log-entry.p3 { border-left-color: var(--p3); }
+  .log-entry.p4 { border-left-color: var(--p4); }
   .log-entry.chat { border-left-color: var(--brass); background: rgba(212, 163, 89, 0.08); }
   .log-entry.sys { border-left-color: var(--muted); color: var(--muted); font-family: var(--font-mono); font-size: 11px; }
 
@@ -877,12 +881,24 @@
         </div>
 
         <div class="form-group">
-          <label class="form-label">Battle Mode</label>
-          <select id="modeSelect" style="width:100%;">
-            <option value="ai">Skirmish vs Tactical AI</option>
-            <option value="online">Online PvP (Room Code / Live Match)</option>
-            <option value="hotseat">Local 2-Player Hotseat (Secret Forge)</option>
-          </select>
+          <div style="display:grid; grid-template-columns: 1.35fr 1fr; gap:8px;">
+            <div>
+              <label class="form-label">Battle Mode</label>
+              <select id="modeSelect" style="width:100%;">
+                <option value="ai">Skirmish vs Tactical AI</option>
+                <option value="online">Online PvP (Room Code)</option>
+                <option value="hotseat">Local Hotseat (Secret Forge)</option>
+              </select>
+            </div>
+            <div>
+              <label class="form-label">Commanders</label>
+              <select id="playerCountSelect" style="width:100%;">
+                <option value="2" selected>2 Players (1v1)</option>
+                <option value="3">3 Players (PvPvP)</option>
+                <option value="4">4 Players (FFA)</option>
+              </select>
+            </div>
+          </div>
         </div>
 
         <div class="form-group" id="aiDoctrineGroup">
@@ -915,6 +931,7 @@
             <option value="citadel">Obsidian Citadel (Classic Pillars, Conduits &amp; Rifts)</option>
             <option value="caldera">Sunken Caldera (Water Chasms, Pillars &amp; Chokepoints)</option>
             <option value="sanctuary">Ruined Sanctuary (Forest Courtyard, Pools &amp; Cover)</option>
+            <option value="crossfire">Crossfire Arena (8×8 — 3–4 Player Free-For-All)</option>
           </select>
         </div>
 
@@ -1249,14 +1266,28 @@
         this.openRooms = data.rooms || [];
         renderOpenRooms();
       });
+      es.addEventListener('room_waiting', e => {
+        const data = JSON.parse(e.data);
+        const names = Object.values(data.playerNames || {}).join(', ');
+        const status = document.getElementById('onlineStatusBox');
+        if (status) {
+          status.innerHTML = `Room <strong style="color:var(--brass);">${data.code}</strong>: ${data.joinedCount}/${data.maxPlayers} joined (${names}) — waiting for more commanders...`;
+          status.style.color = 'var(--good)';
+        }
+        if (document.getElementById('modalOverlay').classList.contains('active')) {
+          showModal(`ROOM ${data.code} — WAITING (${data.joinedCount}/${data.maxPlayers})`, `Joined: ${names}. Waiting for remaining commanders to join...`, []);
+        }
+      });
       es.addEventListener('room_joined', e => {
         const data = JSON.parse(e.data);
         STATE.mode = 'online';
         STATE.roomCode = data.code;
         STATE.poolHP = data.poolHP;
+        STATE.playerCount = data.maxPlayers || 2;
         if (data.mapId && MAPS[data.mapId]) STATE.mapId = data.mapId;
-        STATE.p1Name = data.p1Name;
-        STATE.p2Name = data.p2Name;
+        STATE.playerNames = data.playerNames || { 1: data.p1Name, 2: data.p2Name };
+        STATE.p1Name = STATE.playerNames[1] || data.p1Name;
+        STATE.p2Name = STATE.playerNames[2] || data.p2Name;
         applySplitPreset(3, STATE.localPlayerNum);
         hideModal();
         openForgeFor(STATE.localPlayerNum);
@@ -1265,7 +1296,7 @@
         const data = JSON.parse(e.data);
         if (data.playerNum !== STATE.localPlayerNum) {
           const el = document.getElementById('forgeSummary');
-          if (el) el.textContent = 'Opponent locked their secret squad — waiting on you!';
+          if (el) el.textContent = `${data.readyCount || 1}/${data.maxPlayers || STATE.playerCount} squads locked — waiting on remaining commanders!`;
         }
       });
       es.addEventListener('battle_start', e => {
@@ -1273,11 +1304,14 @@
         STATE.mode = 'online';
         STATE.roomCode = data.code;
         STATE.poolHP = data.poolHP;
+        STATE.playerCount = data.maxPlayers || 2;
         if (data.mapId && MAPS[data.mapId]) STATE.mapId = data.mapId;
-        STATE.p1Name = data.p1Name;
-        STATE.p2Name = data.p2Name;
-        STATE.forgeDrafts[1] = data.squads[1];
-        STATE.forgeDrafts[2] = data.squads[2];
+        STATE.playerNames = data.playerNames || { 1: data.p1Name, 2: data.p2Name };
+        STATE.p1Name = STATE.playerNames[1] || data.p1Name;
+        STATE.p2Name = STATE.playerNames[2] || data.p2Name;
+        for (let i = 1; i <= STATE.playerCount; i++) {
+          STATE.forgeDrafts[i] = data.squads[i];
+        }
         STATE.onlineSeed = data.seed;
         hideModal();
         startBattle();
@@ -1297,6 +1331,7 @@
       es.addEventListener('rematch_start', e => {
         const data = JSON.parse(e.data);
         STATE.poolHP = data.poolHP;
+        STATE.playerCount = data.maxPlayers || STATE.playerCount || 2;
         applySplitPreset(3, STATE.localPlayerNum);
         hideModal();
         openForgeFor(STATE.localPlayerNum);
@@ -1338,8 +1373,8 @@
       if (!res.ok) throw new Error(data.error || 'Request failed');
       return data;
     },
-    async createRoom(hostName, poolHP, mapId) {
-      const data = await this.post('/api/rooms', { hostName, poolHP, mapId, clientId: this.clientId });
+    async createRoom(hostName, poolHP, mapId, maxPlayers = 2) {
+      const data = await this.post('/api/rooms', { hostName, poolHP, mapId, maxPlayers, clientId: this.clientId });
       this.connectStream(data.code);
       return data;
     },
@@ -1557,6 +1592,16 @@
       brush: [[1, 3], [4, 4], [2, 2], [3, 5]],
       conduits: [[2, 4], [3, 3]],
       rifts: []
+    },
+    crossfire: {
+      name: 'Crossfire Arena (8×8)',
+      cols: 8, rows: 8,
+      conduits: [[3, 3], [4, 4]],
+      brush: [[3, 4], [4, 3], [2, 3], [5, 4], [3, 2], [4, 5]],
+      pillars: [[2, 2], [2, 5], [5, 2], [5, 5]],
+      water: [[0, 3], [0, 4], [7, 3], [7, 4]],
+      trees: [[3, 0], [4, 7]],
+      rifts: []
     }
   };
 
@@ -1625,9 +1670,17 @@
   /* ============================================================================
      4. APPLICATION STATE
      ============================================================================ */
-  const COLS = 8, ROWS = 6;
+  let COLS = 8, ROWS = 6;
+  const PLAYER_COLORS = { 1: '#38bdf8', 2: '#f43f5e', 3: '#10b981', 4: '#f59e0b' };
+  const PLAYER_VARS = { 1: 'var(--p1)', 2: 'var(--p2)', 3: 'var(--p3)', 4: 'var(--p4)' };
+  function getPlayerColor(owner) { return PLAYER_COLORS[owner] || '#38bdf8'; }
+  function getPlayerVar(owner) { return PLAYER_VARS[owner] || 'var(--p1)'; }
+  function getPlayerName(owner) { return STATE.playerNames?.[owner] || (owner === 1 ? STATE.p1Name : (owner === 2 ? STATE.p2Name : `Player ${owner}`)); }
+  function isAIPlayer(owner) { return STATE.mode === 'ai' && owner >= 2; }
+
   const STATE = {
     mode: 'ai',
+    playerCount: 2,
     mapId: 'timberline',
     localPlayerNum: 1,
     roomCode: null,
@@ -1635,10 +1688,11 @@
     poolHP: 100,
     p1Name: 'Commander',
     p2Name: 'AI Commander',
+    playerNames: { 1: 'Commander', 2: 'AI Commander', 3: 'Player 3', 4: 'Player 4' },
     aiDoctrine: 'random',
     aiDifficulty: 'easy',
     forgeOwner: 1,
-    forgeDrafts: { 1: [], 2: [] },
+    forgeDrafts: { 1: [], 2: [], 3: [], 4: [] },
     // Battle state
     grid: [],
     units: [],
@@ -1649,12 +1703,13 @@
     selectedUnitId: null,
     actionMode: 'normal', // 'normal' | 'special' | 'card'
     activeCardIndex: null,
-    decks: { 1: [], 2: [] },
-    hands: { 1: [], 2: [] },
-    traps: { 1: [], 2: [] },
+    decks: { 1: [], 2: [], 3: [], 4: [] },
+    hands: { 1: [], 2: [], 3: [], 4: [] },
+    traps: { 1: [], 2: [], 3: [], 4: [] },
     firstPlayer: 1,
+    actedTurn1: {},
     lastMove: null,
-    freeDeployActive: { 1: true, 2: true },
+    freeDeployActive: { 1: true, 2: true, 3: true, 4: true },
     hoverCell: null,
     floatingTexts: [],
     vfx: [],
@@ -1748,7 +1803,8 @@
     NetworkAdapter.openRooms.forEach(rm => {
       const b = document.createElement('button');
       b.style.cssText = 'display:flex; justify-content:space-between; width:100%; font-family:var(--font-mono); font-size:11.5px; padding:5px 8px;';
-      b.innerHTML = `<span><strong>${rm.code}</strong> · ${rm.hostName}</span><span style="color:var(--brass);">${rm.poolHP} HP · JOIN</span>`;
+      const seats = rm.maxPlayers > 2 ? ` · ${rm.joinedCount || 1}/${rm.maxPlayers}P` : '';
+      b.innerHTML = `<span><strong>${rm.code}</strong> · ${rm.hostName}</span><span style="color:var(--brass);">${rm.poolHP} HP${seats} · JOIN</span>`;
       b.addEventListener('click', () => joinOnlineRoom(rm.code));
       box.appendChild(b);
     });
@@ -1764,15 +1820,23 @@
     try {
       Sound.click();
       const name = document.getElementById('playerNameInput').value.trim() || 'Challenger';
-      STATE.localPlayerNum = 2;
       const data = await NetworkAdapter.joinRoom(code, name);
       STATE.mode = 'online';
+      STATE.localPlayerNum = data.playerNum || 2;
+      STATE.playerCount = data.maxPlayers || 2;
       STATE.roomCode = data.code;
       STATE.poolHP = data.poolHP;
-      STATE.p1Name = data.p1Name;
-      STATE.p2Name = data.p2Name;
-      applySplitPreset(3, 2);
-      openForgeFor(2);
+      if (data.mapId && MAPS[data.mapId]) STATE.mapId = data.mapId;
+      STATE.playerNames = data.playerNames || { 1: data.p1Name, 2: data.p2Name };
+      STATE.p1Name = STATE.playerNames[1] || data.p1Name;
+      STATE.p2Name = STATE.playerNames[2] || data.p2Name;
+      if (data.allJoined !== false) {
+        applySplitPreset(3, STATE.localPlayerNum);
+        openForgeFor(STATE.localPlayerNum);
+      } else {
+        const names = Object.values(STATE.playerNames).join(', ');
+        showModal(`ROOM ${data.code} — WAITING (${data.joinedCount}/${data.maxPlayers})`, `Joined: ${names}. Waiting for remaining commanders to join...`, []);
+      }
     } catch (err) {
       status.textContent = err.message;
       status.style.color = 'var(--crit)';
@@ -1790,11 +1854,12 @@
       Sound.click();
       const hostName = document.getElementById('playerNameInput').value.trim() || 'Commander';
       STATE.localPlayerNum = 1;
-      STATE.mapId = document.getElementById('mapSelect').value || 'timberline';
-      const data = await NetworkAdapter.createRoom(hostName, STATE.poolHP, STATE.mapId);
+      STATE.playerCount = Number(document.getElementById('playerCountSelect').value) || 2;
+      STATE.mapId = STATE.playerCount > 2 ? 'crossfire' : (document.getElementById('mapSelect').value || 'timberline');
+      const data = await NetworkAdapter.createRoom(hostName, STATE.poolHP, STATE.mapId, STATE.playerCount);
       STATE.roomCode = data.code;
       STATE.mode = 'online';
-      status.innerHTML = `Room <strong style="color:var(--brass); font-size:13px;">${data.code}</strong> created (${data.poolHP} HP · ${MAPS[STATE.mapId].name}) — share this code!`;
+      status.innerHTML = `Room <strong style="color:var(--brass); font-size:13px;">${data.code}</strong> created (${data.poolHP} HP · ${STATE.playerCount}P · ${MAPS[STATE.mapId].name}) — share this code!`;
       status.style.color = 'var(--good)';
     } catch (err) {
       status.textContent = err.message;
@@ -1815,14 +1880,24 @@
     if (STATE.mode === 'online') renderOpenRooms();
   });
 
+  document.getElementById('playerCountSelect').addEventListener('change', e => {
+    const cnt = Number(e.target.value) || 2;
+    STATE.playerCount = cnt;
+    const mapSel = document.getElementById('mapSelect');
+    if (cnt > 2) mapSel.value = 'crossfire';
+    else if (mapSel.value === 'crossfire') mapSel.value = 'timberline';
+  });
+
   document.getElementById('startForgeBtn').addEventListener('click', () => {
     Sound.click();
     STATE.p1Name = document.getElementById('playerNameInput').value.trim() || 'Commander';
     STATE.mode = document.getElementById('modeSelect').value;
+    STATE.playerCount = Number(document.getElementById('playerCountSelect').value) || 2;
     STATE.aiDoctrine = document.getElementById('aiDoctrineSelect').value;
     STATE.aiDifficulty = document.getElementById('aiDifficultySelect').value;
-    STATE.mapId = document.getElementById('mapSelect').value || 'timberline';
+    STATE.mapId = STATE.playerCount > 2 ? 'crossfire' : (document.getElementById('mapSelect').value || 'timberline');
     STATE.p2Name = STATE.mode === 'ai' ? 'AI Commander' : 'Player 2';
+    STATE.playerNames = { 1: STATE.p1Name, 2: STATE.p2Name, 3: 'Player 3', 4: 'Player 4' };
     STATE.roomCode = null;
     STATE.onlineSeed = null;
     STATE.localPlayerNum = 1;
@@ -1835,9 +1910,11 @@
     Sound.click();
     STATE.p1Name = document.getElementById('playerNameInput').value.trim() || 'Commander';
     STATE.mode = 'ai';
+    STATE.playerCount = Number(document.getElementById('playerCountSelect').value) || 2;
     STATE.aiDoctrine = document.getElementById('aiDoctrineSelect').value;
     STATE.aiDifficulty = document.getElementById('aiDifficultySelect').value;
-    STATE.mapId = document.getElementById('mapSelect').value || 'timberline';
+    STATE.mapId = STATE.playerCount > 2 ? 'crossfire' : (document.getElementById('mapSelect').value || 'timberline');
+    STATE.playerNames = { 1: STATE.p1Name, 2: 'AI Commander', 3: 'AI Commander 3', 4: 'AI Commander 4' };
     applySplitPreset(3, 1);
     buildAISquad();
     startBattle();
@@ -1885,7 +1962,7 @@
 
   function openForgeFor(owner) {
     STATE.forgeOwner = owner;
-    const label = owner === 1 ? `${STATE.p1Name.toUpperCase()} — FRACTURE FORGE` : `PLAYER 2 — FRACTURE FORGE`;
+    const label = `${getPlayerName(owner).toUpperCase()} — FRACTURE FORGE`;
     document.getElementById('forgePlayerTitle').textContent = label;
     document.getElementById('matchBadge').textContent = `${STATE.poolHP} HP BATTLE POOL`;
     renderForge();
@@ -2025,8 +2102,8 @@
         const res = await NetworkAdapter.submitSquad(STATE.roomCode, STATE.localPlayerNum, STATE.forgeDrafts[STATE.localPlayerNum]);
         if (!res.bothReady) {
           showModal(
-            `ROOM ${STATE.roomCode} — SQUAD LOCKED`,
-            `Your ${STATE.poolHP} HP squad is secretly locked in. Waiting for your opponent to finish forging their fighters...`,
+            `ROOM ${STATE.roomCode} — SQUAD LOCKED (${res.readyCount || 1}/${res.maxPlayers || STATE.playerCount})`,
+            `Your ${STATE.poolHP} HP squad is secretly locked in. Waiting for the other commanders to finish forging...`,
             []
           );
         }
@@ -2035,12 +2112,13 @@
       }
       return;
     }
-    if (STATE.mode === 'hotseat' && STATE.forgeOwner === 1) {
-      applySplitPreset(3, 2);
+    if (STATE.mode === 'hotseat' && STATE.forgeOwner < STATE.playerCount) {
+      const nextOwner = STATE.forgeOwner + 1;
+      applySplitPreset(3, nextOwner);
       showModal(
-        'PASS DEVICE TO PLAYER 2',
-        `${STATE.p1Name} has secretly locked their ${STATE.poolHP} HP squad. Hand the screen to Player 2 to forge their counter-squad.`,
-        [{ label: 'Open Player 2 Forge', primary: true, onClick: () => { hideModal(); openForgeFor(2); } }]
+        `PASS DEVICE TO PLAYER ${nextOwner}`,
+        `${getPlayerName(STATE.forgeOwner)} has secretly locked their ${STATE.poolHP} HP squad. Hand the screen to Player ${nextOwner} to forge their squad.`,
+        [{ label: `Open Player ${nextOwner} Forge`, primary: true, onClick: () => { hideModal(); openForgeFor(nextOwner); } }]
       );
       return;
     }
@@ -2051,11 +2129,7 @@
   });
 
   function buildAISquad() {
-    let doc = STATE.aiDoctrine;
-    if (doc === 'random') {
-      const picks = ['monolith', 'twins', 'triad', 'swarm'];
-      doc = picks[Math.floor(Math.random() * picks.length)];
-    }
+    const allDocs = ['monolith', 'twins', 'triad', 'swarm'];
     const labels = {
       monolith: 'AI: The Monolith',
       twins: 'AI: Iron Phalanx',
@@ -2063,9 +2137,21 @@
       swarm: 'AI: The Hive'
     };
     const diffTag = STATE.aiDifficulty === 'easy' ? ' [Recruit]' : (STATE.aiDifficulty === 'hard' ? ' [Warlord]' : ' [Tactician]');
-    STATE.p2Name = labels[doc] + diffTag;
-    const count = doc === 'monolith' ? 1 : doc === 'twins' ? 2 : doc === 'triad' ? 3 : 5;
-    applySplitPreset(count, 2);
+    const used = new Set();
+    for (let owner = 2; owner <= STATE.playerCount; owner++) {
+      let doc = STATE.aiDoctrine;
+      if (doc === 'random' || (STATE.playerCount > 2 && owner > 2)) {
+        const avail = allDocs.filter(d => !used.has(d));
+        const pool = avail.length ? avail : allDocs;
+        doc = pool[Math.floor(Math.random() * pool.length)];
+      }
+      used.add(doc);
+      const name = labels[doc] + diffTag;
+      STATE.playerNames[owner] = name;
+      if (owner === 2) STATE.p2Name = name;
+      const count = doc === 'monolith' ? 1 : doc === 'twins' ? 2 : doc === 'triad' ? 3 : 5;
+      applySplitPreset(count, owner);
+    }
   }
 
   /* ============================================================================
@@ -2103,7 +2189,11 @@
   }
 
   function startBattle() {
+    const nPlayers = STATE.playerCount || 2;
+    if (nPlayers > 2 && STATE.mapId !== 'crossfire') STATE.mapId = 'crossfire';
     const mapDef = MAPS[STATE.mapId] || MAPS.timberline;
+    COLS = mapDef.cols || 8;
+    ROWS = mapDef.rows || 6;
     STATE.grid = Array.from({ length: ROWS }, () => Array(COLS).fill('floor'));
     (mapDef.pillars || []).forEach(([r, c]) => { STATE.grid[r][c] = 'pillar'; });
     (mapDef.trees || []).forEach(([r, c]) => { STATE.grid[r][c] = 'tree'; });
@@ -2111,22 +2201,47 @@
     (mapDef.brush || []).forEach(([r, c]) => { STATE.grid[r][c] = 'brush'; });
     (mapDef.conduits || []).forEach(([r, c]) => { STATE.grid[r][c] = 'conduit'; });
     (mapDef.rifts || []).forEach(([r, c]) => { STATE.grid[r][c] = 'rift'; });
-    document.getElementById('matchBadge').textContent = `${STATE.poolHP} HP · ${mapDef.name.toUpperCase()}`;
+    document.getElementById('matchBadge').textContent = `${STATE.poolHP} HP · ${nPlayers}P · ${mapDef.name.toUpperCase()}`;
 
     // Fair randomized first player (deterministic from onlineSeed in Online PvP)
     STATE.firstPlayer = STATE.onlineSeed !== null
-      ? ((STATE.onlineSeed % 2) + 1)
-      : (Math.random() < 0.5 ? 1 : 2);
-    const secondPlayer = STATE.firstPlayer === 1 ? 2 : 1;
+      ? ((STATE.onlineSeed % nPlayers) + 1)
+      : (1 + Math.floor(Math.random() * nPlayers));
+
+    const turnOrder = [];
+    for (let i = 0; i < nPlayers; i++) turnOrder.push(((STATE.firstPlayer - 1 + i) % nPlayers) + 1);
+
+    const CORNER_SPAWNS = {
+      1: [[0,0],[0,1],[1,0],[1,1],[0,2],[2,0]],
+      2: [[0,7],[0,6],[1,7],[1,6],[0,5],[2,7]],
+      3: [[7,7],[7,6],[6,7],[6,6],[7,5],[5,7]],
+      4: [[7,0],[7,1],[6,0],[6,1],[7,2],[5,0]]
+    };
 
     STATE.units = [];
+    STATE.traps = {};
+    STATE.freeDeployActive = {};
+    STATE.stats = {};
+    STATE.decks = {};
+    STATE.hands = {};
+    STATE.actedTurn1 = {};
+
     let uid = 1;
-    [1, 2].forEach(owner => {
-      const list = STATE.forgeDrafts[owner];
+    for (let owner = 1; owner <= nPlayers; owner++) {
+      const orderIdx = turnOrder.indexOf(owner);
+      const startShield = orderIdx === 0 ? 0 : (1 + orderIdx); // 2nd: +2, 3rd: +3, 4th: +4
+      const list = STATE.forgeDrafts[owner] || [];
       const spawnCol = owner === 1 ? 0 : COLS - 1;
       const startRow = Math.floor((ROWS - list.length) / 2);
       list.forEach((draft, i) => {
-        const r = Math.min(ROWS - 1, Math.max(0, startRow + i));
+        let r, c;
+        if (nPlayers > 2) {
+          const slot = CORNER_SPAWNS[owner][i % CORNER_SPAWNS[owner].length];
+          r = slot[0]; c = slot[1];
+        } else {
+          r = Math.min(ROWS - 1, Math.max(0, startRow + i));
+          c = spawnCol;
+        }
         STATE.units.push({
           id: uid++,
           owner,
@@ -2134,10 +2249,10 @@
           role: draft.role,
           maxHP: draft.maxHP,
           hp: draft.maxHP,
-          shield: owner === secondPlayer ? 2 : 0,
+          shield: startShield,
           surgeBonus: 0,
-          r, c: spawnCol,
-          drawX: spawnCol, drawY: r,
+          r, c,
+          drawX: c, drawY: r,
           lungeX: 0, lungeY: 0,
           hitFlash: 0,
           attacksThisTurn: 0,
@@ -2146,10 +2261,19 @@
           alive: true
         });
       });
-    });
+      STATE.traps[owner] = [];
+      STATE.freeDeployActive[owner] = true;
+      STATE.actedTurn1[owner] = false;
+      STATE.stats[owner] = { dmg: 0, crits: 0, traps: 0, blood: 0 };
+      STATE.decks[owner] = buildDeck(17 + owner * 41);
+      STATE.hands[owner] = [];
+      for (let d = 0; d < 3; d++) drawCard(owner);
+      if (orderIdx > 0) drawCard(owner, 4); // Later seats get +1 Bonus Blood Card
+    }
 
     STATE.turn = 1;
     STATE.activePlayer = STATE.firstPlayer;
+    STATE.actedTurn1[STATE.activePlayer] = true;
     STATE.ap = STATE.maxAP;
     STATE.selectedUnitId = STATE.units.find(u => u.owner === STATE.activePlayer)?.id || null;
     STATE.actionMode = 'normal';
@@ -2158,46 +2282,36 @@
     STATE.aiBusy = false;
     STATE.floatingTexts = [];
     STATE.vfx = [];
-    STATE.traps = { 1: [], 2: [] };
     STATE.lastMove = null;
     STATE.tutorialStep = null;
     document.getElementById('endTurnBtn').classList.remove('tutorial-pulse');
-    STATE.freeDeployActive = { 1: true, 2: true };
-    STATE.stats = {
-      1: { dmg: 0, crits: 0, traps: 0, blood: 0 },
-      2: { dmg: 0, crits: 0, traps: 0, blood: 0 }
-    };
 
-    STATE.decks = { 1: buildDeck(17), 2: buildDeck(97) };
-    STATE.hands = { 1: [], 2: [] };
-    for (let i = 0; i < 3; i++) { drawCard(1); drawCard(2); }
-    // Second player compensation: +1 bonus Blood Card & +2 Starting Shield
-    drawCard(secondPlayer, 4);
-
-    const firstName = STATE.firstPlayer === 1 ? STATE.p1Name : STATE.p2Name;
-    const secondName = secondPlayer === 1 ? STATE.p1Name : STATE.p2Name;
+    const firstName = getPlayerName(STATE.firstPlayer);
     document.getElementById('logList').innerHTML = '';
-    addLog(`Arena: ${mapDef.name} — Agreed Pool: ${STATE.poolHP} HP each.`, 'sys');
-    addLog(`Coin flip: ${firstName} moves first! ${secondName} gets +1 Bonus Card & +2 Starting Shield.`, 'sys');
-    addLog(`Turn 1 Free Deploy: Click your units to reposition inside your back 2 columns (0 AP) before acting.`, 'sys');
-    addLog(`${STATE.p1Name} deploys ${STATE.forgeDrafts[1].length} fighter(s) (${classifySquadStyle(STATE.forgeDrafts[1])}).`, 'p1');
-    addLog(`${STATE.p2Name} deploys ${STATE.forgeDrafts[2].length} fighter(s) (${classifySquadStyle(STATE.forgeDrafts[2])}).`, 'p2');
+    addLog(`Arena: ${mapDef.name} (${nPlayers} Commanders) — Agreed Pool: ${STATE.poolHP} HP each.`, 'sys');
+    addLog(`Turn order: ${turnOrder.map(o => getPlayerName(o)).join(' → ')}. Later seats get +1 Bonus Card & Starting Shield.`, 'sys');
+    addLog(`Turn 1 Free Deploy: Click your units to reposition inside your gold deploy zone (0 AP) before acting.`, 'sys');
+    for (let owner = 1; owner <= nPlayers; owner++) {
+      addLog(`${getPlayerName(owner)} deploys ${STATE.forgeDrafts[owner].length} fighter(s) (${classifySquadStyle(STATE.forgeDrafts[owner])}).`, `p${owner}`);
+    }
 
     showScreen('battle');
     renderLeaderboard();
     showRollToast(
-      `<strong style="color:var(--brass);">🪙 COIN FLIP: ${firstName.toUpperCase()} GOES FIRST</strong><br/>${secondName} starts with +1 Card &amp; +2 Shield on all units.`,
+      `<strong style="color:var(--brass);">🪙 ${firstName.toUpperCase()} GOES FIRST</strong><br/>Later seats start with +1 Bonus Card &amp; Starting Shield.`,
       'var(--brass)'
     );
 
-    if (STATE.mode === 'ai' && STATE.activePlayer === 2 && !STATE.gameOver) {
-      STATE.freeDeployActive[2] = false;
-      setTimeout(() => runAITurn(), 600);
+    if (isAIPlayer(STATE.activePlayer) && !STATE.gameOver) {
+      STATE.freeDeployActive[STATE.activePlayer] = false;
+      setTimeout(() => runAITurn(STATE.activePlayer), 600);
     }
   }
 
   function startPlayableTutorial() {
     const mapDef = MAPS.timberline;
+    COLS = 8; ROWS = 6;
+    STATE.playerCount = 2;
     STATE.mode = 'tutorial';
     STATE.mapId = 'timberline';
     STATE.poolHP = 100;
@@ -2416,11 +2530,11 @@
       target.alive = false;
       spawnShockwave(target.r, target.c, '#ef4444', 1.1);
       Sound.kill();
-      addLog(`${target.name} was shattered by ${sourceLabel}!`, target.owner === 1 ? 'p2' : 'p1');
+      addLog(`${target.name} was shattered by ${sourceLabel}!`, attacker ? `p${attacker.owner}` : 'sys');
       if (attacker && getWeightClass(attacker.maxHP).id === 'champion') {
         STATE.ap = Math.min(STATE.maxAP + 2, STATE.ap + 1);
         spawnFloat(attacker.r, attacker.c, '+1 AP', '#d4a359');
-        addLog(`${attacker.name} triggers Momentum (+1 AP).`, attacker.owner === 1 ? 'p1' : 'p2');
+        addLog(`${attacker.name} triggers Momentum (+1 AP).`, `p${attacker.owner}`);
       }
       checkVictory();
     }
@@ -2432,8 +2546,12 @@
     return true;
   }
 
-  function isInDeployZone(owner, c) {
-    return owner === 1 ? (c <= 1) : (c >= COLS - 2);
+  function isInDeployZone(owner, r, c) {
+    if ((STATE.playerCount || 2) <= 2) return owner === 1 ? (c <= 1) : (c >= COLS - 2);
+    if (owner === 1) return r <= 2 && c <= 2;
+    if (owner === 2) return r <= 2 && c >= COLS - 3;
+    if (owner === 3) return r >= ROWS - 3 && c >= COLS - 3;
+    return r >= ROWS - 3 && c <= 2;
   }
 
   function executeDeploy(unit, r, c, isRemote = false) {
@@ -2442,7 +2560,7 @@
     }
     unit.r = r; unit.c = c;
     Sound.click();
-    addLog(`${unit.name} deploys to (${c + 1},${r + 1}) [0 AP].`, unit.owner === 1 ? 'p1' : 'p2');
+    addLog(`${unit.name} deploys to (${c + 1},${r + 1}) [0 AP].`, `p${unit.owner}`);
     renderBattleUI();
   }
 
@@ -2465,19 +2583,21 @@
   }
 
   function triggerCounterTrap(actingOwner) {
-    const defender = actingOwner === 1 ? 2 : 1;
-    const idx = STATE.traps[defender].findIndex(t => t.id === 'trap_counter');
-    if (idx === -1) return;
-    STATE.traps[defender].splice(idx, 1);
-    if (STATE.stats && STATE.stats[defender]) STATE.stats[defender].traps += 1;
-    STATE.units.filter(u => u.alive && u.owner === defender).forEach(u => {
-      u.shield += 4;
-      spawnShockwave(u.r, u.c, '#38bdf8', 0.75);
-      spawnFloat(u.r, u.c, '+4 SHD', '#38bdf8');
-    });
-    Sound.card();
-    showRollToast(`<strong style="color:#facc15;">🪤 TRAP TRIGGERED: COUNTER-WARD!</strong><br/>Defender's entire squad gains +4 Shield!`, '#facc15');
-    addLog(`TRAP TRIGGERED: Counter-Ward grants Player ${defender}'s squad +4 Shield!`, defender === 1 ? 'p1' : 'p2');
+    for (let defender = 1; defender <= (STATE.playerCount || 2); defender++) {
+      if (defender === actingOwner || !STATE.traps[defender]) continue;
+      const idx = STATE.traps[defender].findIndex(t => t.id === 'trap_counter');
+      if (idx === -1) continue;
+      STATE.traps[defender].splice(idx, 1);
+      if (STATE.stats && STATE.stats[defender]) STATE.stats[defender].traps += 1;
+      STATE.units.filter(u => u.alive && u.owner === defender).forEach(u => {
+        u.shield += 4;
+        spawnShockwave(u.r, u.c, '#38bdf8', 0.75);
+        spawnFloat(u.r, u.c, '+4 SHD', '#38bdf8');
+      });
+      Sound.card();
+      showRollToast(`<strong style="color:#facc15;">🪤 TRAP TRIGGERED: COUNTER-WARD!</strong><br/>${getPlayerName(defender)}'s squad gains +4 Shield!`, '#facc15');
+      addLog(`TRAP TRIGGERED: Counter-Ward grants ${getPlayerName(defender)}'s squad +4 Shield!`, `p${defender}`);
+    }
   }
 
   function executeMove(unit, r, c, isRemote = false) {
@@ -2495,22 +2615,24 @@
       showRollToast('<strong style="color:var(--good);">STEP 2/4: ATTACK TALON-01</strong><br/>Conduit claimed (+2 ATK, +1 RNG)! Now click the pulsing enemy TALON-01 to strike (2 AP).', 'var(--good)');
     }
     Sound.move();
-    addLog(`${unit.name} advances to (${c + 1},${r + 1}).`, unit.owner === 1 ? 'p1' : 'p2');
+    addLog(`${unit.name} advances to (${c + 1},${r + 1}).`, `p${unit.owner}`);
 
-    // Check enemy Ambush Trap (triggers if moved within 2 tiles of any enemy unit)
-    const opp = unit.owner === 1 ? 2 : 1;
-    const ambIdx = STATE.traps[opp].findIndex(t => t.id === 'trap_ambush');
-    if (ambIdx !== -1) {
-      const triggeredBy = STATE.units.find(e => e.alive && e.owner === opp && dist(e.r, e.c, unit.r, unit.c) <= 2);
-      if (triggeredBy) {
-        STATE.traps[opp].splice(ambIdx, 1);
-        if (STATE.stats && STATE.stats[opp]) STATE.stats[opp].traps += 1;
-        STATE.lastMove = null; // cannot undo after springing a secret trap
-        Sound.hit();
-        spawnBeam(triggeredBy.r, triggeredBy.c, unit.r, unit.c, '#facc15');
-        applyDamage(unit, 6, 'Ambush Trap', true, triggeredBy);
-        showRollToast(`<strong style="color:#facc15;">🪤 TRAP TRIGGERED: AMBUSH!</strong><br/>${unit.name} walked into range and took -6 piercing HP!`, '#facc15');
-        addLog(`TRAP TRIGGERED: Ambush hits ${unit.name} for 6 piercing DMG!`, opp === 1 ? 'p1' : 'p2');
+    // Check rival Ambush Traps (triggers if moved within 2 tiles of any rival unit)
+    for (let opp = 1; opp <= (STATE.playerCount || 2); opp++) {
+      if (opp === unit.owner || !STATE.traps[opp] || !unit.alive) continue;
+      const ambIdx = STATE.traps[opp].findIndex(t => t.id === 'trap_ambush');
+      if (ambIdx !== -1) {
+        const triggeredBy = STATE.units.find(e => e.alive && e.owner === opp && dist(e.r, e.c, unit.r, unit.c) <= 2);
+        if (triggeredBy) {
+          STATE.traps[opp].splice(ambIdx, 1);
+          if (STATE.stats && STATE.stats[opp]) STATE.stats[opp].traps += 1;
+          STATE.lastMove = null; // cannot undo after springing a secret trap
+          Sound.hit();
+          spawnBeam(triggeredBy.r, triggeredBy.c, unit.r, unit.c, '#facc15');
+          applyDamage(unit, 6, 'Ambush Trap', true, triggeredBy);
+          showRollToast(`<strong style="color:#facc15;">🪤 TRAP TRIGGERED: AMBUSH!</strong><br/>${unit.name} walked into range and took -6 piercing HP!`, '#facc15');
+          addLog(`TRAP TRIGGERED: Ambush hits ${unit.name} for 6 piercing DMG!`, `p${opp}`);
+        }
       }
     }
     renderBattleUI();
@@ -2561,7 +2683,7 @@
     }
 
     const aSt = computeUnitStats(attacker, STATE.grid[attacker.r][attacker.c]);
-    const teamColor = attacker.owner === 1 ? '#38bdf8' : '#f43f5e';
+    const teamColor = getPlayerColor(attacker.owner);
     const dx = target.c - attacker.c, dy = target.r - attacker.r;
     const dLen = Math.hypot(dx, dy) || 1;
     attacker.lungeX = (dx / dLen) * 0.32;
@@ -2586,7 +2708,7 @@
       `${target.name} took <strong>-${hpDmg} HP</strong>${shieldAbsorb ? ` (${shieldAbsorb} absorbed by Shield)` : ''} · ${target.hp}/${target.maxHP} HP left`,
       deflected ? '#facc15' : roll.color
     );
-    addLog(`[2d6=${roll.sum} ${roll.label}] ${attacker.name} ${label} ${target.name} — ${hpDmg} HP taken${deflected ? ' (DEFLECTED!)' : ''}${shieldAbsorb ? ` (${shieldAbsorb} blocked)` : ''}.`, attacker.owner === 1 ? 'p1' : 'p2');
+    addLog(`[2d6=${roll.sum} ${roll.label}] ${attacker.name} ${label} ${target.name} — ${hpDmg} HP taken${deflected ? ' (DEFLECTED!)' : ''}${shieldAbsorb ? ` (${shieldAbsorb} blocked)` : ''}.`, `p${attacker.owner}`);
 
     if (deflected) {
       spawnBeam(target.r, target.c, attacker.r, attacker.c, '#facc15');
@@ -2597,7 +2719,7 @@
       target.alive = false;
       spawnShockwave(target.r, target.c, '#ef4444', 1.25);
       Sound.kill();
-      addLog(`${target.name} is eliminated!`, attacker.owner === 1 ? 'p1' : 'p2');
+      addLog(`${target.name} is eliminated!`, `p${attacker.owner}`);
       if (getWeightClass(attacker.maxHP).id === 'champion') {
         STATE.ap = Math.min(STATE.maxAP + 2, STATE.ap + 1);
         spawnFloat(attacker.r, attacker.c, '+1 AP', '#d4a359');
@@ -2641,7 +2763,7 @@
       Sound.card();
       spawnShockwave(unit.r, unit.c, '#38bdf8', 0.9);
       spawnFloat(unit.r, unit.c, `+${gained} SHD`, '#38bdf8');
-      addLog(`${unit.name} activates FORTIFY (+${gained} Shield, ${unit.shield} total).`, unit.owner === 1 ? 'p1' : 'p2');
+      addLog(`${unit.name} activates FORTIFY (+${gained} Shield, ${unit.shield} total).`, `p${unit.owner}`);
     } else if (unit.role === 'striker' && target) {
       const bonus = target.hp < target.maxHP ? 5 : 1;
       executeAttack(unit, target, bonus, false, 'EXECUTES', true);
@@ -2665,7 +2787,7 @@
       spawnShockwave(target.r, target.c, '#10b981', 0.85);
       spawnFloat(unit.r, unit.c, '-8 HP', '#fda4af');
       spawnFloat(target.r, target.c, `+${actual} HP`, '#10b981');
-      addLog(`${unit.name} transfuses ${actual} HP into ${target.name}.`, unit.owner === 1 ? 'p1' : 'p2');
+      addLog(`${unit.name} transfuses ${actual} HP into ${target.name}.`, `p${unit.owner}`);
     }
     renderBattleUI();
   }
@@ -2694,31 +2816,31 @@
       STATE.traps[payer.owner].push({ id: card.id, name: card.name });
       spawnShockwave(payer.r, payer.c, '#d4a359', 0.85);
       const isSecret = (STATE.mode === 'online' && payer.owner !== STATE.localPlayerNum) || (STATE.mode === 'ai' && payer.owner === 2);
-      addLog(`${payer.name} pays ${card.cost} HP to arm a face-down SECRET TRAP${isSecret ? '.' : ` (${card.name}).`}`, payer.owner === 1 ? 'p1' : 'p2');
+      addLog(`${payer.name} pays ${card.cost} HP to arm a face-down SECRET TRAP${isSecret ? '.' : ` (${card.name}).`}`, `p${payer.owner}`);
     } else if (card.id === 'phase' && targetObj) {
       payer.r = targetObj.r; payer.c = targetObj.c;
-      addLog(`${payer.name} pays ${card.cost} HP for Phase Step to (${payer.c + 1},${payer.r + 1}).`, payer.owner === 1 ? 'p1' : 'p2');
+      addLog(`${payer.name} pays ${card.cost} HP for Phase Step to (${payer.c + 1},${payer.r + 1}).`, `p${payer.owner}`);
     } else if (card.id === 'aegis') {
       payer.shield += 7;
       spawnShockwave(payer.r, payer.c, '#38bdf8', 0.8);
       spawnFloat(payer.r, payer.c, '+7 SHD', '#38bdf8');
-      addLog(`${payer.name} pays ${card.cost} HP for Aegis Pulse (+7 Shield).`, payer.owner === 1 ? 'p1' : 'p2');
+      addLog(`${payer.name} pays ${card.cost} HP for Aegis Pulse (+7 Shield).`, `p${payer.owner}`);
     } else if (card.id === 'surge') {
       payer.surgeBonus = (payer.surgeBonus || 0) + 7;
       spawnShockwave(payer.r, payer.c, '#f59e0b', 0.8);
       spawnFloat(payer.r, payer.c, '+7 ATK', '#f59e0b');
-      addLog(`${payer.name} pays ${card.cost} HP for Blood Surge (+7 next ATK).`, payer.owner === 1 ? 'p1' : 'p2');
+      addLog(`${payer.name} pays ${card.cost} HP for Blood Surge (+7 next ATK).`, `p${payer.owner}`);
     } else if (card.id === 'overdrive') {
       STATE.ap += 2;
       spawnFloat(payer.r, payer.c, '+2 AP', '#d4a359');
-      addLog(`${payer.name} pays ${card.cost} HP for Overdrive (+2 AP).`, payer.owner === 1 ? 'p1' : 'p2');
+      addLog(`${payer.name} pays ${card.cost} HP for Overdrive (+2 AP).`, `p${payer.owner}`);
     } else if (card.id === 'siphon' && targetObj) {
       spawnBeam(payer.r, payer.c, targetObj.r, targetObj.c, '#a855f7');
       applyDamage(targetObj, 6, `${payer.name}'s Siphon Bolt`, true, payer);
       const healed = Math.min(payer.maxHP - payer.hp, 3);
       payer.hp += healed;
       if (healed > 0) spawnFloat(payer.r, payer.c, `+${healed} HP`, '#10b981');
-      addLog(`${payer.name} casts Siphon Bolt on ${targetObj.name} (-6 HP, +${healed} self).`, payer.owner === 1 ? 'p1' : 'p2');
+      addLog(`${payer.name} casts Siphon Bolt on ${targetObj.name} (-6 HP, +${healed} self).`, `p${payer.owner}`);
     } else if (card.id === 'sever' && targetObj) {
       spawnBeam(payer.r, payer.c, targetObj.r, targetObj.c, '#f59e0b');
       targetObj.shield = 0;
@@ -2738,7 +2860,7 @@
           }
         }
       }
-      addLog(`${payer.name} casts Sever & Push on ${targetObj.name}${extra}.`, payer.owner === 1 ? 'p1' : 'p2');
+      addLog(`${payer.name} casts Sever & Push on ${targetObj.name}${extra}.`, `p${payer.owner}`);
     }
 
     hand.splice(cardIdx, 1);
@@ -2768,15 +2890,24 @@
       });
     if (STATE.gameOver) return;
 
-    STATE.activePlayer = STATE.activePlayer === 1 ? 2 : 1;
-    if (STATE.activePlayer === STATE.firstPlayer) STATE.turn += 1;
+    const nPlayers = STATE.playerCount || 2;
+    let next = STATE.activePlayer;
+    let wrapped = false;
+    for (let step = 0; step < nPlayers; step++) {
+      next = (next % nPlayers) + 1;
+      if (next === STATE.firstPlayer) wrapped = true;
+      if (STATE.units.some(u => u.alive && u.owner === next)) break;
+    }
+    if (wrapped) STATE.turn += 1;
+    STATE.activePlayer = next;
     STATE.ap = STATE.maxAP;
     STATE.actionMode = 'normal';
     STATE.activeCardIndex = null;
 
-    const isSecondPlayerTurn1 = STATE.turn === 1 && STATE.activePlayer !== STATE.firstPlayer;
+    const isFirstActOfMatch = STATE.turn === 1 && !STATE.actedTurn1?.[STATE.activePlayer];
+    if (STATE.actedTurn1) STATE.actedTurn1[STATE.activePlayer] = true;
     STATE.units.filter(u => u.alive && u.owner === STATE.activePlayer).forEach(u => {
-      if (!isSecondPlayerTurn1) u.shield = Math.floor(u.shield * 0.5);
+      if (!isFirstActOfMatch) u.shield = Math.floor(u.shield * 0.5);
       u.attacksThisTurn = 0;
       u.movedThisTurn = false;
     });
@@ -2785,14 +2916,14 @@
     const firstAlive = STATE.units.find(u => u.alive && u.owner === STATE.activePlayer);
     STATE.selectedUnitId = firstAlive ? firstAlive.id : null;
 
-    addLog(`— Turn ${STATE.turn}: ${STATE.activePlayer === 1 ? STATE.p1Name : STATE.p2Name} (${STATE.ap} AP) —`, 'sys');
+    addLog(`— Turn ${STATE.turn}: ${getPlayerName(STATE.activePlayer)} (${STATE.ap} AP) —`, 'sys');
     renderBattleUI();
 
     if (STATE.mode === 'tutorial' && STATE.activePlayer === 2 && !STATE.gameOver) {
       runTutorialEnemyResponse();
-    } else if (STATE.mode === 'ai' && STATE.activePlayer === 2 && !STATE.gameOver) {
-      STATE.freeDeployActive[2] = false;
-      runAITurn();
+    } else if (isAIPlayer(STATE.activePlayer) && !STATE.gameOver) {
+      STATE.freeDeployActive[STATE.activePlayer] = false;
+      runAITurn(STATE.activePlayer);
     }
   }
 
@@ -2823,40 +2954,44 @@
   }
 
   function checkVictory() {
-    const p1Alive = STATE.units.some(u => u.alive && u.owner === 1);
-    const p2Alive = STATE.units.some(u => u.alive && u.owner === 2);
-    if (p1Alive && p2Alive) return;
+    const nPlayers = STATE.playerCount || 2;
+    const aliveOwners = [];
+    for (let o = 1; o <= nPlayers; o++) {
+      if (STATE.units.some(u => u.alive && u.owner === o)) aliveOwners.push(o);
+    }
+    if (aliveOwners.length > 1) return;
     STATE.gameOver = true;
-    const winner = p1Alive ? 1 : 2;
-    const wName = winner === 1 ? STATE.p1Name : STATE.p2Name;
-    const lName = winner === 1 ? STATE.p2Name : STATE.p1Name;
-    const wStyle = classifySquadStyle(STATE.forgeDrafts[winner]);
-    const lStyle = classifySquadStyle(STATE.forgeDrafts[winner === 1 ? 2 : 1]);
+    const winner = aliveOwners[0] || STATE.activePlayer || 1;
+    const wName = getPlayerName(winner);
+    const wStyle = classifySquadStyle(STATE.forgeDrafts[winner] || []);
     let deltaText = '';
     const isUnrankedPractice = STATE.mode === 'tutorial' || (STATE.mode === 'ai' && STATE.aiDifficulty === 'easy');
-    if (isUnrankedPractice) {
+    if (nPlayers > 2) {
+      deltaText = ` (${nPlayers}-Commander FFA — Unranked.)`;
+    } else if (isUnrankedPractice) {
       deltaText = ' (Unranked Practice — ELO unchanged.)';
     } else if (STATE.mode !== 'online' || STATE.localPlayerNum === 1) {
-      const res = NetworkAdapter.recordMatch(wName, lName, wStyle, lStyle);
+      const loser = winner === 1 ? 2 : 1;
+      const res = NetworkAdapter.recordMatch(wName, getPlayerName(loser), wStyle, classifySquadStyle(STATE.forgeDrafts[loser] || []));
       deltaText = ` ELO swing: +${res.delta} / -${res.delta}.`;
     }
     renderLeaderboard();
 
-    const s1 = STATE.stats?.[1] || { dmg: 0, crits: 0, traps: 0, blood: 0 };
-    const s2 = STATE.stats?.[2] || { dmg: 0, crits: 0, traps: 0, blood: 0 };
+    const owners = Array.from({ length: nPlayers }, (_, i) => i + 1);
+    const getS = o => STATE.stats?.[o] || { dmg: 0, crits: 0, traps: 0, blood: 0 };
     const mvp = [...STATE.units].sort((a, b) => (b.dmgDealt || 0) - (a.dmgDealt || 0))[0];
     const mvpLine = mvp && mvp.dmgDealt > 0
       ? `<div style="margin-top:8px; padding:6px 8px; border-radius:6px; background:var(--brass-dim); color:var(--brass); font-family:var(--font-mono); font-size:11.5px;">★ MATCH MVP: <strong>${mvp.name}</strong> (${ROLES[mvp.role].name}) — ${mvp.dmgDealt} DMG</div>`
       : '';
     const statsHtml = `
-      <div style="margin:12px 0 4px; text-align:left; background:#0f131b; border:1px solid var(--border); border-radius:8px; padding:10px;">
-        <table class="lb-table" style="font-size:11.5px;">
-          <thead><tr><th>Stat</th><th style="color:var(--p1);">${STATE.p1Name}</th><th style="color:var(--p2);">${STATE.p2Name}</th></tr></thead>
+      <div style="margin:12px 0 4px; text-align:left; background:#0f131b; border:1px solid var(--border); border-radius:8px; padding:10px; overflow-x:auto;">
+        <table class="lb-table" style="font-size:11px;">
+          <thead><tr><th>Stat</th>${owners.map(o => `<th style="color:${getPlayerVar(o)};">${getPlayerName(o).slice(0, 12)}</th>`).join('')}</tr></thead>
           <tbody>
-            <tr><td>Damage Dealt</td><td>${s1.dmg} HP</td><td>${s2.dmg} HP</td></tr>
-            <tr><td>2d6 Crits Landed</td><td>${s1.crits}</td><td>${s2.crits}</td></tr>
-            <tr><td>Traps Sprung</td><td>${s1.traps}</td><td>${s2.traps}</td></tr>
-            <tr><td>Blood HP Spent</td><td>${s1.blood} HP</td><td>${s2.blood} HP</td></tr>
+            <tr><td>Damage</td>${owners.map(o => `<td>${getS(o).dmg}</td>`).join('')}</tr>
+            <tr><td>Crits</td>${owners.map(o => `<td>${getS(o).crits}</td>`).join('')}</tr>
+            <tr><td>Traps</td>${owners.map(o => `<td>${getS(o).traps}</td>`).join('')}</tr>
+            <tr><td>Blood HP</td>${owners.map(o => `<td>${getS(o).blood}</td>`).join('')}</tr>
           </tbody>
         </table>
         ${mvpLine}
@@ -2865,7 +3000,7 @@
 
     showModal(
       `${wName.toUpperCase()} WINS!`,
-      `Victory in ${STATE.turn} turns on a ${STATE.poolHP} HP Pool (${wStyle} defeated ${lStyle}).${deltaText}`,
+      `Last commander standing in ${STATE.turn} turns on a ${STATE.poolHP} HP Pool (${wStyle}).${deltaText}`,
       [
         {
           label: 'Rematch (Forge)', primary: true,
@@ -2887,18 +3022,18 @@
   /* ============================================================================
      9. TACTICAL AI (Plays Titan, Twins, Triad, or Swarm intelligently)
      ============================================================================ */
-  async function runAITurn() {
+  async function runAITurn(aiOwner = 2) {
     STATE.aiBusy = true;
     const diff = STATE.aiDifficulty || 'standard';
     const wait = ms => new Promise(res => setTimeout(res, ms));
     await wait(420);
 
-    const aiUnits = () => STATE.units.filter(u => u.alive && u.owner === 2);
-    const enemies = () => STATE.units.filter(u => u.alive && u.owner === 1);
+    const aiUnits = () => STATE.units.filter(u => u.alive && u.owner === aiOwner);
+    const enemies = () => STATE.units.filter(u => u.alive && u.owner !== aiOwner);
 
     // Blood-Cost Card Phase (Recruit skips cards; Tactician plays safe cards; Warlord chains combos + Secret Traps)
     if (diff !== 'easy') {
-      const hand = STATE.hands[2];
+      const hand = STATE.hands[aiOwner] || [];
       let cardsPlayed = 0;
       const maxCards = diff === 'hard' ? 2 : 1;
       for (let i = hand.length - 1; i >= 0 && cardsPlayed < maxCards; i--) {
@@ -2909,7 +3044,7 @@
         if (!healthy || healthy.hp <= card.cost + hpBuffer) continue;
 
         if (card.target === 'trap' && diff === 'hard') {
-          const alreadyArmed = STATE.traps[2].some(t => t.id === card.id);
+          const alreadyArmed = (STATE.traps[aiOwner] || []).some(t => t.id === card.id);
           if (!alreadyArmed) { playBloodCard(i, healthy); cardsPlayed++; await wait(380); continue; }
         }
         if (card.id === 'overdrive' && diff === 'hard' && STATE.turn >= 2) {
@@ -2994,7 +3129,7 @@
           executeAttack(bestAttack.u, bestAttack.t);
         }
         if (Math.random() < 0.25 && !STATE.gameOver) {
-          addLog(`${STATE.p2Name}: ${bestAttack.t.alive ? 'Pressure applied.' : `${bestAttack.t.name} down.`}`, 'chat');
+          addLog(`${getPlayerName(aiOwner)}: ${bestAttack.t.alive ? 'Pressure applied.' : `${bestAttack.t.name} down.`}`, 'chat');
         }
         await wait(450);
         continue;
@@ -3159,7 +3294,7 @@
     if (sel) {
       const selSt = computeUnitStats(sel, STATE.grid[sel.r][sel.c]);
       activeRange = selSt.rng;
-      rangeColor = sel.owner === 1 ? 'rgba(56, 189, 248, 0.35)' : 'rgba(244, 63, 94, 0.35)';
+      rangeColor = getPlayerColor(sel.owner) + '59';
     }
 
     if (canAct) {
@@ -3279,7 +3414,7 @@
         }
 
         // Highlights
-        if (canAct && STATE.actionMode === 'normal' && STATE.freeDeployActive[sel.owner] && isInDeployZone(sel.owner, c) && !isImpassable(type) && !unitAt(r, c)) {
+        if (canAct && STATE.actionMode === 'normal' && STATE.freeDeployActive[sel.owner] && isInDeployZone(sel.owner, r, c) && !isImpassable(type) && !unitAt(r, c)) {
           ctx.fillStyle = 'rgba(212, 163, 89, 0.16)';
           ctx.fillRect(x + 2, y + 2, tileSize - 4, tileSize - 4);
         }
@@ -3435,7 +3570,7 @@
       ctx.fillStyle = u.hitFlash > 0.3 ? '#3b1520' : '#0e121a';
       ctx.fill();
       ctx.lineWidth = 2.25;
-      ctx.strokeStyle = u.owner === 1 ? '#38bdf8' : '#f43f5e';
+      ctx.strokeStyle = getPlayerColor(u.owner);
       ctx.stroke();
 
       // Radial Wound Dial Arc (HP %)
@@ -3481,7 +3616,7 @@
       drawRoundRect(cx - tw / 2, ny, tw, nh, 4);
       ctx.fillStyle = 'rgba(10, 13, 20, 0.9)';
       ctx.fill();
-      ctx.strokeStyle = u.owner === 1 ? 'rgba(56, 189, 248, 0.55)' : 'rgba(244, 63, 94, 0.55)';
+      ctx.strokeStyle = getPlayerColor(u.owner);
       ctx.lineWidth = 1;
       ctx.stroke();
       ctx.fillStyle = '#e8ecf2';
@@ -3724,7 +3859,7 @@
           }
           if (reason) showRollToast(`<strong style="color:var(--warn);">CANNOT ATTACK</strong><br/>${reason} Inspecting ${clickedUnit.name}.`, 'var(--warn)');
         }
-        if (!clickedUnit && STATE.freeDeployActive[sel.owner] && isInDeployZone(sel.owner, c) && !isImpassable(STATE.grid[r][c])) {
+        if (!clickedUnit && STATE.freeDeployActive[sel.owner] && isInDeployZone(sel.owner, r, c) && !isImpassable(STATE.grid[r][c])) {
           executeDeploy(sel, r, c);
           return;
         }
@@ -3761,20 +3896,22 @@
      ============================================================================ */
   function renderBattleUI() {
     // Top HUD
-    const activeName = STATE.activePlayer === 1 ? STATE.p1Name : STATE.p2Name;
+    const activeName = getPlayerName(STATE.activePlayer);
     const suffix = STATE.mode === 'online' ? (isMyTurn() ? ' (YOUR TURN)' : ' (OPPONENT)') : '';
     document.getElementById('turnLabel').textContent = `TURN ${STATE.turn} — ${activeName.toUpperCase()}${suffix}`;
-    document.getElementById('turnDot').style.background = STATE.activePlayer === 1 ? 'var(--p1)' : 'var(--p2)';
+    document.getElementById('turnDot').style.background = getPlayerVar(STATE.activePlayer);
     document.getElementById('endTurnBtn').disabled = !isMyTurn();
     document.getElementById('undoMoveBtn').disabled = !(isMyTurn() && STATE.lastMove);
 
     const viewerOwner = STATE.mode === 'online' ? STATE.localPlayerNum : ((STATE.mode === 'ai' || STATE.mode === 'tutorial') ? 1 : STATE.activePlayer);
-    const enemyOwner = viewerOwner === 1 ? 2 : 1;
     const myTraps = STATE.traps[viewerOwner] || [];
-    const oppTraps = STATE.traps[enemyOwner] || [];
+    let oppTrapCount = 0;
+    for (let o = 1; o <= (STATE.playerCount || 2); o++) {
+      if (o !== viewerOwner) oppTrapCount += (STATE.traps[o] || []).length;
+    }
     const trapParts = [];
     if (myTraps.length) trapParts.push(`YOUR TRAPS: ${myTraps.map(t => t.name.replace('Trap: ', '')).join(', ')}`);
-    if (oppTraps.length) trapParts.push(`ENEMY SECRET TRAPS: ${oppTraps.length}`);
+    if (oppTrapCount) trapParts.push(`ENEMY SECRET TRAPS: ${oppTrapCount}`);
     const trapBar = document.getElementById('trapStatusBar');
     if (trapBar) trapBar.textContent = trapParts.join(' · ');
 
@@ -3789,9 +3926,12 @@
     const apTxt = document.getElementById('apCountText');
     if (apTxt) apTxt.textContent = `${STATE.ap}/${STATE.maxAP}`;
 
-    const p1HP = STATE.units.filter(u => u.alive && u.owner === 1).reduce((s, u) => s + u.hp, 0);
-    const p2HP = STATE.units.filter(u => u.alive && u.owner === 2).reduce((s, u) => s + u.hp, 0);
-    document.getElementById('poolTotalsBadge').textContent = `P1 ${p1HP} HP · P2 ${p2HP} HP`;
+    const totals = [];
+    for (let o = 1; o <= (STATE.playerCount || 2); o++) {
+      const hpSum = STATE.units.filter(u => u.alive && u.owner === o).reduce((s, u) => s + u.hp, 0);
+      totals.push(`P${o} ${hpSum}`);
+    }
+    document.getElementById('poolTotalsBadge').textContent = totals.join(' · ') + ' HP';
 
     document.getElementById('endTurnBtn').classList.toggle('tutorial-pulse', STATE.mode === 'tutorial' && STATE.tutorialStep === 4);
 
@@ -3861,7 +4001,7 @@
       insp.innerHTML = `
         <div class="insp-card">
           <div class="insp-title-row">
-            <span class="insp-name" style="color:${sel.owner === 1 ? 'var(--p1)' : 'var(--p2)'};">${st.role.symbol} ${sel.name}</span>
+            <span class="insp-name" style="color:${getPlayerVar(sel.owner)};">${st.role.symbol} ${sel.name}</span>
             <span class="weight-badge">${st.wc.label}</span>
           </div>
           <div style="display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:11.5px;">
@@ -3924,7 +4064,7 @@
       const div = document.createElement('div');
       div.className = `roster-item ${u.id === STATE.selectedUnitId ? 'selected' : ''} ${u.alive ? '' : 'dead'}`;
       div.innerHTML = `
-        <span style="color:${u.owner === 1 ? 'var(--p1)' : 'var(--p2)'}; font-weight:700;">${ROLES[u.role].symbol} ${u.name}</span>
+        <span style="color:${getPlayerVar(u.owner)}; font-weight:700;">${ROLES[u.role].symbol} ${u.name}</span>
         <span style="font-family:var(--font-mono);">${u.hp}/${u.maxHP} HP</span>
       `;
       div.addEventListener('click', () => {
@@ -4020,8 +4160,8 @@
     const txt = inp.value.trim();
     if (!txt) return;
     const sender = STATE.mode === 'online'
-      ? (STATE.localPlayerNum === 1 ? STATE.p1Name : STATE.p2Name)
-      : (STATE.activePlayer === 1 ? STATE.p1Name : STATE.p2Name);
+      ? getPlayerName(STATE.localPlayerNum)
+      : getPlayerName(STATE.activePlayer);
     NetworkAdapter.sendChat(sender, txt);
     inp.value = '';
   });
