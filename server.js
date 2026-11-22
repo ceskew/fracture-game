@@ -304,6 +304,18 @@ const server = http.createServer(async (req, res) => {
       leaderboard,
       globalChat
     });
+    if (roomCode && rooms.has(roomCode)) {
+      const rm = rooms.get(roomCode);
+      const isSpec = Boolean(rm.spectators && rm.spectators.has(clientId));
+      if ((rm.status === 'battle' || rm.status === 'finished') && rm.state) {
+        sendSSE(res, 'room_sync', {
+          code: roomCode,
+          seq: rm.seq || 0,
+          activePlayer: rm.activePlayer,
+          snapshot: isSpec ? sanitizeSnapshotForSpectator(rm.state) : rm.state
+        });
+      }
+    }
     broadcastPresence();
 
     const keepAlive = setInterval(() => {
@@ -418,7 +430,7 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { code, playerNum: 1, poolHP: cleanPool, mapId: cleanMap, maxPlayers: cleanMax, hostName: cleanHost });
     }
 
-    const roomMatch = pathname.match(/^\/api\/rooms\/([A-Za-z0-9]{4})\/(join|squad|action|rematch|spectate)$/);
+    const roomMatch = pathname.match(/^\/api\/rooms\/([A-Za-z0-9]{4})\/(join|squad|action|rematch|spectate|leave)$/);
     if (req.method === 'POST' && roomMatch) {
       const code = roomMatch[1].toUpperCase();
       const actionType = roomMatch[2];
@@ -426,16 +438,89 @@ const server = http.createServer(async (req, res) => {
       if (!room) return json(res, 404, { error: 'Room not found' });
       const body = await readBody(req);
 
+      if (actionType === 'leave') {
+        const cid = body.clientId;
+        if (room.spectators && cid && room.spectators.delete(cid)) {
+          broadcastRoom(code, 'spectator_update', { count: room.spectators.size });
+        }
+        const maxP = room.maxPlayers || 2;
+        let leftSeat = null;
+        for (let i = 1; i <= maxP; i++) {
+          if (room.players[i] && room.players[i].clientId === cid) {
+            leftSeat = i;
+            break;
+          }
+        }
+        if (leftSeat) {
+          const leftName = room.players[leftSeat].name;
+          if (room.status === 'waiting' || room.status === 'drafting') {
+            delete room.players[leftSeat];
+            delete room.squads[leftSeat];
+            room.status = 'waiting';
+          }
+          broadcastRoom(code, 'opponent_left', { name: leftName, seat: leftSeat, status: room.status }, cid);
+          const remaining = Object.values(room.players).filter(Boolean).length;
+          if (remaining === 0) rooms.delete(code);
+        }
+        if (cid && clients.has(cid)) {
+          clients.get(cid).roomCode = null;
+        }
+        broadcastAll('rooms_update', { rooms: getOpenRoomsSummary(), liveMatches: getLiveMatchesSummary() });
+        broadcastPresence();
+        return json(res, 200, { ok: true });
+      }
+
       if (actionType === 'join') {
         const maxP = room.maxPlayers || 2;
+        const cleanGuest = String(body.playerName || 'Challenger').trim().slice(0, 20);
+        // Reconnect check: match existing reserved seat by clientId or callsign
+        let existingSeat = null;
+        for (let i = 1; i <= maxP; i++) {
+          const p = room.players[i];
+          if (p && (p.clientId === body.clientId || p.name.toLowerCase() === cleanGuest.toLowerCase())) {
+            existingSeat = i;
+            break;
+          }
+        }
+        if (existingSeat) {
+          room.players[existingSeat].clientId = body.clientId;
+          room.players[existingSeat].name = cleanGuest;
+          if (body.clientId && clients.has(body.clientId)) {
+            clients.get(body.clientId).roomCode = code;
+            clients.get(body.clientId).name = cleanGuest;
+          }
+          const joinedCount = Object.values(room.players).filter(Boolean).length;
+          const playerNames = getRoomPlayerNames(room);
+          broadcastPresence();
+          return json(res, 200, {
+            code,
+            playerNum: existingSeat,
+            reconnected: true,
+            status: room.status,
+            poolHP: room.poolHP,
+            mapId: room.mapId,
+            maxPlayers: maxP,
+            joinedCount,
+            allJoined: joinedCount >= maxP,
+            playerNames,
+            p1Name: playerNames[1] || 'Player 1',
+            p2Name: playerNames[2] || 'Player 2',
+            readySeats: Object.keys(room.squads).map(Number),
+            squads: (room.status === 'battle' || room.status === 'finished') ? room.squads : null,
+            seed: room.seed || null,
+            snapshot: room.state || null,
+            seq: room.seq || 0,
+            chat: room.chat || []
+          });
+        }
+
         let seatNum = null;
         for (let i = 1; i <= maxP; i++) {
           if (!room.players[i]) { seatNum = i; break; }
         }
         if (room.status !== 'waiting' || !seatNum) {
-          return json(res, 409, { error: 'Room is already full' });
+          return json(res, 409, { error: 'Room is already full (use Watch to spectate)' });
         }
-        const cleanGuest = String(body.playerName || 'Challenger').trim().slice(0, 20);
         room.players[seatNum] = { name: cleanGuest, clientId: body.clientId };
         const joinedCount = Object.values(room.players).filter(Boolean).length;
         const allJoined = joinedCount >= maxP;
@@ -455,7 +540,8 @@ const server = http.createServer(async (req, res) => {
             maxPlayers: maxP,
             playerNames,
             p1Name: playerNames[1] || 'Player 1',
-            p2Name: playerNames[2] || 'Player 2'
+            p2Name: playerNames[2] || 'Player 2',
+            readySeats: Object.keys(room.squads).map(Number)
           });
         } else {
           broadcastRoom(code, 'room_waiting', {
@@ -468,6 +554,7 @@ const server = http.createServer(async (req, res) => {
         return json(res, 200, {
           code,
           playerNum: seatNum,
+          status: room.status,
           poolHP: room.poolHP,
           mapId: room.mapId,
           maxPlayers: maxP,
@@ -475,7 +562,8 @@ const server = http.createServer(async (req, res) => {
           allJoined,
           playerNames,
           p1Name: playerNames[1] || 'Player 1',
-          p2Name: playerNames[2] || 'Player 2'
+          p2Name: playerNames[2] || 'Player 2',
+          readySeats: Object.keys(room.squads).map(Number)
         });
       }
 
@@ -522,9 +610,10 @@ const server = http.createServer(async (req, res) => {
           return json(res, 400, { error: `Squad HP (${total}) must equal agreed pool (${room.poolHP})` });
         }
         room.squads[pNum] = body.squad;
-        const readyCount = Object.values(room.squads).filter(Boolean).length;
+        const readySeats = Object.keys(room.squads).map(Number);
+        const readyCount = readySeats.length;
         const allReady = readyCount >= maxP;
-        broadcastRoom(code, 'squad_ready', { playerNum: pNum, readyCount, maxPlayers: maxP });
+        broadcastRoom(code, 'squad_ready', { playerNum: pNum, readyCount, readySeats, maxPlayers: maxP });
 
         if (allReady) {
           room.status = 'battle';

@@ -862,7 +862,8 @@
 
     <div class="topbar-actions">
       <span class="turn-pill" id="netStatusPill" style="font-size:11px; padding:4px 10px;">LOCAL MODE</span>
-      <button id="whatsNewBtn" style="position:relative; border-color:rgba(212,163,89,0.45); color:var(--brass);">v3.2 · WHAT'S NEW<span id="whatsNewDot" style="display:none; position:absolute; top:-3px; right:-3px; width:8px; height:8px; border-radius:50%; background:var(--crit); border:1px solid var(--panel);"></span></button>
+      <button id="lobbyLbBtn">LEADERBOARD</button>
+      <button id="whatsNewBtn" style="position:relative; border-color:rgba(212,163,89,0.45); color:var(--brass);">v3.3 · WHAT'S NEW<span id="whatsNewDot" style="display:none; position:absolute; top:-3px; right:-3px; width:8px; height:8px; border-radius:50%; background:var(--crit); border:1px solid var(--panel);"></span></button>
       <button id="howToPlayBtn">HOW TO PLAY</button>
       <button id="soundBtn">SOUND: OFF</button>
       <button id="newMatchBtn" style="display:none;">NEW MATCH</button>
@@ -920,8 +921,8 @@
               <label class="form-label">AI Practice Level</label>
               <select id="aiDifficultySelect" style="width:100%;">
                 <option value="easy" selected>Recruit (Unranked Practice)</option>
-                <option value="standard">Tactician (Ranked Standard)</option>
-                <option value="hard">Warlord (Ranked Hard)</option>
+                <option value="standard">Tactician (Unranked Standard)</option>
+                <option value="hard">Warlord (Unranked Hard)</option>
               </select>
             </div>
           </div>
@@ -1032,6 +1033,11 @@
       </div>
     </div>
 
+    <div id="forgeRoomBar" style="display:none; align-items:center; justify-content:space-between; gap:12px; background:rgba(56,189,248,0.08); border:1px solid rgba(56,189,248,0.3); border-radius:8px; padding:8px 14px; font-family:var(--font-mono); font-size:12px; flex-shrink:0;">
+      <div id="forgeRoomInfo" style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;"></div>
+      <button id="forgeLeaveRoomBtn" class="danger" style="padding:4px 10px; font-size:11.5px;">Leave Room</button>
+    </div>
+
     <div class="forge-grid" id="forgeGrid"></div>
 
     <div class="forge-footer">
@@ -1119,15 +1125,14 @@
         <div class="panel-body" style="font-size:11.5px; color:var(--muted); line-height:1.48; display:flex; flex-direction:column; gap:10px;">
           <div>
             <strong style="color:var(--ink);">Turn Flow (4 AP Shared):</strong><br/>
-            Move = 1 AP (<strong>1 move/unit/turn; cannot move after attacking</strong>) · Attack = 2 AP (<strong>1 attack/unit/turn</strong>; Titans get 2) · Role Special = 2 AP (<em>Execute</em> &amp; <em>Overcharge</em> use your attack; <em>Fortify</em> &amp; <em>Transfuse</em> do not) · Blood Card = 0 AP (paid in unit HP).<br/>
+            Move = 1 AP (moves up to <strong>MOV tiles around obstacles</strong>, not 1 AP/tile; 1 move/unit/turn; cannot move after attacking) · Attack = 2 AP (1 attack/unit/turn; Titans get 2) · Role Special = 2 AP (<em>Execute</em> &amp; <em>Overcharge</em> consume your attack; <em>Fortify</em> &amp; <em>Transfuse</em> do not) · Blood Card = 0 AP (paid in unit HP).<br/>
+            <strong>Shield Decay:</strong> Shields halve (50% decay) at the start of your next turn.<br/>
             <strong>Turn 1 Free Deploy:</strong> Click gold back-row tiles to reposition for 0 AP before your first move/attack. Press <code>Z</code> to undo a move, <code>Esc</code> to cancel, <code>Space</code> to end turn.
           </div>
           <div>
-            <strong style="color:var(--ink);">2d6 RNG Combat Rolls:</strong><br/>
-            • <strong style="color:#f59e0b;">2–3 GLANCE:</strong> 65% damage.<br/>
-            • <strong style="color:#f43f5e;">4–9 HIT:</strong> 100% normal damage.<br/>
-            • <strong style="color:#fb923c;">10–11 HEAVY:</strong> 125% damage.<br/>
-            • <strong style="color:#facc15;">12 CRIT!:</strong> 150% damage &amp; pierces Armor (Piercing ignores Armor, still absorbed by Shield).
+            <strong style="color:var(--ink);">2d6 RNG Combat Rolls &amp; Piercing:</strong><br/>
+            • <strong style="color:#f59e0b;">2–3 GLANCE:</strong> 65% damage · <strong style="color:#f43f5e;">4–9 HIT:</strong> 100% · <strong style="color:#fb923c;">10–11 HEAVY:</strong> 125% · <strong style="color:#facc15;">12 CRIT!:</strong> 150% &amp; ignores 100% Armor.<br/>
+            • <strong>Piercing:</strong> Arcanist attacks &amp; Overcharge pierce <strong>50% of Armor</strong>. All piercing &amp; Crit damage is still absorbed by <strong>Shield</strong> first.
           </div>
           <div>
             <strong style="color:var(--ink);">Terrain Guide:</strong><br/>
@@ -1140,10 +1145,10 @@
           </div>
           <div>
             <strong style="color:var(--ink);">Fighter Roles:</strong><br/>
-            • <strong>◈ Vanguard (Tank):</strong> Frontline bruiser with high Armor; <em>FORTIFY</em> adds +6 Shield and <em>Last Stand</em> spikes ATK/ARM at low HP.<br/>
-            • <strong>▲ Striker (Assassin):</strong> Fast melee flanker (4 MOV, high ATK); <em>EXECUTE</em> deals +5 bonus damage to wounded foes.<br/>
-            • <strong>✦ Arcanist (Ranged):</strong> Long-range caster (3 RNG) that pierces 50% of enemy Armor; <em>OVERCHARGE</em> burns 4 HP for a Range-4 blast.<br/>
-            • <strong>✚ Catalyst (Support):</strong> Tactical healer/mid-range fighter; <em>TRANSFUSE</em> transfers 8 HP directly from itself to an ally within 3 tiles.
+            • <strong>◈ Vanguard (Tank):</strong> Frontline bruiser with high Armor; <em>FORTIFY</em> adds +6 Shield (max 10; halves next turn) and <em>Last Stand</em> spikes ATK/ARM at low HP.<br/>
+            • <strong>▲ Striker (Assassin):</strong> Fast melee flanker (4 MOV, high ATK); <em>EXECUTE</em> (uses attack) deals +5 bonus damage to wounded foes.<br/>
+            • <strong>✦ Arcanist (Ranged):</strong> Long-range caster (3 RNG) that pierces 50% Armor; <em>OVERCHARGE</em> (uses attack) burns 4 HP for a +3 DMG Range-4 blast.<br/>
+            • <strong>✚ Catalyst (Support):</strong> Tactical healer/mid-range fighter; <em>TRANSFUSE</em> (does not use attack) transfers 8 HP to an ally within 3 tiles.
           </div>
           <div>
             <strong style="color:var(--ink);">Weight Classes &amp; Wound Dials:</strong><br/>
@@ -1183,11 +1188,28 @@
   </div>
 </div>
 
+<!-- LOBBY LEADERBOARD OVERLAY -->
+<div class="overlay" id="leaderboardOverlay" style="z-index:54;">
+  <div class="modal" style="max-width:520px; text-align:left; max-height:80vh; display:flex; flex-direction:column;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-shrink:0;">
+      <span id="lobbyLbSubtitle" style="font-family:var(--font-mono); font-size:11px; color:var(--brass); letter-spacing:0.1em;">ONLINE PvP ELO STANDINGS</span>
+      <button id="lobbyLbCloseBtn" style="padding:4px 10px; font-size:11.5px;">Close</button>
+    </div>
+    <h2 style="font-size:20px; margin-bottom:10px; text-align:left; flex-shrink:0;">FRACTURE Leaderboard</h2>
+    <div style="overflow-y:auto; flex:1; min-height:0;">
+      <table class="lb-table">
+        <thead><tr><th>#</th><th>Commander</th><th>ELO</th><th>W-L</th><th>Style</th></tr></thead>
+        <tbody id="lobbyLbBody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
 <!-- WHAT'S NEW / PATCH NOTES OVERLAY -->
 <div class="overlay" id="whatsNewOverlay" style="z-index:55;">
   <div class="modal" style="max-width:580px; text-align:left; max-height:84vh; display:flex; flex-direction:column;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-shrink:0;">
-      <span id="whatsNewVersionBadge" style="font-family:var(--font-mono); font-size:11px; color:var(--brass); letter-spacing:0.1em;">PATCH NOTES · CURRENT v3.2</span>
+      <span id="whatsNewVersionBadge" style="font-family:var(--font-mono); font-size:11px; color:var(--brass); letter-spacing:0.1em;">PATCH NOTES · CURRENT v3.3</span>
       <button id="whatsNewCloseBtn" style="padding:4px 10px; font-size:11.5px;">Close</button>
     </div>
     <h2 style="font-size:20px; margin-bottom:10px; text-align:left; flex-shrink:0;">What's New in FRACTURE</h2>
@@ -1308,25 +1330,31 @@
         STATE.roomCode = data.code;
         STATE.poolHP = data.poolHP;
         STATE.playerCount = data.maxPlayers || 2;
+        STATE.readySeats = data.readySeats || [];
         if (data.mapId && MAPS[data.mapId]) STATE.mapId = data.mapId;
         STATE.playerNames = data.playerNames || { 1: data.p1Name, 2: data.p2Name };
         STATE.p1Name = STATE.playerNames[1] || data.p1Name;
         STATE.p2Name = STATE.playerNames[2] || data.p2Name;
         if (STATE.isSpectator) {
           showModal(`SPECTATING ROOM ${data.code}`, `Commanders (${Object.values(STATE.playerNames).join(' vs ')}) are forging their ${data.poolHP} HP squads — battle will stream live automatically.`, [
-            { label: 'Leave', primary: false, onClick: () => { hideModal(); leaveToLobby(); } }
+            { label: 'Leave', primary: false, onClick: () => { hideModal(); leaveToLobby(true); } }
           ]);
           return;
         }
-        applySplitPreset(3, STATE.localPlayerNum);
+        if (!STATE.forgeDrafts[STATE.localPlayerNum] || !STATE.forgeDrafts[STATE.localPlayerNum].length) {
+          applySplitPreset(3, STATE.localPlayerNum);
+        }
         hideModal();
         openForgeFor(STATE.localPlayerNum);
       });
       es.addEventListener('squad_ready', e => {
         const data = JSON.parse(e.data);
+        if (Array.isArray(data.readySeats)) STATE.readySeats = data.readySeats;
+        else if (data.playerNum && !STATE.readySeats.includes(data.playerNum)) STATE.readySeats.push(data.playerNum);
+        renderForgeRoomBar();
         if (!STATE.isSpectator && data.playerNum !== STATE.localPlayerNum) {
           const el = document.getElementById('forgeSummary');
-          if (el) el.textContent = `${data.readyCount || 1}/${data.maxPlayers || STATE.playerCount} squads locked — waiting on remaining commanders!`;
+          if (el) el.textContent = `${data.readyCount || STATE.readySeats.length}/${data.maxPlayers || STATE.playerCount} squads locked — waiting on remaining commanders!`;
         }
       });
       es.addEventListener('battle_start', e => {
@@ -1347,6 +1375,15 @@
         hideModal();
         startBattle();
       });
+      es.addEventListener('room_sync', e => {
+        const data = JSON.parse(e.data);
+        if (data.snapshot && (!STATE.lastSeq || (data.seq || 0) > STATE.lastSeq)) {
+          STATE.lastSeq = data.seq || STATE.lastSeq || 0;
+          applyAuthoritativeSnapshot(data.snapshot);
+          resetTurnTimer();
+          if (screens.battle.classList.contains('active')) renderBattleUI();
+        }
+      });
       es.addEventListener('action', e => {
         const msg = JSON.parse(e.data);
         handleRemoteAction(msg);
@@ -1357,7 +1394,10 @@
       });
       es.addEventListener('opponent_left', e => {
         const data = JSON.parse(e.data);
-        addLog(`${data.name || 'Opponent'} disconnected from the match.`, 'sys');
+        if (data.playerNames) STATE.playerNames = data.playerNames;
+        if (Array.isArray(data.readySeats)) STATE.readySeats = data.readySeats;
+        renderForgeRoomBar();
+        addLog(`${data.name || 'Opponent'} left the room.`, 'sys');
       });
       es.addEventListener('rematch_start', e => {
         const data = JSON.parse(e.data);
@@ -1426,6 +1466,12 @@
       const data = await this.post(`/api/rooms/${clean}/spectate`, { viewerName, clientId: this.clientId });
       this.connectStream(data.code);
       return data;
+    },
+    async leaveRoom(code) {
+      if (!this.connected || !code) return;
+      try {
+        await this.post(`/api/rooms/${code}/leave`, { clientId: this.clientId });
+      } catch (_) {}
     },
     async submitSquad(code, playerNum, squad) {
       return this.post(`/api/rooms/${code}/squad`, { playerNum, squad, clientId: this.clientId });
@@ -1576,7 +1622,7 @@
     arcanist: {
       name: 'Arcanist', symbol: '✦', atkMod: 1, armMod: 0, movBase: 2, rngBase: 3, piercing: true,
       desc: 'Ranged artillery — attacks from 3 tiles away, pierces 50% Armor (still hits Shield), and fires OVERCHARGE.',
-      specialName: 'OVERCHARGE', specialDesc: '2 AP + 4 HP (uses attack): Piercing blast (+5 DMG, Rng 4; ignores Armor, hits Shield).',
+      specialName: 'OVERCHARGE', specialDesc: '2 AP + 4 HP (uses attack): +3 DMG blast (Rng 4; pierces 50% Armor, still hits Shield).',
       dial: [
         { label: 'FRESH', atk: 0, arm: 0, mov: 0, rng: 0, note: 'Focused' },
         { label: 'BLOODIED', atk: 2, arm: 0, mov: -1, rng: 0, note: '+2 ATK -1 MOV' },
@@ -1738,6 +1784,8 @@
     spectatorCount: 0,
     roomCode: null,
     onlineSeed: null,
+    readySeats: [],
+    winnerName: '',
     poolHP: 100,
     p1Name: 'Commander',
     p2Name: 'AI Commander',
@@ -1797,11 +1845,19 @@
   const poolValLabel = document.getElementById('poolValLabel');
   const poolPresetBtns = document.querySelectorAll('#poolPresets button');
 
+  function syncLobbyMapHeader() {
+    if (!screens.lobby.classList.contains('active')) return;
+    const mapKey = document.getElementById('mapSelect')?.value || 'timberline';
+    const mapDef = MAPS[mapKey];
+    if (mapDef) document.getElementById('matchBadge').textContent = `${STATE.poolHP} HP · ${mapDef.name.toUpperCase()}`;
+  }
+
   function setPool(val) {
     STATE.poolHP = Math.max(40, Math.min(240, Number(val)));
     poolSlider.value = STATE.poolHP;
     poolValLabel.textContent = `${STATE.poolHP} HP`;
     poolPresetBtns.forEach(b => b.classList.toggle('selected', Number(b.dataset.pool) === STATE.poolHP));
+    syncLobbyMapHeader();
   }
   poolSlider.addEventListener('input', e => setPool(e.target.value));
   poolPresetBtns.forEach(b => b.addEventListener('click', () => { Sound.click(); setPool(b.dataset.pool); }));
@@ -1815,19 +1871,21 @@
     presenceTimer = setTimeout(() => NetworkAdapter.updatePresenceName(val), 400);
   });
 
-  function leaveToLobby() {
+  async function leaveToLobby(explicitLeave = false) {
     stopTurnTimer();
     STATE.tutorialStep = null;
     STATE.isSpectator = false;
     STATE.spectatorCount = 0;
-    if (STATE.roomCode && NetworkAdapter.connected) {
-      STATE.roomCode = null;
+    STATE.readySeats = [];
+    const oldCode = STATE.roomCode;
+    STATE.roomCode = null;
+    if (oldCode && NetworkAdapter.connected) {
+      if (explicitLeave) await NetworkAdapter.leaveRoom(oldCode);
       NetworkAdapter.connectStream(null);
-    } else {
-      STATE.roomCode = null;
     }
     document.getElementById('endTurnBtn').classList.remove('tutorial-pulse');
     showScreen('lobby');
+    syncLobbyMapHeader();
   }
 
   function renderOnlinePlayers() {
@@ -1914,16 +1972,34 @@
       STATE.playerCount = data.maxPlayers || 2;
       STATE.roomCode = data.code;
       STATE.poolHP = data.poolHP;
+      STATE.readySeats = data.readySeats || [];
       if (data.mapId && MAPS[data.mapId]) STATE.mapId = data.mapId;
       STATE.playerNames = data.playerNames || { 1: data.p1Name, 2: data.p2Name };
       STATE.p1Name = STATE.playerNames[1] || data.p1Name;
       STATE.p2Name = STATE.playerNames[2] || data.p2Name;
-      if (data.allJoined !== false) {
-        applySplitPreset(3, STATE.localPlayerNum);
+      if ((data.status === 'battle' || data.status === 'finished') && data.squads) {
+        for (let i = 1; i <= STATE.playerCount; i++) {
+          STATE.forgeDrafts[i] = data.squads[i] || [];
+        }
+        STATE.onlineSeed = data.seed ?? 1;
+        hideModal();
+        startBattle();
+        if (data.snapshot) applyAuthoritativeSnapshot(data.snapshot);
+        STATE.lastSeq = data.seq || 0;
+        if (Array.isArray(data.chat)) data.chat.forEach(m => addLog(`${m.sender}: ${m.text}`, 'chat'));
+        addLog(`Reconnected to room ${data.code} as ${getPlayerName(STATE.localPlayerNum)}.`, 'sys');
+        renderBattleUI();
+      } else if (data.allJoined !== false) {
+        if (!STATE.forgeDrafts[STATE.localPlayerNum] || !STATE.forgeDrafts[STATE.localPlayerNum].length) {
+          applySplitPreset(3, STATE.localPlayerNum);
+        }
+        hideModal();
         openForgeFor(STATE.localPlayerNum);
       } else {
         const names = Object.values(STATE.playerNames).join(', ');
-        showModal(`ROOM ${data.code} — WAITING (${data.joinedCount}/${data.maxPlayers})`, `Joined: ${names}. Waiting for remaining commanders to join...`, []);
+        showModal(`ROOM ${data.code} — WAITING (${data.joinedCount}/${data.maxPlayers})`, `Joined: ${names}. Waiting for remaining commanders to join...`, [
+          { label: 'Leave Room', primary: false, onClick: () => { hideModal(); leaveToLobby(true); } }
+        ]);
       }
     } catch (err) {
       status.textContent = err.message;
@@ -2035,6 +2111,13 @@
     const mapSel = document.getElementById('mapSelect');
     if (cnt > 2) mapSel.value = 'crossfire';
     else if (mapSel.value === 'crossfire') mapSel.value = 'timberline';
+    STATE.mapId = mapSel.value;
+    syncLobbyMapHeader();
+  });
+
+  document.getElementById('mapSelect').addEventListener('change', e => {
+    STATE.mapId = e.target.value;
+    syncLobbyMapHeader();
   });
 
   document.getElementById('startForgeBtn').addEventListener('click', () => {
@@ -2083,7 +2166,7 @@
   document.getElementById('soundBtn').addEventListener('click', () => Sound.toggle());
   document.getElementById('newMatchBtn').addEventListener('click', () => {
     Sound.click();
-    leaveToLobby();
+    leaveToLobby(true);
   });
 
   /* ============================================================================
@@ -2113,11 +2196,37 @@
     STATE.forgeDrafts[owner] = list;
   }
 
+  function renderForgeRoomBar() {
+    const bar = document.getElementById('forgeRoomBar');
+    const info = document.getElementById('forgeRoomInfo');
+    if (!bar || !info) return;
+    if (STATE.mode !== 'online' || !STATE.roomCode) {
+      bar.style.display = 'none';
+      return;
+    }
+    bar.style.display = 'flex';
+    const seats = [];
+    for (let o = 1; o <= (STATE.playerCount || 2); o++) {
+      const nm = STATE.playerNames?.[o];
+      const locked = (STATE.readySeats || []).includes(o);
+      const isMe = o === STATE.localPlayerNum;
+      if (nm) {
+        seats.push(`<span style="padding:2px 8px; border-radius:999px; background:#0f131b; border:1px solid ${locked ? 'var(--good)' : 'var(--border)'}; color:${getPlayerVar(o)};"><strong>${nm}${isMe ? ' (You)' : ''}</strong> · <span style="color:${locked ? 'var(--good)' : 'var(--warn)'};">${locked ? '✓ Locked' : 'Forging...'}</span></span>`);
+      } else {
+        seats.push(`<span style="padding:2px 8px; border-radius:999px; background:#0f131b; border:1px dashed var(--border); color:var(--muted);">Seat ${o}: Waiting...</span>`);
+      }
+    }
+    const mapName = MAPS[STATE.mapId]?.name || STATE.mapId;
+    info.innerHTML = `<span style="color:var(--brass); font-weight:800;">ROOM ${STATE.roomCode}</span><span style="color:var(--muted);">· ${mapName}</span>${seats.join('')}`;
+  }
+
   function openForgeFor(owner) {
     STATE.forgeOwner = owner;
     const label = `${getPlayerName(owner).toUpperCase()} — FRACTURE FORGE`;
     document.getElementById('forgePlayerTitle').textContent = label;
-    document.getElementById('matchBadge').textContent = `${STATE.poolHP} HP BATTLE POOL`;
+    const mapName = MAPS[STATE.mapId]?.name || 'Arena';
+    document.getElementById('matchBadge').textContent = `${STATE.poolHP} HP · ${mapName.toUpperCase()}`;
+    renderForgeRoomBar();
     renderForge();
     showScreen('forge');
   }
@@ -2150,7 +2259,7 @@
         <div class="uf-top">
           <input type="text" value="${u.name}" maxlength="14" data-idx="${idx}" class="uf-name-input" />
           <div style="display:flex; align-items:center; gap:6px;">
-            <span class="weight-badge">${st.wc.label}</span>
+            <span class="weight-badge" title="Weight Class (scales with HP)">WT: ${st.wc.label}</span>
             ${list.length > 1 ? `<button class="danger uf-del" data-idx="${idx}" style="padding:3px 7px;">×</button>` : ''}
           </div>
         </div>
@@ -2243,9 +2352,26 @@
     renderForge();
   });
 
+  document.getElementById('forgeLeaveRoomBtn').addEventListener('click', () => {
+    Sound.click();
+    leaveToLobby(true);
+  });
+
   document.getElementById('backToLobbyBtn').addEventListener('click', () => {
     Sound.click();
+    if (STATE.mode === 'online' && STATE.roomCode) {
+      const savedCode = STATE.roomCode;
+      showScreen('lobby');
+      const status = document.getElementById('onlineStatusBox');
+      if (status) {
+        status.innerHTML = `Your slot in Room <strong style="color:var(--brass);">${savedCode}</strong> is held. <button id="quickRejoinBtn" style="padding:2px 8px; font-size:11px; margin-left:6px;" class="primary">Return to Forge</button>`;
+        status.style.color = 'var(--good)';
+        document.getElementById('quickRejoinBtn')?.addEventListener('click', () => joinOnlineRoom(savedCode));
+      }
+      return;
+    }
     showScreen('lobby');
+    syncLobbyMapHeader();
   });
 
   document.getElementById('lockSquadBtn').addEventListener('click', async () => {
@@ -2643,7 +2769,7 @@
     );
   }
 
-  function previewAttackDamage(attacker, target, bonusDmg = 0, forcePierce = false) {
+  function previewAttackDamage(attacker, target, bonusDmg = 0, forcePierce = false, isCrit = false) {
     const aSt = computeUnitStats(attacker, STATE.grid[attacker.r][attacker.c]);
     const tSt = computeUnitStats(target, STATE.grid[target.r][target.c]);
     let raw = aSt.atk + bonusDmg;
@@ -2657,11 +2783,11 @@
       if (flanked) raw += 2;
     }
 
-    const effArm = (forcePierce || aSt.role.piercing) ? Math.floor(tSt.arm * 0.5) : tSt.arm;
+    const effArm = isCrit ? 0 : ((forcePierce || aSt.role.piercing) ? Math.floor(tSt.arm * 0.5) : tSt.arm);
     const afterArm = Math.max(2, raw - effArm);
     const shieldAbsorb = Math.min(target.shield, afterArm);
     const hpDmg = afterArm - shieldAbsorb;
-    return { total: afterArm, shieldAbsorb, hpDmg, lethal: hpDmg >= target.hp };
+    return { raw, effArm, total: afterArm, shieldAbsorb, hpDmg, lethal: hpDmg >= target.hp };
   }
 
   function applyDamage(target, amount, sourceLabel, ignoreArmor = false, attacker = null) {
@@ -2697,6 +2823,7 @@
 
   function isMyTurn() {
     if (STATE.gameOver || STATE.aiBusy || STATE.isSpectator) return false;
+    if (isAIPlayer(STATE.activePlayer)) return false;
     if (STATE.mode === 'online') return STATE.activePlayer === STATE.localPlayerNum;
     return true;
   }
@@ -2891,7 +3018,7 @@
     STATE.actionMode = 'normal';
     STATE.activeCardIndex = null;
     const roll = rollAttack2d6(forcedRoll);
-    const prev = previewAttackDamage(attacker, target, bonusDmg, forcePierce || roll.pierce);
+    const prev = previewAttackDamage(attacker, target, bonusDmg, forcePierce, roll.pierce);
     let rolledTotal = Math.max(2, Math.round(prev.total * roll.mult));
 
     // Check defender's secret Deflect Trap
@@ -2939,29 +3066,35 @@
     target.hp = Math.max(0, target.hp - hpDmg);
     const floatTxt = hpDmg > 0 ? `${roll.label} [${roll.sum}] -${hpDmg} HP` : `SHIELDED [${roll.sum}]`;
     spawnFloat(target.r, target.c, floatTxt, hpDmg > 0 ? roll.color : '#38bdf8');
-    showRollToast(
-      (deflected ? `<strong style="color:#facc15;">🪤 DEFLECT TRAP! DMG HALVED &amp; -4 REFLECTED</strong><br/>` : '') +
-      `<strong style="color:${roll.color};">🎲 2d6 = ${roll.sum} (${roll.d1}+${roll.d2}) · ${roll.label}</strong><br/>` +
-      `${target.name} took <strong>-${hpDmg} HP</strong>${shieldAbsorb ? ` (${shieldAbsorb} absorbed by Shield)` : ''} · ${target.hp}/${target.maxHP} HP left`,
-      deflected ? '#facc15' : roll.color
-    );
-    addLog(`[2d6=${roll.sum} ${roll.label}] ${attacker.name} ${label} ${target.name} — ${hpDmg} HP taken${deflected ? ' (DEFLECTED!)' : ''}${shieldAbsorb ? ` (${shieldAbsorb} blocked)` : ''}.`, `p${attacker.owner}`);
 
-    if (deflected) {
-      spawnBeam(target.r, target.c, attacker.r, attacker.c, '#facc15');
-      applyDamage(attacker, 4, `${target.name}'s Deflect Trap`, true, target);
-    }
-
+    let momentumNote = '';
     if (target.hp <= 0) {
       target.alive = false;
       spawnShockwave(target.r, target.c, '#ef4444', 1.25);
       Sound.kill();
-      addLog(`${target.name} is eliminated!`, `p${attacker.owner}`);
       if (getWeightClass(attacker.maxHP).id === 'champion') {
         STATE.ap = Math.min(STATE.maxAP + 2, STATE.ap + 1);
         spawnFloat(attacker.r, attacker.c, '+1 AP', '#d4a359');
-        addLog(`${attacker.name} triggers Momentum (+1 AP).`, `p${attacker.owner}`);
+        momentumNote = '<br/><strong style="color:var(--brass);">⚡ MOMENTUM: +1 AP REFUNDED!</strong>';
       }
+    }
+
+    const mathStr = `${prev.raw} raw − ${prev.effArm} ARM${roll.mult !== 1 ? ` ×${roll.mult}` : ''}${deflected ? ' ÷2 Deflect' : ''}${shieldAbsorb ? ` − ${shieldAbsorb} SHD` : ''} = ${hpDmg} HP`;
+    showRollToast(
+      (deflected ? `<strong style="color:#facc15;">🪤 DEFLECT TRAP! DMG HALVED &amp; -4 REFLECTED</strong><br/>` : '') +
+      `<strong style="color:${roll.color};">🎲 2d6 = ${roll.sum} (${roll.d1}+${roll.d2}) · ${roll.label}</strong><br/>` +
+      `${target.name}: <strong>${mathStr}</strong> (${target.hp}/${target.maxHP} left)${momentumNote}`,
+      deflected ? '#facc15' : roll.color
+    );
+    addLog(`[2d6=${roll.sum} ${roll.label}] ${attacker.name} ${label} ${target.name}: ${mathStr} (${target.hp}/${target.maxHP} left).`, `p${attacker.owner}`);
+    if (!target.alive) {
+      addLog(`${target.name} is eliminated!`, `p${attacker.owner}`);
+      if (momentumNote) addLog(`${attacker.name} triggers Momentum (+1 AP).`, `p${attacker.owner}`);
+    }
+
+    if (deflected) {
+      spawnBeam(target.r, target.c, attacker.r, attacker.c, '#facc15');
+      applyDamage(attacker, 4, `${target.name}'s Deflect Trap`, true, target);
     }
 
     // Titan Cleave (melee only)
@@ -2986,6 +3119,7 @@
         roll: { d1: roll.d1, d2: roll.d2 }
       });
     }
+    if (STATE.hoverCell) updateHoverTooltip(STATE.hoverCell.r, STATE.hoverCell.c);
     renderBattleUI();
   }
 
@@ -2996,6 +3130,7 @@
     STATE.lastMove = null;
     STATE.actionMode = 'normal';
     STATE.activeCardIndex = null;
+    document.getElementById('hoverTooltip')?.classList.remove('visible');
     triggerCounterTrap(unit.owner);
     let specialRoll = null;
     if (unit.role === 'vanguard') {
@@ -3005,7 +3140,7 @@
       Sound.card();
       spawnShockwave(unit.r, unit.c, '#38bdf8', 0.9);
       spawnFloat(unit.r, unit.c, `+${gained} SHD`, '#38bdf8');
-      addLog(`${unit.name} activates FORTIFY (+${gained} Shield, ${unit.shield} total).`, `p${unit.owner}`);
+      addLog(`${unit.name} activates FORTIFY (+${gained} Shield, ${unit.shield} total; halves next turn).`, `p${unit.owner}`);
     } else if (unit.role === 'striker' && target) {
       const bonus = target.hp < target.maxHP ? 5 : 1;
       specialRoll = rollAttack2d6(forcedRoll);
@@ -3015,7 +3150,7 @@
       unit.hp -= 4;
       spawnFloat(unit.r, unit.c, '-4 HP', '#fda4af');
       specialRoll = rollAttack2d6(forcedRoll);
-      executeAttack(unit, target, 5, true, 'OVERCHARGES', true, specialRoll);
+      executeAttack(unit, target, 3, false, 'OVERCHARGES', true, specialRoll);
     } else if (unit.role === 'catalyst' && target) {
       if (unit.hp <= 8) return;
       STATE.ap -= 2;
@@ -3031,6 +3166,8 @@
       spawnFloat(target.r, target.c, `+${actual} HP`, '#10b981');
       addLog(`${unit.name} transfuses ${actual} HP into ${target.name}.`, `p${unit.owner}`);
     }
+    STATE.actionMode = 'normal';
+    STATE.activeCardIndex = null;
     if (STATE.mode === 'online' && !isRemote) {
       NetworkAdapter.sendAction(STATE.roomCode, {
         type: 'special', unitId: unit.id, targetId: target ? target.id : null,
@@ -3100,6 +3237,8 @@
             extra = ' (+5 Rift DMG)';
           }
         }
+      } else {
+        extra = ' (knockback blocked at arena edge)';
       }
       addLog(`${payer.name} casts Sever & Push on ${targetObj.name}${extra}.`, `p${payer.owner}`);
     }
@@ -3107,6 +3246,7 @@
     hand.splice(cardIdx, 1);
     STATE.actionMode = 'normal';
     STATE.activeCardIndex = null;
+    document.getElementById('hoverTooltip')?.classList.remove('visible');
     if (STATE.mode === 'tutorial' && STATE.tutorialStep === 3 && payer.owner === 1) {
       STATE.tutorialStep = 4;
       showRollToast('<strong style="color:var(--brass);">STEP 4/4: END TURN</strong><br/>Secret Deflect Trap armed for 0 AP! Press <strong>END TURN [Space]</strong> to watch it spring.', 'var(--brass)');
@@ -3129,6 +3269,7 @@
     STATE.freeDeployActive[STATE.activePlayer] = false;
     clearTimeout(rollToastTimer);
     document.getElementById('rollToast')?.classList.remove('visible');
+    document.getElementById('hoverTooltip')?.classList.remove('visible');
     STATE.units.filter(u => u.alive && u.owner === STATE.activePlayer && STATE.grid[u.r][u.c] === 'rift')
       .forEach(u => {
         applyDamage(u, 3, 'Rift Hazard', true);
@@ -3228,15 +3369,19 @@
     if (aliveOwners.length > 1 && !officialResult) return;
     STATE.gameOver = true;
     stopTurnTimer();
+    clearTimeout(rollToastTimer);
+    document.getElementById('rollToast')?.classList.remove('visible');
+    document.getElementById('hoverTooltip')?.classList.remove('visible');
     const winner = officialResult?.winner || aliveOwners[0] || STATE.activePlayer || 1;
     const wName = getPlayerName(winner);
+    STATE.winnerName = wName;
     const wStyle = classifySquadStyle(STATE.forgeDrafts[winner] || []);
     let deltaText = '';
-    const isUnrankedPractice = STATE.mode === 'tutorial' || (STATE.mode === 'ai' && STATE.aiDifficulty === 'easy');
+    const isUnrankedPractice = STATE.mode === 'tutorial' || STATE.mode === 'ai';
     if (nPlayers > 2) {
       deltaText = ` (${nPlayers}-Commander FFA — Unranked.)`;
     } else if (isUnrankedPractice) {
-      deltaText = ' (Unranked Practice — ELO unchanged.)';
+      deltaText = ' (Unranked AI Practice — ELO unchanged.)';
     } else if (STATE.mode === 'online') {
       deltaText = officialResult && officialResult.delta ? ` Official ELO swing: +${officialResult.delta} / -${officialResult.delta}.` : ' Official result synced with server.';
     } else {
@@ -3245,6 +3390,7 @@
       deltaText = ` ELO swing: +${res.delta} / -${res.delta}.`;
     }
     renderLeaderboard();
+    renderBattleUI();
 
     const owners = Array.from({ length: nPlayers }, (_, i) => i + 1);
     const getS = o => STATE.stats?.[o] || { dmg: 0, crits: 0, traps: 0, blood: 0 };
@@ -3270,7 +3416,7 @@
     const modalBtns = STATE.isSpectator
       ? [
           { label: 'Stay for Rematch', primary: true, onClick: () => hideModal() },
-          { label: 'Back to Lobby', primary: false, onClick: () => { hideModal(); leaveToLobby(); } }
+          { label: 'Back to Lobby', primary: false, onClick: () => { hideModal(); leaveToLobby(true); } }
         ]
       : [
           {
@@ -3284,7 +3430,7 @@
               }
             }
           },
-          { label: 'Back to Lobby', primary: false, onClick: () => { hideModal(); leaveToLobby(); } }
+          { label: 'Back to Lobby', primary: false, onClick: () => { hideModal(); leaveToLobby(true); } }
         ];
 
     showModal(
@@ -3345,6 +3491,7 @@
     }
 
     let safety = 0;
+    let tauntedThisTurn = false;
     const maxActions = diff === 'easy' ? 2 : 10;
     while (STATE.ap > 0 && !STATE.gameOver && safety < maxActions) {
       safety++;
@@ -3384,11 +3531,11 @@
             bestAttack = { u, t, score, useSpecial };
           }
         }
-        // Warlord Arcanist Overcharge (Rng 4 piercing blast)
+        // Warlord Arcanist Overcharge (Rng 4, 50% Armor pierce)
         if (diff === 'hard' && u.role === 'arcanist' && u.hp > 10 && STATE.ap >= 2) {
           const ocTargets = getAttackableTargets(u, 4);
           for (const t of ocTargets) {
-            const prev = previewAttackDamage(u, t, 5, true);
+            const prev = previewAttackDamage(u, t, 3, false);
             const score = (prev.lethal ? 240 : 0) + prev.hpDmg * 3.2 + (100 - t.hp) + 15;
             if (!bestAttack || score > bestAttack.score) {
               bestAttack = { u, t, score, useSpecial: true };
@@ -3399,13 +3546,15 @@
 
       if (bestAttack) {
         STATE.selectedUnitId = bestAttack.u.id;
+        const targetName = bestAttack.t.name;
         if (bestAttack.useSpecial) {
           executeSpecial(bestAttack.u, bestAttack.t);
         } else {
           executeAttack(bestAttack.u, bestAttack.t);
         }
-        if (Math.random() < 0.25 && !STATE.gameOver) {
-          addLog(`${getPlayerName(aiOwner)}: ${bestAttack.t.alive ? 'Pressure applied.' : `${bestAttack.t.name} down.`}`, 'chat');
+        if (!tauntedThisTurn && !STATE.gameOver && (!bestAttack.t.alive || Math.random() < 0.25)) {
+          tauntedThisTurn = true;
+          addLog(`${getPlayerName(aiOwner)}: ${bestAttack.t.alive ? `Pressure on ${targetName}.` : `${targetName} down.`}`, 'chat');
         }
         await wait(450);
         continue;
@@ -3615,29 +3764,38 @@
           ctx.strokeStyle = 'rgba(148,163,184,0.22)';
           ctx.stroke();
         } else if (type === 'tree') {
-          // Impassable pine/timber obstacle (blocks movement & LOS)
-          const tcx = x + tileSize / 2, tcy = y + tileSize / 2;
-          ctx.fillStyle = 'rgba(16, 185, 129, 0.08)';
+          // Impassable pine/timber obstacle (distinct layered conifer silhouette, blocks movement & LOS)
+          const tcx = x + tileSize / 2;
+          ctx.fillStyle = '#0c1c14';
           ctx.fillRect(x + 2, y + 2, tileSize - 4, tileSize - 4);
+          ctx.strokeStyle = 'rgba(34, 197, 94, 0.35)';
+          ctx.lineWidth = 1;
+          ctx.strokeRect(x + 3, y + 3, tileSize - 6, tileSize - 6);
+          // Trunk
+          ctx.fillStyle = '#78350f';
+          ctx.fillRect(tcx - tileSize * 0.07, y + tileSize * 0.68, tileSize * 0.14, tileSize * 0.18);
+          // Lower pine tier
           ctx.beginPath();
-          ctx.arc(tcx + 3, tcy + 4, tileSize * 0.34, 0, Math.PI * 2);
-          ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
-          ctx.fill();
-          ctx.beginPath();
-          ctx.arc(tcx, tcy, tileSize * 0.34, 0, Math.PI * 2);
+          ctx.moveTo(tcx, y + tileSize * 0.28);
+          ctx.lineTo(x + tileSize * 0.82, y + tileSize * 0.72);
+          ctx.lineTo(x + tileSize * 0.18, y + tileSize * 0.72);
+          ctx.closePath();
           ctx.fillStyle = '#14532d';
           ctx.fill();
           ctx.strokeStyle = '#22c55e';
-          ctx.lineWidth = 1.5;
+          ctx.lineWidth = 1.3;
           ctx.stroke();
+          // Upper pine tier
           ctx.beginPath();
-          ctx.arc(tcx - 3, tcy - 3, tileSize * 0.21, 0, Math.PI * 2);
-          ctx.fillStyle = '#166534';
+          ctx.moveTo(tcx, y + tileSize * 0.12);
+          ctx.lineTo(x + tileSize * 0.72, y + tileSize * 0.48);
+          ctx.lineTo(x + tileSize * 0.28, y + tileSize * 0.48);
+          ctx.closePath();
+          ctx.fillStyle = '#15803d';
           ctx.fill();
-          ctx.beginPath();
-          ctx.arc(tcx, tcy, tileSize * 0.09, 0, Math.PI * 2);
-          ctx.fillStyle = '#78350f';
-          ctx.fill();
+          ctx.strokeStyle = '#4ade80';
+          ctx.lineWidth = 1.2;
+          ctx.stroke();
         } else if (type === 'water') {
           // Impassable water (must route around, ranged can fire across)
           ctx.fillStyle = '#0a3556';
@@ -3789,7 +3947,7 @@
           const isHeal = sel.role === 'catalyst';
           hoverPreview = {
             target: hUnit,
-            prev: isHeal ? { label: '+8 HP' } : previewAttackDamage(sel, hUnit, sel.role === 'arcanist' ? 5 : (hUnit.hp < hUnit.maxHP ? 5 : 1), sel.role === 'arcanist'),
+            prev: isHeal ? { label: '+8 HP' } : previewAttackDamage(sel, hUnit, sel.role === 'arcanist' ? 3 : (hUnit.hp < hUnit.maxHP ? 5 : 1), false),
             color: isHeal ? '#10b981' : '#f59e0b'
           };
         } else if (STATE.actionMode === 'card' && cardUnits.includes(hUnit)) {
@@ -4106,8 +4264,23 @@
         if (sel.role === 'catalyst' && clickedUnit && clickedUnit.owner === sel.owner && clickedUnit.id !== sel.id && dist(sel.r, sel.c, clickedUnit.r, clickedUnit.c) <= 3) {
           executeSpecial(sel, clickedUnit); return;
         }
+        let blockMsg = '';
+        if (clickedUnit && (sel.role === 'striker' || sel.role === 'arcanist') && clickedUnit.owner !== sel.owner) {
+          const maxR = sel.role === 'arcanist' ? 4 : 1;
+          const d = dist(sel.r, sel.c, clickedUnit.r, clickedUnit.c);
+          if (d > maxR) blockMsg = `${ROLES[sel.role].specialName} out of range (distance ${d} > RNG ${maxR}).`;
+          else if (!hasLineOfSight(sel.r, sel.c, clickedUnit.r, clickedUnit.c)) blockMsg = `${ROLES[sel.role].specialName} Line of Sight blocked by Tree or Pillar.`;
+          else if (sel.role === 'arcanist' && sel.hp <= 4) blockMsg = `Need more than 4 HP to cast OVERCHARGE.`;
+        } else if (clickedUnit && sel.role === 'catalyst' && clickedUnit.owner === sel.owner && clickedUnit.id !== sel.id) {
+          const d = dist(sel.r, sel.c, clickedUnit.r, clickedUnit.c);
+          if (d > 3) blockMsg = `TRANSFUSE out of range (distance ${d} > RNG 3).`;
+          else if (sel.hp <= 8) blockMsg = `Need more than 8 HP to cast TRANSFUSE.`;
+        }
         STATE.actionMode = 'normal';
-        showRollToast('<strong style="color:var(--muted);">SPECIAL CANCELLED</strong><br/>Returned to normal action mode.', 'var(--border-hi)');
+        showRollToast(
+          blockMsg ? `<strong style="color:var(--warn);">SPECIAL BLOCKED</strong><br/>${blockMsg}` : '<strong style="color:var(--muted);">SPECIAL CANCELLED</strong><br/>Returned to normal action mode.',
+          blockMsg ? 'var(--warn)' : 'var(--border-hi)'
+        );
         renderBattleUI();
         return;
       }
@@ -4145,13 +4318,16 @@
         }
         if (!clickedUnit) {
           const tile = STATE.grid[r][c];
+          const st = computeUnitStats(sel, STATE.grid[sel.r][sel.c]);
+          const manhattan = dist(sel.r, sel.c, r, c);
           if (tile === 'tree') showRollToast(`<strong style="color:var(--warn);">BLOCKED: TIMBER TREE</strong><br/>Impassable obstacle — route around it (blocks LOS).`, 'var(--warn)');
           else if (tile === 'water') showRollToast(`<strong style="color:var(--warn);">BLOCKED: DEEP WATER</strong><br/>Impassable to walk — route around (ranged can shoot across).`, 'var(--warn)');
           else if (tile === 'pillar') showRollToast(`<strong style="color:var(--warn);">BLOCKED: OBSIDIAN PILLAR</strong><br/>Impassable obstacle — route around it (blocks LOS).`, 'var(--warn)');
           else if (STATE.ap < 1) showRollToast(`<strong style="color:var(--warn);">OUT OF AP</strong><br/>0 AP left — play a Blood Card (0 AP) or press End Turn [Space].`, 'var(--warn)');
           else if (sel.attacksThisTurn > 0) showRollToast(`<strong style="color:var(--warn);">CANNOT MOVE AFTER ATTACKING</strong><br/>${sel.name} already attacked this turn (use Phase Step to reposition).`, 'var(--warn)');
           else if (sel.movedThisTurn) showRollToast(`<strong style="color:var(--warn);">ALREADY MOVED THIS TURN</strong><br/>${sel.name} used its 1 move this turn (select another unit or attack).`, 'var(--warn)');
-          else showRollToast(`<strong style="color:var(--warn);">OUT OF MOVE RANGE</strong><br/>Select a teal-highlighted tile within ${computeUnitStats(sel, STATE.grid[sel.r][sel.c]).mov} tiles.`, 'var(--warn)');
+          else if (manhattan <= st.mov) showRollToast(`<strong style="color:var(--warn);">PATH BLOCKED</strong><br/>Obstacles or units block the path within ${st.mov} steps (1 AP moves up to MOV tiles around obstacles).`, 'var(--warn)');
+          else showRollToast(`<strong style="color:var(--warn);">OUT OF MOVE RANGE</strong><br/>Select a teal-highlighted tile within ${st.mov} tiles (1 AP moves up to MOV tiles).`, 'var(--warn)');
         }
       } else if (!clickedUnit) {
         showRollToast('<strong style="color:var(--warn);">SELECT YOUR OWN UNIT</strong><br/>Click one of your own fighters to move or attack.', 'var(--warn)');
@@ -4176,7 +4352,9 @@
     const suffix = STATE.isSpectator
       ? ' (SPECTATING)'
       : (STATE.mode === 'online' ? (isMyTurn() ? ' (YOUR TURN)' : ' (OPPONENT)') : '');
-    document.getElementById('turnLabel').textContent = `TURN ${STATE.turn} — ${activeName.toUpperCase()}${suffix}`;
+    document.getElementById('turnLabel').textContent = (STATE.gameOver && STATE.winnerName)
+      ? `MATCH OVER — ${STATE.winnerName.toUpperCase()} WINS`
+      : `TURN ${STATE.turn} — ${activeName.toUpperCase()}${suffix}`;
     document.getElementById('turnDot').style.background = getPlayerVar(STATE.activePlayer);
     const undoBtn = document.getElementById('undoMoveBtn');
     const endBtn = document.getElementById('endTurnBtn');
@@ -4305,11 +4483,11 @@
         <div class="insp-card">
           <div class="insp-title-row">
             <span class="insp-name" style="color:${getPlayerVar(sel.owner)};">${st.role.symbol} ${sel.name}</span>
-            <span class="weight-badge">${st.wc.label}</span>
+            <span class="weight-badge" title="Weight Class (scales with HP)">WT: ${st.wc.label}</span>
           </div>
-          <div style="display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:11.5px;">
-            <span>HP: <strong>${sel.hp} / ${sel.maxHP}</strong></span>
-            <span>${sel.shield > 0 ? `SHD +${sel.shield}` : st.role.name}</span>
+          <div style="display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:11px; gap:6px;">
+            <span>HP: <strong>${sel.hp}/${sel.maxHP}</strong></span>
+            <span style="color:var(--muted);">${st.role.name}${sel.shield > 0 ? ` · <strong style="color:#38bdf8;">SHD +${sel.shield}</strong> (½/turn)` : ''}</span>
           </div>
           <div class="insp-hp-bar"><div class="insp-hp-fill" style="width:${pct}%; background:${hpColor};"></div></div>
           <div class="uf-stats">
@@ -4440,8 +4618,7 @@
 
   function renderLeaderboard() {
     const rows = NetworkAdapter.getLeaderboard();
-    const tbody = document.getElementById('lbBody');
-    tbody.innerHTML = rows.map((r, i) => `
+    const html = rows.map((r, i) => `
       <tr>
         <td>${i + 1}</td>
         <td style="font-weight:700; color:var(--ink);">${r.name}</td>
@@ -4450,7 +4627,26 @@
         <td style="color:var(--muted);">${r.style}</td>
       </tr>
     `).join('');
+    const tbody = document.getElementById('lbBody');
+    if (tbody) tbody.innerHTML = html;
+    const lobbyBody = document.getElementById('lobbyLbBody');
+    if (lobbyBody) lobbyBody.innerHTML = html;
+    const lobbySub = document.getElementById('lobbyLbSubtitle');
+    if (lobbySub) lobbySub.textContent = NetworkAdapter.connected ? 'LIVE SERVER ELO STANDINGS (ONLINE PvP)' : 'LOCAL ELO STANDINGS';
   }
+
+  document.getElementById('lobbyLbBtn')?.addEventListener('click', () => {
+    Sound.click();
+    renderLeaderboard();
+    document.getElementById('leaderboardOverlay')?.classList.add('active');
+  });
+  document.getElementById('lobbyLbCloseBtn')?.addEventListener('click', () => {
+    Sound.click();
+    document.getElementById('leaderboardOverlay')?.classList.remove('active');
+  });
+  document.getElementById('leaderboardOverlay')?.addEventListener('click', e => {
+    if (e.target.id === 'leaderboardOverlay') document.getElementById('leaderboardOverlay').classList.remove('active');
+  });
 
   // Right-side tabs
   document.querySelectorAll('.tab-bar button').forEach(btn => {
@@ -4624,12 +4820,23 @@
   /* ============================================================================
      13. WHAT'S NEW / VERSION CHANGELOG MODAL
      ============================================================================ */
-  const APP_VERSION = '3.2';
+  const APP_VERSION = '3.3';
   const SEEN_VER_KEY = 'fracture_seen_version_v1';
   const CHANGELOG = [
     {
-      ver: 'v3.2',
+      ver: 'v3.3',
       tag: 'LATEST',
+      title: 'Online Reconnects, Combat Clarity & UI Polish',
+      items: [
+        'PvP Slot Reservation & Reconnect: Going Back to Lobby during Forge holds your seat so you can rejoin seamlessly; explicit Leave Room cleanly frees waiting/drafting seats.',
+        'SSE Room Catch-Up Sync: Reconnecting clients automatically receive the latest authoritative battle snapshot so early turns are never missed.',
+        'Forge Room Status Bar & Lobby Leaderboard: View room code, opponent callsigns, and lock status inside the Forge, and check ELO standings directly from the Lobby.',
+        'Combat Math & Balance: Full damage breakdown (raw − ARM − SHD = HP) logged on every hit; Overcharge tuned to +3 DMG with consistent 50% Armor pierce; Momentum (+1 AP) shown in kill toast; all AI skirmishes are now unranked.',
+        'UI & Readability: Clearer Weight Class vs Role badges (WT:), Shield 50% decay note, blocked Special/path explanations, AI-turn input lock, crisp pine-tree art, post-win header fix, and live Lobby map badge sync.'
+      ]
+    },
+    {
+      ver: 'v3.2',
       title: 'Live Spectator Mode',
       items: [
         'Watch any live Online PvP match from Turn 1 or mid-game via the Watch button in the Lobby or by clicking an active player in Commanders Online.',
