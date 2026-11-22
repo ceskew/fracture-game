@@ -850,6 +850,7 @@
         <span id="turnLabel">TURN 1 — PLAYER 1</span>
       </div>
       <span id="turnTimerBadge" style="display:none; font-family:var(--font-mono); font-size:12px; font-weight:700; padding:4px 9px; border-radius:999px; border:1px solid var(--border); background:#0f131b; color:var(--brass);">60s</span>
+      <span id="spectatorBadge" style="display:none; font-family:var(--font-mono); font-size:11px; font-weight:700; padding:4px 9px; border-radius:999px; border:1px solid var(--purple); background:rgba(168,85,247,0.14); color:#d8b4fe;"></span>
       <div class="ap-bar">
         <span>AP</span>
         <div class="ap-pips" id="apPips"></div>
@@ -861,7 +862,7 @@
 
     <div class="topbar-actions">
       <span class="turn-pill" id="netStatusPill" style="font-size:11px; padding:4px 10px;">LOCAL MODE</span>
-      <button id="whatsNewBtn" style="position:relative; border-color:rgba(212,163,89,0.45); color:var(--brass);">v3.1 · WHAT'S NEW<span id="whatsNewDot" style="display:none; position:absolute; top:-3px; right:-3px; width:8px; height:8px; border-radius:50%; background:var(--crit); border:1px solid var(--panel);"></span></button>
+      <button id="whatsNewBtn" style="position:relative; border-color:rgba(212,163,89,0.45); color:var(--brass);">v3.2 · WHAT'S NEW<span id="whatsNewDot" style="display:none; position:absolute; top:-3px; right:-3px; width:8px; height:8px; border-radius:50%; background:var(--crit); border:1px solid var(--panel);"></span></button>
       <button id="howToPlayBtn">HOW TO PLAY</button>
       <button id="soundBtn">SOUND: OFF</button>
       <button id="newMatchBtn" style="display:none;">NEW MATCH</button>
@@ -943,8 +944,9 @@
             <button class="primary" id="createRoomBtn" style="flex:1;">Create Room (Agreed HP)</button>
             <input type="text" id="joinCodeInput" placeholder="CODE" maxlength="4" style="width:78px; text-transform:uppercase; font-family:var(--font-mono); text-align:center;" />
             <button id="joinRoomBtn">Join</button>
+            <button id="watchRoomBtn" style="border-color:rgba(168,85,247,0.55); color:#d8b4fe;">Watch</button>
           </div>
-          <div id="onlineStatusBox" style="font-family:var(--font-mono); font-size:11.5px; color:var(--muted); margin-bottom:6px;">Create a room or enter a 4-letter code to duel live.</div>
+          <div id="onlineStatusBox" style="font-family:var(--font-mono); font-size:11.5px; color:var(--muted); margin-bottom:6px;">Create a room, join with a 4-letter code, or watch a live match.</div>
           <div id="openRoomsList" style="display:flex; flex-direction:column; gap:5px; max-height:92px; overflow-y:auto;"></div>
         </div>
 
@@ -1185,7 +1187,7 @@
 <div class="overlay" id="whatsNewOverlay" style="z-index:55;">
   <div class="modal" style="max-width:580px; text-align:left; max-height:84vh; display:flex; flex-direction:column;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-shrink:0;">
-      <span id="whatsNewVersionBadge" style="font-family:var(--font-mono); font-size:11px; color:var(--brass); letter-spacing:0.1em;">PATCH NOTES · CURRENT v3.1</span>
+      <span id="whatsNewVersionBadge" style="font-family:var(--font-mono); font-size:11px; color:var(--brass); letter-spacing:0.1em;">PATCH NOTES · CURRENT v3.2</span>
       <button id="whatsNewCloseBtn" style="padding:4px 10px; font-size:11.5px;">Close</button>
     </div>
     <h2 style="font-size:20px; margin-bottom:10px; text-align:left; flex-shrink:0;">What's New in FRACTURE</h2>
@@ -1237,6 +1239,7 @@
     es: null,
     cachedBoard: null,
     openRooms: [],
+    liveMatches: [],
     onlinePlayers: [],
     init() {
       if (!this.isServer) {
@@ -1258,6 +1261,7 @@
         this.connected = true;
         this.cachedBoard = data.leaderboard || this.cachedBoard;
         this.openRooms = data.rooms || [];
+        this.liveMatches = data.liveMatches || [];
         this.onlinePlayers = data.onlinePlayers || [];
         this.updateStatusUI(data.playersOnline);
         renderLeaderboard();
@@ -1278,7 +1282,13 @@
       es.addEventListener('rooms_update', e => {
         const data = JSON.parse(e.data);
         this.openRooms = data.rooms || [];
+        this.liveMatches = data.liveMatches || [];
         renderOpenRooms();
+      });
+      es.addEventListener('spectator_update', e => {
+        const data = JSON.parse(e.data);
+        STATE.spectatorCount = data.count || 0;
+        if (screens.battle.classList.contains('active')) renderBattleUI();
       });
       es.addEventListener('room_waiting', e => {
         const data = JSON.parse(e.data);
@@ -1302,13 +1312,19 @@
         STATE.playerNames = data.playerNames || { 1: data.p1Name, 2: data.p2Name };
         STATE.p1Name = STATE.playerNames[1] || data.p1Name;
         STATE.p2Name = STATE.playerNames[2] || data.p2Name;
+        if (STATE.isSpectator) {
+          showModal(`SPECTATING ROOM ${data.code}`, `Commanders (${Object.values(STATE.playerNames).join(' vs ')}) are forging their ${data.poolHP} HP squads — battle will stream live automatically.`, [
+            { label: 'Leave', primary: false, onClick: () => { hideModal(); leaveToLobby(); } }
+          ]);
+          return;
+        }
         applySplitPreset(3, STATE.localPlayerNum);
         hideModal();
         openForgeFor(STATE.localPlayerNum);
       });
       es.addEventListener('squad_ready', e => {
         const data = JSON.parse(e.data);
-        if (data.playerNum !== STATE.localPlayerNum) {
+        if (!STATE.isSpectator && data.playerNum !== STATE.localPlayerNum) {
           const el = document.getElementById('forgeSummary');
           if (el) el.textContent = `${data.readyCount || 1}/${data.maxPlayers || STATE.playerCount} squads locked — waiting on remaining commanders!`;
         }
@@ -1323,6 +1339,7 @@
         STATE.playerNames = data.playerNames || { 1: data.p1Name, 2: data.p2Name };
         STATE.p1Name = STATE.playerNames[1] || data.p1Name;
         STATE.p2Name = STATE.playerNames[2] || data.p2Name;
+        STATE.spectatorCount = data.spectators ?? STATE.spectatorCount ?? 0;
         for (let i = 1; i <= STATE.playerCount; i++) {
           STATE.forgeDrafts[i] = data.squads[i];
         }
@@ -1346,6 +1363,12 @@
         const data = JSON.parse(e.data);
         STATE.poolHP = data.poolHP;
         STATE.playerCount = data.maxPlayers || STATE.playerCount || 2;
+        if (STATE.isSpectator) {
+          showModal(`SPECTATING ROOM ${data.code}`, 'Commanders started a rematch and are forging new squads — battle will resume live shortly.', [
+            { label: 'Leave', primary: false, onClick: () => { hideModal(); leaveToLobby(); } }
+          ]);
+          return;
+        }
         applySplitPreset(3, STATE.localPlayerNum);
         hideModal();
         openForgeFor(STATE.localPlayerNum);
@@ -1368,7 +1391,7 @@
         pill.textContent = `ONLINE · ${onlineCount} LIVE`;
         pill.style.borderColor = 'var(--good)';
         pill.style.color = 'var(--good)';
-        if (badge) badge.textContent = `SERVER CONNECTED (${onlineCount} online): Live PvP rooms, shared ELO leaderboard, and real-time chat active.`;
+        if (badge) badge.textContent = `SERVER CONNECTED (${onlineCount} online): Live PvP rooms, Spectator Mode, shared ELO, and chat active.`;
         if (lbLbl) lbLbl.textContent = 'LIVE SERVER ELO STANDINGS';
       } else {
         pill.textContent = this.isServer ? 'RECONNECTING...' : 'LOCAL MODE';
@@ -1395,6 +1418,12 @@
     async joinRoom(code, playerName) {
       const clean = code.trim().toUpperCase();
       const data = await this.post(`/api/rooms/${clean}/join`, { playerName, clientId: this.clientId });
+      this.connectStream(data.code);
+      return data;
+    },
+    async spectateRoom(code, viewerName) {
+      const clean = code.trim().toUpperCase();
+      const data = await this.post(`/api/rooms/${clean}/spectate`, { viewerName, clientId: this.clientId });
       this.connectStream(data.code);
       return data;
     },
@@ -1705,6 +1734,8 @@
     playerCount: 2,
     mapId: 'timberline',
     localPlayerNum: 1,
+    isSpectator: false,
+    spectatorCount: 0,
     roomCode: null,
     onlineSeed: null,
     poolHP: 100,
@@ -1784,6 +1815,21 @@
     presenceTimer = setTimeout(() => NetworkAdapter.updatePresenceName(val), 400);
   });
 
+  function leaveToLobby() {
+    stopTurnTimer();
+    STATE.tutorialStep = null;
+    STATE.isSpectator = false;
+    STATE.spectatorCount = 0;
+    if (STATE.roomCode && NetworkAdapter.connected) {
+      STATE.roomCode = null;
+      NetworkAdapter.connectStream(null);
+    } else {
+      STATE.roomCode = null;
+    }
+    document.getElementById('endTurnBtn').classList.remove('tutorial-pulse');
+    showScreen('lobby');
+  }
+
   function renderOnlinePlayers() {
     const box = document.getElementById('onlinePlayersList');
     const badge = document.getElementById('onlineCountBadge');
@@ -1798,13 +1844,19 @@
     box.innerHTML = '';
     list.forEach(p => {
       const isMe = p.id === NetworkAdapter.clientId;
-      const el = document.createElement(p.joinable && !isMe ? 'button' : 'span');
-      el.style.cssText = 'display:inline-flex; align-items:center; gap:5px; padding:3px 7px; border-radius:999px; font-family:var(--font-mono); font-size:10.5px; background:#151b26; border:1px solid ' + (p.joinable && !isMe ? 'var(--brass)' : 'var(--border)') + '; color:var(--ink);';
-      const dotColor = p.joinable ? 'var(--brass)' : 'var(--good)';
-      el.innerHTML = `<span style="width:6px; height:6px; border-radius:50%; background:${dotColor};"></span><strong>${p.name}</strong>${isMe ? '<span style="color:var(--p1);">(you)</span>' : ''}<span style="color:var(--muted);">· ${p.status}</span>`;
-      if (p.joinable && !isMe && p.roomCode) {
+      const clickable = !isMe && p.roomCode && (p.joinable || p.watchable);
+      const el = document.createElement(clickable ? 'button' : 'span');
+      const borderCol = clickable ? (p.joinable ? 'var(--brass)' : 'var(--purple)') : 'var(--border)';
+      el.style.cssText = 'display:inline-flex; align-items:center; gap:5px; padding:3px 7px; border-radius:999px; font-family:var(--font-mono); font-size:10.5px; background:#151b26; border:1px solid ' + borderCol + '; color:var(--ink);';
+      const dotColor = p.joinable ? 'var(--brass)' : (p.watchable ? 'var(--purple)' : 'var(--good)');
+      const actionTag = clickable ? (p.joinable ? '' : ' <span style="color:#d8b4fe;">· 👁 Watch</span>') : '';
+      el.innerHTML = `<span style="width:6px; height:6px; border-radius:50%; background:${dotColor};"></span><strong>${p.name}</strong>${isMe ? '<span style="color:var(--p1);">(you)</span>' : ''}<span style="color:var(--muted);">· ${p.status}</span>${actionTag}`;
+      if (clickable && p.joinable) {
         el.title = `Click to join ${p.name}'s room ${p.roomCode}`;
         el.addEventListener('click', () => joinOnlineRoom(p.roomCode));
+      } else if (clickable && p.watchable) {
+        el.title = `Click to spectate room ${p.roomCode} live`;
+        el.addEventListener('click', () => watchOnlineRoom(p.roomCode));
       }
       box.appendChild(el);
     });
@@ -1817,17 +1869,29 @@
       box.innerHTML = '';
       return;
     }
-    if (!NetworkAdapter.openRooms.length) {
-      box.innerHTML = '<div style="font-size:11px; color:var(--muted);">No open rooms yet — create one to host.</div>';
+    const open = NetworkAdapter.openRooms || [];
+    const live = NetworkAdapter.liveMatches || [];
+    if (!open.length && !live.length) {
+      box.innerHTML = '<div style="font-size:11px; color:var(--muted);">No open rooms or live matches yet — create one to host.</div>';
       return;
     }
     box.innerHTML = '';
-    NetworkAdapter.openRooms.forEach(rm => {
+    open.forEach(rm => {
       const b = document.createElement('button');
       b.style.cssText = 'display:flex; justify-content:space-between; width:100%; font-family:var(--font-mono); font-size:11.5px; padding:5px 8px;';
       const seats = rm.maxPlayers > 2 ? ` · ${rm.joinedCount || 1}/${rm.maxPlayers}P` : '';
       b.innerHTML = `<span><strong>${rm.code}</strong> · ${rm.hostName}</span><span style="color:var(--brass);">${rm.poolHP} HP${seats} · JOIN</span>`;
       b.addEventListener('click', () => joinOnlineRoom(rm.code));
+      box.appendChild(b);
+    });
+    live.forEach(lm => {
+      const b = document.createElement('button');
+      b.style.cssText = 'display:flex; justify-content:space-between; width:100%; font-family:var(--font-mono); font-size:11.5px; padding:5px 8px; border-color:rgba(168,85,247,0.5);';
+      const names = Object.values(lm.playerNames || {}).join(' vs ');
+      const statusTxt = lm.status === 'drafting' ? 'FORGING' : `T${lm.turn || 1}`;
+      const specTxt = lm.spectators ? ` · 👁${lm.spectators}` : '';
+      b.innerHTML = `<span><strong style="color:#d8b4fe;">${lm.code}</strong> · ${names}</span><span style="color:#d8b4fe;">${statusTxt}${specTxt} · WATCH</span>`;
+      b.addEventListener('click', () => watchOnlineRoom(lm.code));
       box.appendChild(b);
     });
   }
@@ -1841,6 +1905,8 @@
     }
     try {
       Sound.click();
+      STATE.isSpectator = false;
+      STATE.spectatorCount = 0;
       const name = document.getElementById('playerNameInput').value.trim() || 'Challenger';
       const data = await NetworkAdapter.joinRoom(code, name);
       STATE.mode = 'online';
@@ -1865,6 +1931,60 @@
     }
   }
 
+  async function watchOnlineRoom(code) {
+    const status = document.getElementById('onlineStatusBox');
+    if (!NetworkAdapter.connected) {
+      if (status) {
+        status.textContent = 'Connect to the online server to spectate matches.';
+        status.style.color = 'var(--warn)';
+      }
+      return;
+    }
+    try {
+      Sound.click();
+      const viewerName = document.getElementById('playerNameInput').value.trim() || 'Spectator';
+      const data = await NetworkAdapter.spectateRoom(code, viewerName);
+      STATE.mode = 'online';
+      STATE.isSpectator = true;
+      STATE.localPlayerNum = 0;
+      STATE.playerCount = data.maxPlayers || 2;
+      STATE.roomCode = data.code;
+      STATE.poolHP = data.poolHP;
+      STATE.spectatorCount = data.spectators || 1;
+      if (data.mapId && MAPS[data.mapId]) STATE.mapId = data.mapId;
+      STATE.playerNames = data.playerNames || { 1: data.p1Name, 2: data.p2Name };
+      STATE.p1Name = STATE.playerNames[1] || data.p1Name;
+      STATE.p2Name = STATE.playerNames[2] || data.p2Name;
+      if ((data.status === 'battle' || data.status === 'finished') && data.squads) {
+        for (let i = 1; i <= STATE.playerCount; i++) {
+          STATE.forgeDrafts[i] = data.squads[i] || [];
+        }
+        STATE.onlineSeed = data.seed ?? 1;
+        hideModal();
+        startBattle();
+        if (data.snapshot) applyAuthoritativeSnapshot(data.snapshot);
+        STATE.lastSeq = data.seq || 0;
+        if (Array.isArray(data.chat)) {
+          data.chat.forEach(m => addLog(`${m.sender}: ${m.text}`, 'chat'));
+        }
+        addLog(`Joined room ${data.code} as a live spectator.`, 'sys');
+        renderBattleUI();
+      } else {
+        const names = Object.values(STATE.playerNames).join(' vs ') || 'Host';
+        showModal(
+          `SPECTATING ROOM ${data.code}`,
+          `${names} (${data.poolHP} HP) are still setting up — the arena will open live as soon as squads lock in.`,
+          [{ label: 'Leave', primary: false, onClick: () => { hideModal(); leaveToLobby(); } }]
+        );
+      }
+    } catch (err) {
+      if (status) {
+        status.textContent = err.message;
+        status.style.color = 'var(--crit)';
+      }
+    }
+  }
+
   document.getElementById('createRoomBtn').addEventListener('click', async () => {
     const status = document.getElementById('onlineStatusBox');
     if (!NetworkAdapter.connected) {
@@ -1874,6 +1994,8 @@
     }
     try {
       Sound.click();
+      STATE.isSpectator = false;
+      STATE.spectatorCount = 0;
       const hostName = document.getElementById('playerNameInput').value.trim() || 'Commander';
       STATE.localPlayerNum = 1;
       STATE.playerCount = Number(document.getElementById('playerCountSelect').value) || 2;
@@ -1894,6 +2016,11 @@
     if (code.length === 4) joinOnlineRoom(code);
   });
 
+  document.getElementById('watchRoomBtn').addEventListener('click', () => {
+    const code = document.getElementById('joinCodeInput').value.trim();
+    if (code.length === 4) watchOnlineRoom(code);
+  });
+
   document.getElementById('modeSelect').addEventListener('change', e => {
     STATE.mode = e.target.value;
     document.getElementById('aiDoctrineGroup').style.display = STATE.mode === 'ai' ? 'block' : 'none';
@@ -1912,6 +2039,8 @@
 
   document.getElementById('startForgeBtn').addEventListener('click', () => {
     Sound.click();
+    STATE.isSpectator = false;
+    STATE.spectatorCount = 0;
     STATE.p1Name = document.getElementById('playerNameInput').value.trim() || 'Commander';
     STATE.mode = document.getElementById('modeSelect').value;
     STATE.playerCount = Number(document.getElementById('playerCountSelect').value) || 2;
@@ -1930,6 +2059,8 @@
 
   document.getElementById('quickBattleBtn').addEventListener('click', () => {
     Sound.click();
+    STATE.isSpectator = false;
+    STATE.spectatorCount = 0;
     STATE.p1Name = document.getElementById('playerNameInput').value.trim() || 'Commander';
     STATE.mode = 'ai';
     STATE.playerCount = Number(document.getElementById('playerCountSelect').value) || 2;
@@ -1944,15 +2075,15 @@
 
   document.getElementById('playTutorialBtn').addEventListener('click', () => {
     Sound.click();
+    STATE.isSpectator = false;
+    STATE.spectatorCount = 0;
     startPlayableTutorial();
   });
 
   document.getElementById('soundBtn').addEventListener('click', () => Sound.toggle());
   document.getElementById('newMatchBtn').addEventListener('click', () => {
     Sound.click();
-    STATE.tutorialStep = null;
-    document.getElementById('endTurnBtn').classList.remove('tutorial-pulse');
-    showScreen('lobby');
+    leaveToLobby();
   });
 
   /* ============================================================================
@@ -2565,7 +2696,7 @@
   }
 
   function isMyTurn() {
-    if (STATE.gameOver || STATE.aiBusy) return false;
+    if (STATE.gameOver || STATE.aiBusy || STATE.isSpectator) return false;
     if (STATE.mode === 'online') return STATE.activePlayer === STATE.localPlayerNum;
     return true;
   }
@@ -3136,23 +3267,30 @@
       </div>
     `;
 
+    const modalBtns = STATE.isSpectator
+      ? [
+          { label: 'Stay for Rematch', primary: true, onClick: () => hideModal() },
+          { label: 'Back to Lobby', primary: false, onClick: () => { hideModal(); leaveToLobby(); } }
+        ]
+      : [
+          {
+            label: 'Rematch (Forge)', primary: true,
+            onClick: () => {
+              hideModal();
+              if (STATE.mode === 'online' && STATE.roomCode) {
+                NetworkAdapter.requestRematch(STATE.roomCode);
+              } else {
+                openForgeFor(1);
+              }
+            }
+          },
+          { label: 'Back to Lobby', primary: false, onClick: () => { hideModal(); leaveToLobby(); } }
+        ];
+
     showModal(
       `${wName.toUpperCase()} WINS!`,
       `Last commander standing in ${STATE.turn} turns on a ${STATE.poolHP} HP Pool (${wStyle}).${deltaText}`,
-      [
-        {
-          label: 'Rematch (Forge)', primary: true,
-          onClick: () => {
-            hideModal();
-            if (STATE.mode === 'online' && STATE.roomCode) {
-              NetworkAdapter.requestRematch(STATE.roomCode);
-            } else {
-              openForgeFor(1);
-            }
-          }
-        },
-        { label: 'Back to Lobby', primary: false, onClick: () => { hideModal(); showScreen('lobby'); } }
-      ],
+      modalBtns,
       statsHtml
     );
   }
@@ -4035,23 +4173,48 @@
   function renderBattleUI() {
     // Top HUD
     const activeName = getPlayerName(STATE.activePlayer);
-    const suffix = STATE.mode === 'online' ? (isMyTurn() ? ' (YOUR TURN)' : ' (OPPONENT)') : '';
+    const suffix = STATE.isSpectator
+      ? ' (SPECTATING)'
+      : (STATE.mode === 'online' ? (isMyTurn() ? ' (YOUR TURN)' : ' (OPPONENT)') : '');
     document.getElementById('turnLabel').textContent = `TURN ${STATE.turn} — ${activeName.toUpperCase()}${suffix}`;
     document.getElementById('turnDot').style.background = getPlayerVar(STATE.activePlayer);
-    document.getElementById('endTurnBtn').disabled = !isMyTurn();
-    document.getElementById('undoMoveBtn').disabled = !(isMyTurn() && STATE.lastMove);
+    const undoBtn = document.getElementById('undoMoveBtn');
+    const endBtn = document.getElementById('endTurnBtn');
+    undoBtn.style.display = STATE.isSpectator ? 'none' : 'inline-block';
+    endBtn.style.display = STATE.isSpectator ? 'none' : 'inline-block';
+    endBtn.disabled = !isMyTurn();
+    undoBtn.disabled = !(isMyTurn() && STATE.lastMove);
 
-    const viewerOwner = STATE.mode === 'online' ? STATE.localPlayerNum : ((STATE.mode === 'ai' || STATE.mode === 'tutorial') ? 1 : STATE.activePlayer);
-    const myTraps = STATE.traps[viewerOwner] || [];
-    let oppTrapCount = 0;
-    for (let o = 1; o <= (STATE.playerCount || 2); o++) {
-      if (o !== viewerOwner) oppTrapCount += (STATE.traps[o] || []).length;
+    const specBadge = document.getElementById('spectatorBadge');
+    if (specBadge) {
+      if (STATE.isSpectator) {
+        specBadge.style.display = 'inline-block';
+        specBadge.textContent = `👁 SPECTATING${STATE.spectatorCount > 1 ? ` · ${STATE.spectatorCount} LIVE` : ''}`;
+      } else if (STATE.mode === 'online' && STATE.spectatorCount > 0) {
+        specBadge.style.display = 'inline-block';
+        specBadge.textContent = `👁 ${STATE.spectatorCount} WATCHING`;
+      } else {
+        specBadge.style.display = 'none';
+      }
     }
-    const trapParts = [];
-    if (myTraps.length) trapParts.push(`YOUR TRAPS: ${myTraps.map(t => t.name.replace('Trap: ', '')).join(', ')}`);
-    if (oppTrapCount) trapParts.push(`ENEMY SECRET TRAPS: ${oppTrapCount}`);
+
     const trapBar = document.getElementById('trapStatusBar');
-    if (trapBar) trapBar.textContent = trapParts.join(' · ');
+    if (STATE.isSpectator) {
+      let totalTraps = 0;
+      for (let o = 1; o <= (STATE.playerCount || 2); o++) totalTraps += (STATE.traps[o] || []).length;
+      if (trapBar) trapBar.textContent = totalTraps ? `SECRET TRAPS ARMED: ${totalTraps}` : '';
+    } else {
+      const viewerOwner = STATE.mode === 'online' ? STATE.localPlayerNum : ((STATE.mode === 'ai' || STATE.mode === 'tutorial') ? 1 : STATE.activePlayer);
+      const myTraps = STATE.traps[viewerOwner] || [];
+      let oppTrapCount = 0;
+      for (let o = 1; o <= (STATE.playerCount || 2); o++) {
+        if (o !== viewerOwner) oppTrapCount += (STATE.traps[o] || []).length;
+      }
+      const trapParts = [];
+      if (myTraps.length) trapParts.push(`YOUR TRAPS: ${myTraps.map(t => t.name.replace('Trap: ', '')).join(', ')}`);
+      if (oppTrapCount) trapParts.push(`ENEMY SECRET TRAPS: ${oppTrapCount}`);
+      if (trapBar) trapBar.textContent = trapParts.join(' · ');
+    }
 
     const pips = document.getElementById('apPips');
     pips.innerHTML = '';
@@ -4219,10 +4382,16 @@
     });
 
     // Blood-cost hand
-    const viewer = STATE.mode === 'online' ? STATE.localPlayerNum : ((STATE.mode === 'ai' || STATE.mode === 'tutorial') ? 1 : STATE.activePlayer);
-    const hand = STATE.hands[viewer];
-    document.getElementById('deckCountLabel').textContent = `DECK: ${STATE.decks[viewer].length}`;
     const cardsRow = document.getElementById('cardsRow');
+    if (STATE.isSpectator) {
+      document.getElementById('deckCountLabel').textContent = 'READ-ONLY VIEW';
+      cardsRow.classList.add('locked');
+      cardsRow.innerHTML = '<div style="grid-column:1/-1; display:flex; align-items:center; justify-content:center; color:#d8b4fe; font-family:var(--font-mono); font-size:12px; background:rgba(168,85,247,0.08); border:1px dashed rgba(168,85,247,0.45); border-radius:8px; padding:12px;">👁 SPECTATOR MODE — Private Blood-Cost hands &amp; face-down Secret Traps are hidden for fair play. Click any unit on the board to inspect its Wound Dial.</div>';
+      return;
+    }
+    const viewer = STATE.mode === 'online' ? STATE.localPlayerNum : ((STATE.mode === 'ai' || STATE.mode === 'tutorial') ? 1 : STATE.activePlayer);
+    const hand = STATE.hands[viewer] || [];
+    document.getElementById('deckCountLabel').textContent = `DECK: ${(STATE.decks[viewer] || []).length}`;
     cardsRow.classList.toggle('locked', !isMyTurn() || viewer !== STATE.activePlayer);
     cardsRow.innerHTML = '';
     hand.forEach((card, idx) => {
@@ -4299,9 +4468,11 @@
     const inp = document.getElementById('chatInput');
     const txt = inp.value.trim();
     if (!txt) return;
-    const sender = STATE.mode === 'online'
-      ? getPlayerName(STATE.localPlayerNum)
-      : getPlayerName(STATE.activePlayer);
+    const sender = STATE.isSpectator
+      ? `👁 ${document.getElementById('playerNameInput').value.trim() || 'Spectator'}`
+      : (STATE.mode === 'online'
+          ? getPlayerName(STATE.localPlayerNum)
+          : getPlayerName(STATE.activePlayer));
     NetworkAdapter.sendChat(sender, txt);
     inp.value = '';
   });
@@ -4453,12 +4624,21 @@
   /* ============================================================================
      13. WHAT'S NEW / VERSION CHANGELOG MODAL
      ============================================================================ */
-  const APP_VERSION = '3.1';
+  const APP_VERSION = '3.2';
   const SEEN_VER_KEY = 'fracture_seen_version_v1';
   const CHANGELOG = [
     {
-      ver: 'v3.1',
+      ver: 'v3.2',
       tag: 'LATEST',
+      title: 'Live Spectator Mode',
+      items: [
+        'Watch any live Online PvP match from Turn 1 or mid-game via the Watch button in the Lobby or by clicking an active player in Commanders Online.',
+        'Streams moves, 2d6 rolls, VFX animations, and match chat in real time with a live viewer counter (👁) in the HUD.',
+        'Read-only board inspection with private Blood-Cost hands and face-down Secret Traps automatically hidden for fair play.'
+      ]
+    },
+    {
+      ver: 'v3.1',
       title: 'Online PvP Sync & Turn Timer',
       items: [
         'Server-authoritative state snapshot sync, turn-ownership validation, and single-winner ELO adjudication to eliminate PvP desyncs.',

@@ -100,10 +100,32 @@ function broadcastAll(event, payload) {
   }
 }
 
+function sanitizeSnapshotForSpectator(snap) {
+  if (!snap) return null;
+  const safeTraps = {};
+  if (snap.traps) {
+    for (const [owner, list] of Object.entries(snap.traps)) {
+      safeTraps[owner] = Array.isArray(list) ? list.map(() => ({ id: 'secret', name: 'Secret Trap' })) : [];
+    }
+  }
+  return {
+    ...snap,
+    hands: {},
+    decks: {},
+    traps: safeTraps
+  };
+}
+
 function broadcastRoom(roomCode, event, payload, excludeClientId = null) {
+  const room = rooms.get(roomCode);
   for (const [id, c] of clients.entries()) {
     if (c.roomCode === roomCode && id !== excludeClientId) {
-      sendSSE(c.res, event, payload);
+      const isSpec = Boolean(room && room.spectators && room.spectators.has(id));
+      if (isSpec && event === 'action' && payload && payload.snapshot) {
+        sendSSE(c.res, event, { ...payload, snapshot: sanitizeSnapshotForSpectator(payload.snapshot) });
+      } else {
+        sendSSE(c.res, event, payload);
+      }
     }
   }
 }
@@ -122,10 +144,18 @@ function getOnlinePlayersSummary() {
     const room = c.roomCode ? rooms.get(c.roomCode) : null;
     const joined = room ? Object.values(room.players).filter(Boolean).length : 0;
     const maxP = room ? (room.maxPlayers || 2) : 2;
+    const isSpec = Boolean(room && room.spectators && room.spectators.has(id));
     const status = room
-      ? (room.status === 'waiting' ? `Hosting ${c.roomCode} (${joined}/${maxP})` : `In Match ${c.roomCode}`)
+      ? (isSpec ? `Watching ${c.roomCode}` : (room.status === 'waiting' ? `Hosting ${c.roomCode} (${joined}/${maxP})` : `In Match ${c.roomCode}`))
       : 'In Lobby';
-    list.push({ id, name: c.name || 'Commander', status, roomCode: c.roomCode || null, joinable: Boolean(room && room.status === 'waiting') });
+    list.push({
+      id,
+      name: c.name || 'Commander',
+      status,
+      roomCode: c.roomCode || null,
+      joinable: Boolean(room && room.status === 'waiting' && !isSpec),
+      watchable: Boolean(room && (room.status === 'battle' || room.status === 'drafting'))
+    });
   }
   return list;
 }
@@ -141,7 +171,7 @@ function getOpenRoomsSummary() {
   const list = [];
   const now = Date.now();
   for (const [code, room] of rooms.entries()) {
-    // Expire stale waiting rooms after 2 hours
+    // Expire stale rooms after 2 hours
     if (now - room.createdAt > 7200000) {
       rooms.delete(code);
       continue;
@@ -154,6 +184,25 @@ function getOpenRoomsSummary() {
         poolHP: room.poolHP,
         maxPlayers: room.maxPlayers || 2,
         joinedCount
+      });
+    }
+  }
+  return list;
+}
+
+function getLiveMatchesSummary() {
+  const list = [];
+  for (const [code, room] of rooms.entries()) {
+    if (room.status === 'battle' || room.status === 'drafting') {
+      list.push({
+        code,
+        status: room.status,
+        poolHP: room.poolHP,
+        mapId: room.mapId,
+        maxPlayers: room.maxPlayers || 2,
+        playerNames: getRoomPlayerNames(room),
+        turn: room.state?.turn || 1,
+        spectators: room.spectators ? room.spectators.size : 0
       });
     }
   }
@@ -238,12 +287,20 @@ const server = http.createServer(async (req, res) => {
     res.write(': connected\n\n');
 
     const cleanName = String(url.searchParams.get('name') || 'Commander').trim().slice(0, 18) || 'Commander';
+    const prevClient = clients.get(clientId);
+    if (prevClient && prevClient.roomCode && prevClient.roomCode !== roomCode && rooms.has(prevClient.roomCode)) {
+      const oldRoom = rooms.get(prevClient.roomCode);
+      if (oldRoom.spectators && oldRoom.spectators.delete(clientId)) {
+        broadcastRoom(prevClient.roomCode, 'spectator_update', { count: oldRoom.spectators.size });
+      }
+    }
     clients.set(clientId, { res, roomCode, name: cleanName });
     sendSSE(res, 'hello', {
       clientId,
       playersOnline: clients.size,
       onlinePlayers: getOnlinePlayersSummary(),
       rooms: getOpenRoomsSummary(),
+      liveMatches: getLiveMatchesSummary(),
       leaderboard,
       globalChat
     });
@@ -256,10 +313,14 @@ const server = http.createServer(async (req, res) => {
     req.on('close', () => {
       clearInterval(keepAlive);
       const entry = clients.get(clientId);
+      if (entry && entry.res !== res) return;
       clients.delete(clientId);
       if (entry && entry.roomCode && rooms.has(entry.roomCode)) {
         const room = rooms.get(entry.roomCode);
-        if (Object.values(room.players).some(p => p && p.clientId === clientId)) {
+        if (room.spectators && room.spectators.delete(clientId)) {
+          broadcastRoom(entry.roomCode, 'spectator_update', { count: room.spectators.size });
+          broadcastAll('rooms_update', { rooms: getOpenRoomsSummary(), liveMatches: getLiveMatchesSummary() });
+        } else if (Object.values(room.players).some(p => p && p.clientId === clientId)) {
           broadcastRoom(entry.roomCode, 'opponent_left', { name: entry.name }, clientId);
         }
       }
@@ -325,7 +386,7 @@ const server = http.createServer(async (req, res) => {
 
     // Rooms API
     if (req.method === 'GET' && pathname === '/api/rooms') {
-      return json(res, 200, { rooms: getOpenRoomsSummary() });
+      return json(res, 200, { rooms: getOpenRoomsSummary(), liveMatches: getLiveMatchesSummary() });
     }
     if (req.method === 'POST' && pathname === '/api/rooms') {
       const { hostName, poolHP, mapId, maxPlayers, clientId } = await readBody(req);
@@ -339,9 +400,11 @@ const server = http.createServer(async (req, res) => {
         poolHP: cleanPool,
         mapId: cleanMap,
         maxPlayers: cleanMax,
-        status: 'waiting', // waiting -> drafting -> battle
+        status: 'waiting', // waiting -> drafting -> battle -> finished
         players: { 1: { name: cleanHost, clientId } },
         squads: {},
+        spectators: new Set(),
+        seed: null,
         chat: [],
         createdAt: Date.now()
       };
@@ -350,12 +413,12 @@ const server = http.createServer(async (req, res) => {
         clients.get(clientId).roomCode = code;
         clients.get(clientId).name = cleanHost;
       }
-      broadcastAll('rooms_update', { rooms: getOpenRoomsSummary() });
+      broadcastAll('rooms_update', { rooms: getOpenRoomsSummary(), liveMatches: getLiveMatchesSummary() });
       broadcastPresence();
       return json(res, 200, { code, playerNum: 1, poolHP: cleanPool, mapId: cleanMap, maxPlayers: cleanMax, hostName: cleanHost });
     }
 
-    const roomMatch = pathname.match(/^\/api\/rooms\/([A-Za-z0-9]{4})\/(join|squad|action|rematch)$/);
+    const roomMatch = pathname.match(/^\/api\/rooms\/([A-Za-z0-9]{4})\/(join|squad|action|rematch|spectate)$/);
     if (req.method === 'POST' && roomMatch) {
       const code = roomMatch[1].toUpperCase();
       const actionType = roomMatch[2];
@@ -382,7 +445,7 @@ const server = http.createServer(async (req, res) => {
           clients.get(body.clientId).name = cleanGuest;
         }
         const playerNames = getRoomPlayerNames(room);
-        broadcastAll('rooms_update', { rooms: getOpenRoomsSummary() });
+        broadcastAll('rooms_update', { rooms: getOpenRoomsSummary(), liveMatches: getLiveMatchesSummary() });
         broadcastPresence();
         if (allJoined) {
           broadcastRoom(code, 'room_joined', {
@@ -416,6 +479,38 @@ const server = http.createServer(async (req, res) => {
         });
       }
 
+      if (actionType === 'spectate') {
+        const viewerName = String(body.viewerName || 'Spectator').trim().slice(0, 18) || 'Spectator';
+        if (!room.spectators) room.spectators = new Set();
+        if (body.clientId) {
+          room.spectators.add(body.clientId);
+          if (clients.has(body.clientId)) {
+            clients.get(body.clientId).roomCode = code;
+            clients.get(body.clientId).name = viewerName;
+          }
+        }
+        broadcastRoom(code, 'spectator_update', { count: room.spectators.size });
+        broadcastAll('rooms_update', { rooms: getOpenRoomsSummary(), liveMatches: getLiveMatchesSummary() });
+        broadcastPresence();
+        const playerNames = getRoomPlayerNames(room);
+        return json(res, 200, {
+          code,
+          status: room.status,
+          poolHP: room.poolHP,
+          mapId: room.mapId,
+          maxPlayers: room.maxPlayers || 2,
+          playerNames,
+          p1Name: playerNames[1] || 'Player 1',
+          p2Name: playerNames[2] || 'Player 2',
+          squads: (room.status === 'battle' || room.status === 'finished') ? room.squads : null,
+          seed: room.seed || null,
+          snapshot: room.state ? sanitizeSnapshotForSpectator(room.state) : null,
+          seq: room.seq || 0,
+          spectators: room.spectators.size,
+          chat: room.chat || []
+        });
+      }
+
       if (actionType === 'squad') {
         const maxP = room.maxPlayers || 2;
         const pNum = Number(body.playerNum);
@@ -434,6 +529,7 @@ const server = http.createServer(async (req, res) => {
         if (allReady) {
           room.status = 'battle';
           const seed = Math.floor(Math.random() * 1e9);
+          room.seed = seed;
           room.seq = 0;
           room.activePlayer = (seed % maxP) + 1;
           room.state = null;
@@ -448,8 +544,11 @@ const server = http.createServer(async (req, res) => {
             p1Name: playerNames[1] || 'Player 1',
             p2Name: playerNames[2] || 'Player 2',
             squads: room.squads,
-            seed
+            seed,
+            spectators: room.spectators ? room.spectators.size : 0
           });
+          broadcastAll('rooms_update', { rooms: getOpenRoomsSummary(), liveMatches: getLiveMatchesSummary() });
+          broadcastPresence();
         }
         return json(res, 200, { ok: true, bothReady: allReady, readyCount, maxPlayers: maxP });
       }
@@ -463,10 +562,13 @@ const server = http.createServer(async (req, res) => {
             break;
           }
         }
+        if (!senderSeat) {
+          return json(res, 403, { error: 'Spectators cannot submit match actions' });
+        }
         if (room.winnerRecorded) {
           return json(res, 409, { error: 'Match already concluded', seq: room.seq });
         }
-        if (room.activePlayer && senderSeat && senderSeat !== room.activePlayer) {
+        if (room.activePlayer && senderSeat !== room.activePlayer) {
           return json(res, 409, { error: 'Not your turn', activePlayer: room.activePlayer, seq: room.seq });
         }
         room.seq = (room.seq || 0) + 1;
@@ -492,6 +594,7 @@ const server = http.createServer(async (req, res) => {
               delta = resElo.delta;
             }
             officialResult = { winner, delta };
+            broadcastAll('rooms_update', { rooms: getOpenRoomsSummary(), liveMatches: getLiveMatchesSummary() });
           }
         }
         const payload = { ...body, seq: room.seq, officialResult };
@@ -503,10 +606,12 @@ const server = http.createServer(async (req, res) => {
         room.squads = {};
         room.status = 'drafting';
         room.seq = 0;
+        room.seed = null;
         room.state = null;
         room.winnerRecorded = false;
         room.activePlayer = null;
         broadcastRoom(code, 'rematch_start', { code, poolHP: room.poolHP, mapId: room.mapId, maxPlayers: room.maxPlayers || 2 });
+        broadcastAll('rooms_update', { rooms: getOpenRoomsSummary(), liveMatches: getLiveMatchesSummary() });
         return json(res, 200, { ok: true });
       }
     }
