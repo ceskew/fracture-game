@@ -1162,6 +1162,26 @@
   </div>
 </div>
 
+<!-- FIRST-VISIT CALLSIGN GATE OVERLAY -->
+<div class="overlay" id="callsignOverlay" style="z-index:60;">
+  <div class="modal" style="max-width:420px; text-align:left;">
+    <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+      <div class="brand-mark" style="width:22px; height:22px;"><span style="width:8px; height:8px;"></span></div>
+      <span style="font-family:var(--font-mono); font-size:11px; color:var(--brass); letter-spacing:0.12em;">FRACTURE ARENA</span>
+    </div>
+    <h2 style="font-size:21px; margin-bottom:6px; text-align:left;">Choose Your Callsign</h2>
+    <p style="font-size:13px; margin-bottom:14px;">Pick a commander name for the live online roster, PvP rooms, and ELO leaderboard.</p>
+    <form id="callsignForm" style="display:flex; flex-direction:column; gap:10px;">
+      <div style="display:flex; gap:6px;">
+        <input type="text" id="callsignGateInput" maxlength="18" placeholder="e.g. Kestrel, Ironwolf, Nova..." autocomplete="off" style="flex:1; padding:9px 11px; font-size:14px;" />
+        <button type="button" id="callsignRandBtn" title="Generate random callsign" style="white-space:nowrap;">🎲 Random</button>
+      </div>
+      <div id="callsignGateErr" style="font-family:var(--font-mono); font-size:11px; color:var(--crit); display:none;">Please enter a callsign (at least 2 characters).</div>
+      <button type="submit" class="primary" style="padding:10px; font-size:14px;">ENTER ARENA</button>
+    </form>
+  </div>
+</div>
+
 <!-- PASS DEVICE / VICTORY OVERLAY -->
 <div class="overlay" id="modalOverlay">
   <div class="modal">
@@ -1678,10 +1698,12 @@
   poolSlider.addEventListener('input', e => setPool(e.target.value));
   poolPresetBtns.forEach(b => b.addEventListener('click', () => { Sound.click(); setPool(b.dataset.pool); }));
 
+  const CALLSIGN_KEY = 'fracture_callsign_v1';
   let presenceTimer = null;
   document.getElementById('playerNameInput').addEventListener('input', e => {
     clearTimeout(presenceTimer);
     const val = e.target.value.trim() || 'Commander';
+    try { localStorage.setItem(CALLSIGN_KEY, val); } catch (_) {}
     presenceTimer = setTimeout(() => NetworkAdapter.updatePresenceName(val), 400);
   });
 
@@ -4114,11 +4136,55 @@
     else { closeTutorial(); }
   });
 
+  const GATE_CALLSIGNS = ['Kestrel', 'Ironwolf', 'Valkyrie', 'Spectre', 'Cobalt', 'Warden', 'Strider', 'Orion', 'Falcon', 'Cipher', 'Viper', 'Aegis', 'Helios', 'Raptor'];
+  function randomCallsign() {
+    const base = GATE_CALLSIGNS[Math.floor(Math.random() * GATE_CALLSIGNS.length)];
+    const num = Math.floor(1 + Math.random() * 99);
+    return `${base}-${num}`;
+  }
+  document.getElementById('callsignRandBtn').addEventListener('click', () => {
+    Sound.click();
+    const inp = document.getElementById('callsignGateInput');
+    inp.value = randomCallsign();
+    document.getElementById('callsignGateErr').style.display = 'none';
+    inp.focus();
+  });
+  document.getElementById('callsignForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const inp = document.getElementById('callsignGateInput');
+    const err = document.getElementById('callsignGateErr');
+    const chosen = inp.value.trim();
+    if (chosen.length < 2) {
+      err.style.display = 'block';
+      inp.focus();
+      return;
+    }
+    err.style.display = 'none';
+    try { localStorage.setItem(CALLSIGN_KEY, chosen); } catch (_) {}
+    document.getElementById('playerNameInput').value = chosen;
+    STATE.p1Name = chosen;
+    document.getElementById('callsignOverlay').classList.remove('active');
+    NetworkAdapter.init();
+    try {
+      if (!localStorage.getItem(TUT_KEY)) openTutorial(0);
+    } catch (_) {}
+  });
+
   renderLeaderboard();
-  NetworkAdapter.init();
-  try {
-    if (!localStorage.getItem(TUT_KEY)) openTutorial(0);
-  } catch (_) {}
+  let savedCallsign = '';
+  try { savedCallsign = (localStorage.getItem(CALLSIGN_KEY) || '').trim(); } catch (_) {}
+  if (savedCallsign) {
+    document.getElementById('playerNameInput').value = savedCallsign;
+    STATE.p1Name = savedCallsign;
+    NetworkAdapter.init();
+    try {
+      if (!localStorage.getItem(TUT_KEY)) openTutorial(0);
+    } catch (_) {}
+  } else {
+    const gateOverlay = document.getElementById('callsignOverlay');
+    gateOverlay.classList.add('active');
+    setTimeout(() => document.getElementById('callsignGateInput')?.focus(), 50);
+  }
 })();
 </script>
 </body>
