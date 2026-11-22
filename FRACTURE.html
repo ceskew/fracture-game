@@ -864,7 +864,7 @@
     <div class="topbar-actions">
       <span class="turn-pill" id="netStatusPill" style="font-size:11px; padding:4px 10px;">LOCAL MODE</span>
       <button id="lobbyLbBtn">LEADERBOARD</button>
-      <button id="whatsNewBtn" style="position:relative; border-color:rgba(212,163,89,0.45); color:var(--brass);">v3.4 · WHAT'S NEW<span id="whatsNewDot" style="display:none; position:absolute; top:-3px; right:-3px; width:8px; height:8px; border-radius:50%; background:var(--crit); border:1px solid var(--panel);"></span></button>
+      <button id="whatsNewBtn" style="position:relative; border-color:rgba(212,163,89,0.45); color:var(--brass);">v3.5 · WHAT'S NEW<span id="whatsNewDot" style="display:none; position:absolute; top:-3px; right:-3px; width:8px; height:8px; border-radius:50%; background:var(--crit); border:1px solid var(--panel);"></span></button>
       <button id="howToPlayBtn">HOW TO PLAY</button>
       <button id="soundBtn">SOUND: OFF</button>
       <button id="newMatchBtn" style="display:none;">NEW MATCH</button>
@@ -1296,7 +1296,7 @@
 <div class="overlay" id="whatsNewOverlay" style="z-index:55;">
   <div class="modal" style="max-width:580px; text-align:left; max-height:84vh; display:flex; flex-direction:column;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-shrink:0;">
-      <span id="whatsNewVersionBadge" style="font-family:var(--font-mono); font-size:11px; color:var(--brass); letter-spacing:0.1em;">PATCH NOTES · CURRENT v3.4</span>
+      <span id="whatsNewVersionBadge" style="font-family:var(--font-mono); font-size:11px; color:var(--brass); letter-spacing:0.1em;">PATCH NOTES · CURRENT v3.5</span>
       <button id="whatsNewCloseBtn" style="padding:4px 10px; font-size:11.5px;">Close</button>
     </div>
     <h2 style="font-size:20px; margin-bottom:10px; text-align:left; flex-shrink:0;">What's New in FRACTURE</h2>
@@ -1382,6 +1382,46 @@
         this.onlinePlayers = data.onlinePlayers || [];
         this.updateStatusUI(data.playersOnline);
         renderOnlinePlayers();
+      });
+      es.addEventListener('invite_received', e => {
+        const data = JSON.parse(e.data);
+        if (screens.battle.classList.contains('active') && !STATE.gameOver) return;
+        Sound.card();
+        const mapName = MAPS[data.mapId]?.name || data.mapId || 'Arena';
+        const modeTxt = (data.maxPlayers || 2) > 2 ? `${data.maxPlayers}P FFA` : '1v1';
+        showModal(
+          `⚔ MATCH INVITE FROM ${String(data.fromName || 'Commander').toUpperCase()}`,
+          `${data.fromName} invited you to a ${data.poolHP} HP ${modeTxt} match on ${mapName} (Room ${data.roomCode}).`,
+          [
+            {
+              label: 'Accept & Join',
+              primary: true,
+              onClick: () => {
+                hideModal();
+                joinOnlineRoom(data.roomCode);
+              }
+            },
+            {
+              label: 'Decline',
+              primary: false,
+              onClick: () => {
+                hideModal();
+                NetworkAdapter.declineInvite(data.fromClientId, data.roomCode);
+              }
+            }
+          ]
+        );
+      });
+      es.addEventListener('invite_declined', e => {
+        const data = JSON.parse(e.data);
+        const status = document.getElementById('onlineStatusBox');
+        if (status) {
+          status.textContent = `${data.byName} declined your invite to Room ${data.roomCode}.`;
+          status.style.color = 'var(--warn)';
+        }
+        if (screens.battle.classList.contains('active')) {
+          addLog(`${data.byName} declined your invite to Room ${data.roomCode}.`, 'sys');
+        }
       });
       es.addEventListener('leaderboard_update', e => {
         const data = JSON.parse(e.data);
@@ -1541,6 +1581,14 @@
       const data = await this.post('/api/rooms', { hostName, poolHP, mapId, maxPlayers, clientId: this.clientId });
       this.connectStream(data.code);
       return data;
+    },
+    async sendInvite(toClientId, roomCode) {
+      return this.post('/api/invite', { fromClientId: this.clientId, toClientId, roomCode });
+    },
+    declineInvite(fromClientId, roomCode) {
+      if (!this.connected || !fromClientId) return;
+      const declinerName = document.getElementById('playerNameInput')?.value.trim() || 'Commander';
+      this.post('/api/invite/decline', { fromClientId, roomCode, declinerName }).catch(() => {});
     },
     async joinRoom(code, playerName) {
       const clean = code.trim().toUpperCase();
@@ -1989,12 +2037,14 @@
     box.innerHTML = '';
     list.forEach(p => {
       const isMe = p.id === NetworkAdapter.clientId;
-      const clickable = !isMe && p.roomCode && (p.joinable || p.watchable);
+      const clickable = !isMe && ((p.roomCode && (p.joinable || p.watchable)) || p.invitable);
       const el = document.createElement(clickable ? 'button' : 'span');
-      const borderCol = clickable ? (p.joinable ? 'var(--brass)' : 'var(--purple)') : 'var(--border)';
+      const borderCol = clickable ? (p.joinable ? 'var(--brass)' : (p.watchable ? 'var(--purple)' : 'var(--p1)')) : 'var(--border)';
       el.style.cssText = 'display:inline-flex; align-items:center; gap:5px; padding:3px 7px; border-radius:999px; font-family:var(--font-mono); font-size:10.5px; background:#151b26; border:1px solid ' + borderCol + '; color:var(--ink);';
       const dotColor = p.joinable ? 'var(--brass)' : (p.watchable ? 'var(--purple)' : 'var(--good)');
-      const actionTag = clickable ? (p.joinable ? '' : ' <span style="color:#d8b4fe;">· 👁 Watch</span>') : '';
+      const actionTag = clickable
+        ? (p.joinable ? '' : (p.watchable ? ' <span style="color:#d8b4fe;">· 👁 Watch</span>' : ' <span style="color:var(--p1);">· ⚔ Invite</span>'))
+        : '';
       el.innerHTML = `<span style="width:6px; height:6px; border-radius:50%; background:${dotColor};"></span><strong>${p.name}</strong>${isMe ? '<span style="color:var(--p1);">(you)</span>' : ''}<span style="color:var(--muted);">· ${p.status}</span>${actionTag}`;
       if (clickable && p.joinable) {
         el.title = `Click to join ${p.name}'s room ${p.roomCode}`;
@@ -2002,9 +2052,54 @@
       } else if (clickable && p.watchable) {
         el.title = `Click to spectate room ${p.roomCode} live`;
         el.addEventListener('click', () => watchOnlineRoom(p.roomCode));
+      } else if (clickable && p.invitable) {
+        el.title = `Click to challenge ${p.name} to a live match`;
+        el.addEventListener('click', () => inviteOnlinePlayer(p.id, p.name));
       }
       box.appendChild(el);
     });
+  }
+
+  async function inviteOnlinePlayer(targetId, targetName) {
+    const modeSel = document.getElementById('modeSelect');
+    if (modeSel && modeSel.value !== 'online') {
+      modeSel.value = 'online';
+      modeSel.dispatchEvent(new Event('change'));
+    }
+    const status = document.getElementById('onlineStatusBox');
+    if (!NetworkAdapter.connected) {
+      if (status) {
+        status.textContent = 'Connect to the online server to invite commanders.';
+        status.style.color = 'var(--warn)';
+      }
+      return;
+    }
+    try {
+      Sound.click();
+      const hasWaitingRoom = STATE.roomCode && (NetworkAdapter.openRooms || []).some(r => r.code === STATE.roomCode);
+      if (!hasWaitingRoom) {
+        STATE.isSpectator = false;
+        STATE.spectatorCount = 0;
+        const hostName = document.getElementById('playerNameInput').value.trim() || 'Commander';
+        STATE.localPlayerNum = 1;
+        STATE.playerCount = Number(document.getElementById('playerCountSelect').value) || 2;
+        STATE.mapId = STATE.playerCount > 2 ? 'crossfire' : (document.getElementById('mapSelect').value || 'timberline');
+        const data = await NetworkAdapter.createRoom(hostName, STATE.poolHP, STATE.mapId, STATE.playerCount);
+        STATE.roomCode = data.code;
+        STATE.mode = 'online';
+      }
+      await NetworkAdapter.sendInvite(targetId, STATE.roomCode);
+      if (status) {
+        const mapName = MAPS[STATE.mapId]?.name || STATE.mapId;
+        status.innerHTML = `⚔ Invite sent to <strong>${targetName}</strong> for Room <strong style="color:var(--brass);">${STATE.roomCode}</strong> (${STATE.poolHP} HP · ${mapName}) — waiting for response...`;
+        status.style.color = 'var(--good)';
+      }
+    } catch (err) {
+      if (status) {
+        status.textContent = err.message;
+        status.style.color = 'var(--warn)';
+      }
+    }
   }
 
   function renderOpenRooms() {
@@ -5023,12 +5118,21 @@
   /* ============================================================================
      13. WHAT'S NEW / VERSION CHANGELOG MODAL
      ============================================================================ */
-  const APP_VERSION = '3.4';
+  const APP_VERSION = '3.5';
   const SEEN_VER_KEY = 'fracture_seen_version_v1';
   const CHANGELOG = [
     {
-      ver: 'v3.4',
+      ver: 'v3.5',
       tag: 'LATEST',
+      title: 'Live Lobby Invites & Challenge Popups',
+      items: [
+        'One-Click Lobby Invites: Click any idle commander in the Commanders Online list (⚔ Invite) to nudge them straight into a match — automatically uses your open room or creates one with your selected HP pool, map, and player count.',
+        'Instant Challenge Modal: Invited commanders get a real-time chime and popup showing your HP pool, map, and room code with Accept & Join (straight into Forge) or Decline (notifies the host).',
+        'Server-Side Cooldown & Busy Checks: Prevents duplicate nudge spam (5-second cooldown) and blocks invites if a commander is already in a live match.'
+      ]
+    },
+    {
+      ver: 'v3.4',
       title: 'Visual Board Legend & Live Hover Path Previews',
       items: [
         'Visual Board & Token Legend (? LEGEND button or L key): One-click visual reference showing Unit Token Anatomy (Weight Pips, Wound Dial ring, Role, HP, Shield), illustrated Terrain Tiles, and Board Highlight / 4-AP Turn Loop keys.',

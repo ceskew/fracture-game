@@ -80,6 +80,7 @@ function recordMatchResult(winnerName, loserName, winnerStyle, loserStyle) {
 const rooms = new Map(); // code -> { code, poolHP, status, players: {1, 2}, squads: {1, 2}, chat: [], createdAt }
 const globalChat = [];   // last 40 lobby chat messages
 const clients = new Map(); // clientId -> { res, roomCode, name }
+const inviteCooldowns = new Map(); // "fromId->toId" -> timestamp
 
 function generateRoomCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -154,7 +155,8 @@ function getOnlinePlayersSummary() {
       status,
       roomCode: c.roomCode || null,
       joinable: Boolean(room && room.status === 'waiting' && !isSpec),
-      watchable: Boolean(room && (room.status === 'battle' || room.status === 'drafting'))
+      watchable: Boolean(room && (room.status === 'battle' || room.status === 'drafting')),
+      invitable: !room
     });
   }
   return list;
@@ -350,6 +352,49 @@ const server = http.createServer(async (req, res) => {
         broadcastPresence();
       }
       return json(res, 200, { ok: true, onlinePlayers: getOnlinePlayersSummary() });
+    }
+
+    // Live Lobby Invite / Challenge API
+    if (req.method === 'POST' && pathname === '/api/invite') {
+      const { fromClientId, toClientId, roomCode } = await readBody(req);
+      const target = toClientId ? clients.get(toClientId) : null;
+      if (!target) return json(res, 404, { error: 'That commander is no longer online.' });
+      const targetRoom = target.roomCode ? rooms.get(target.roomCode) : null;
+      if (targetRoom && (targetRoom.status === 'battle' || targetRoom.status === 'drafting')) {
+        return json(res, 409, { error: `${target.name} is already in a match.` });
+      }
+      const code = String(roomCode || '').trim().toUpperCase();
+      const room = rooms.get(code);
+      if (!room || room.status !== 'waiting') {
+        return json(res, 404, { error: 'Open waiting room not found.' });
+      }
+      const cdKey = `${fromClientId}->${toClientId}`;
+      const now = Date.now();
+      if (now - (inviteCooldowns.get(cdKey) || 0) < 5000) {
+        return json(res, 429, { error: 'Invite already sent — wait a few seconds before nudging again.' });
+      }
+      inviteCooldowns.set(cdKey, now);
+      const fromName = (fromClientId && clients.get(fromClientId)?.name) || room.players[1]?.name || 'Commander';
+      sendSSE(target.res, 'invite_received', {
+        fromClientId,
+        fromName,
+        roomCode: code,
+        poolHP: room.poolHP,
+        mapId: room.mapId,
+        maxPlayers: room.maxPlayers || 2
+      });
+      return json(res, 200, { ok: true, targetName: target.name, roomCode: code });
+    }
+    if (req.method === 'POST' && pathname === '/api/invite/decline') {
+      const { fromClientId, roomCode, declinerName } = await readBody(req);
+      const sender = fromClientId ? clients.get(fromClientId) : null;
+      if (sender) {
+        sendSSE(sender.res, 'invite_declined', {
+          byName: String(declinerName || 'Commander').trim().slice(0, 18) || 'Commander',
+          roomCode: String(roomCode || '').trim().toUpperCase()
+        });
+      }
+      return json(res, 200, { ok: true });
     }
 
     // Leaderboard API
