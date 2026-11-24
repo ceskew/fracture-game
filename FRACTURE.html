@@ -934,7 +934,7 @@
     <div class="topbar-actions">
       <span class="turn-pill" id="netStatusPill" style="font-size:11px; padding:4px 10px;">LOCAL MODE</span>
       <button id="lobbyLbBtn">LEADERBOARD</button>
-      <button id="whatsNewBtn" style="position:relative; border-color:rgba(212,163,89,0.45); color:var(--brass);">v3.8 · WHAT'S NEW<span id="whatsNewDot" style="display:none; position:absolute; top:-3px; right:-3px; width:8px; height:8px; border-radius:50%; background:var(--crit); border:1px solid var(--panel);"></span></button>
+      <button id="whatsNewBtn" style="position:relative; border-color:rgba(212,163,89,0.45); color:var(--brass);">v3.9a · WHAT'S NEW<span id="whatsNewDot" style="display:none; position:absolute; top:-3px; right:-3px; width:8px; height:8px; border-radius:50%; background:var(--crit); border:1px solid var(--panel);"></span></button>
       <button id="howToPlayBtn">HOW TO PLAY</button>
       <button id="soundBtn">SOUND: OFF</button>
       <button id="newMatchBtn" style="display:none;">NEW MATCH</button>
@@ -1131,6 +1131,23 @@
     <div id="forgeRoomBar" style="display:none; align-items:center; justify-content:space-between; gap:12px; background:rgba(56,189,248,0.08); border:1px solid rgba(56,189,248,0.3); border-radius:8px; padding:8px 14px; font-family:var(--font-mono); font-size:12px; flex-shrink:0;">
       <div id="forgeRoomInfo" style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;"></div>
       <button id="forgeLeaveRoomBtn" class="danger" style="padding:4px 10px; font-size:11.5px;">Leave Room</button>
+    </div>
+
+    <div id="forgeArmoryBar" style="display:flex; flex-direction:column; gap:7px; background:var(--panel); border:1px solid var(--border); border-radius:8px; padding:9px 12px; flex-shrink:0;">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;">
+        <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; flex:1; min-width:220px;">
+          <span style="font-family:var(--font-mono); font-size:10.5px; color:var(--brass); letter-spacing:0.08em; text-transform:uppercase;">ARMORY</span>
+          <div id="armorySlotsList" style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;"></div>
+        </div>
+        <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+          <input type="text" id="armoryNameInput" placeholder="Squad name..." maxlength="16" style="width:120px; padding:4px 8px; font-size:11.5px;" />
+          <button id="armorySaveBtn" style="padding:4px 9px; font-size:11.5px; border-color:rgba(212,163,89,0.5); color:var(--brass);">💾 Save</button>
+          <button id="armoryCopyCodeBtn" style="padding:4px 9px; font-size:11.5px;">📋 Copy Code</button>
+          <input type="text" id="armoryImportInput" placeholder="FRAC-100-V45-..." maxlength="52" style="width:142px; padding:4px 8px; font-size:11.5px; font-family:var(--font-mono); text-transform:uppercase;" />
+          <button id="armoryImportBtn" style="padding:4px 9px; font-size:11.5px;">Import</button>
+        </div>
+      </div>
+      <div id="armoryStatusMsg" style="display:none; font-family:var(--font-mono); font-size:11px; color:var(--good);"></div>
     </div>
 
     <div class="forge-grid" id="forgeGrid"></div>
@@ -1392,7 +1409,7 @@
 <div class="overlay" id="whatsNewOverlay" style="z-index:55;">
   <div class="modal" style="max-width:580px; text-align:left; max-height:84vh; display:flex; flex-direction:column;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-shrink:0;">
-      <span id="whatsNewVersionBadge" style="font-family:var(--font-mono); font-size:11px; color:var(--brass); letter-spacing:0.1em;">PATCH NOTES · CURRENT v3.8</span>
+      <span id="whatsNewVersionBadge" style="font-family:var(--font-mono); font-size:11px; color:var(--brass); letter-spacing:0.1em;">PATCH NOTES · CURRENT v3.9a</span>
       <button id="whatsNewCloseBtn" style="padding:4px 10px; font-size:11.5px;">Close</button>
     </div>
     <h2 style="font-size:20px; margin-bottom:10px; text-align:left; flex-shrink:0;">What's New in FRACTURE</h2>
@@ -2802,6 +2819,183 @@
     info.innerHTML = `<span style="color:var(--brass); font-weight:800;">ROOM ${STATE.roomCode}</span><span style="color:var(--muted);">· ${mapName}</span>${seats.join('')}`;
   }
 
+  const ARMORY_KEY = 'fracture_armory_v1';
+  const ROLE_TO_CODE = { vanguard: 'V', striker: 'S', arcanist: 'A', catalyst: 'C' };
+  const CODE_TO_ROLE = { V: 'vanguard', S: 'striker', A: 'arcanist', C: 'catalyst' };
+  let armoryStatusTimer = null;
+
+  function setArmoryStatus(msg, color = 'var(--good)') {
+    const el = document.getElementById('armoryStatusMsg');
+    if (!el) return;
+    el.textContent = msg;
+    el.style.color = color;
+    el.style.display = msg ? 'block' : 'none';
+    clearTimeout(armoryStatusTimer);
+    if (msg) armoryStatusTimer = setTimeout(() => { el.style.display = 'none'; }, 3600);
+  }
+
+  function loadArmory() {
+    try {
+      const raw = localStorage.getItem(ARMORY_KEY);
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (_) { return []; }
+  }
+
+  function saveArmory(list) {
+    try { localStorage.setItem(ARMORY_KEY, JSON.stringify(list.slice(0, 6))); } catch (_) {}
+  }
+
+  function encodeSquadCode(units) {
+    const total = units.reduce((s, u) => s + Number(u.maxHP || 0), 0);
+    const parts = units.map(u => `${ROLE_TO_CODE[u.role] || 'V'}${Math.round(Number(u.maxHP || 10))}`);
+    return `FRAC-${total}-${parts.join('-')}`;
+  }
+
+  function decodeSquadCode(raw) {
+    const clean = String(raw || '').trim().toUpperCase();
+    const tokens = clean.split('-').filter(Boolean);
+    if (tokens.length < 3 || tokens[0] !== 'FRAC') return { error: 'Code must start with FRAC-<HP>-<ROLE><HP> (e.g. FRAC-100-V45-S35-A20).' };
+    const unitTokens = tokens.slice(2);
+    if (unitTokens.length < 1 || unitTokens.length > 6) return { error: 'Squad code must contain 1 to 6 units.' };
+    const units = [];
+    for (let i = 0; i < unitTokens.length; i++) {
+      const m = unitTokens[i].match(/^([VSAC])(\d+)$/);
+      if (!m || !CODE_TO_ROLE[m[1]]) return { error: `Invalid unit token "${unitTokens[i]}" in code.` };
+      const hp = Number(m[2]);
+      if (hp < 10) return { error: `Each unit must have at least 10 HP ("${unitTokens[i]}").` };
+      const role = CODE_TO_ROLE[m[1]];
+      units.push({ name: `${CALLSIGNS[i % CALLSIGNS.length]}-0${i + 1}`, role, maxHP: hp });
+    }
+    return { units };
+  }
+
+  function fitSquadToPool(units, targetPool) {
+    if (targetPool < units.length * 10) return null;
+    const srcTotal = units.reduce((s, u) => s + Number(u.maxHP || 10), 0) || 1;
+    if (srcTotal === targetPool) {
+      return { units: units.map(u => ({ name: u.name, role: u.role, maxHP: Number(u.maxHP) })), scaled: false };
+    }
+    let remaining = targetPool;
+    const out = units.map((u, i) => {
+      let hp = i === units.length - 1 ? remaining : Math.max(10, Math.round((Number(u.maxHP) / srcTotal) * targetPool));
+      if (i < units.length - 1 && remaining - hp < (units.length - 1 - i) * 10) {
+        hp = remaining - (units.length - 1 - i) * 10;
+      }
+      remaining -= hp;
+      return { name: u.name, role: u.role, maxHP: hp };
+    });
+    return { units: out, scaled: true };
+  }
+
+  function renderArmoryBar() {
+    const box = document.getElementById('armorySlotsList');
+    if (!box) return;
+    const saved = loadArmory();
+    box.innerHTML = '';
+    if (!saved.length) {
+      box.innerHTML = '<span style="font-family:var(--font-mono); font-size:11px; color:var(--muted);">No saved squads yet — save this build or import a code.</span>';
+      return;
+    }
+    saved.forEach(slot => {
+      const wrap = document.createElement('span');
+      wrap.style.cssText = 'display:inline-flex; align-items:center; border-radius:6px; border:1px solid var(--border-hi); background:#0f131b; overflow:hidden;';
+      const loadBtn = document.createElement('button');
+      loadBtn.style.cssText = 'border:none; border-radius:0; background:transparent; padding:3px 7px; font-family:var(--font-mono); font-size:11px; color:var(--ink);';
+      loadBtn.textContent = `${slot.name} (${slot.units.length}u · ${slot.poolHP}HP)`;
+      loadBtn.title = `Load "${slot.name}" (${encodeSquadCode(slot.units)})`;
+      loadBtn.addEventListener('click', () => {
+        Sound.click();
+        const fitted = fitSquadToPool(slot.units, STATE.poolHP);
+        if (!fitted) {
+          setArmoryStatus(`"${slot.name}" has ${slot.units.length} units — needs at least ${slot.units.length * 10} HP pool.`, 'var(--warn)');
+          return;
+        }
+        STATE.forgeDrafts[STATE.forgeOwner] = fitted.units;
+        renderForge();
+        setArmoryStatus(fitted.scaled ? `Loaded "${slot.name}" and scaled to ${STATE.poolHP} HP.` : `Loaded "${slot.name}".`, 'var(--good)');
+      });
+      const delBtn = document.createElement('button');
+      delBtn.style.cssText = 'border:none; border-left:1px solid var(--border); border-radius:0; background:transparent; padding:3px 6px; font-size:11px; color:var(--muted);';
+      delBtn.textContent = '×';
+      delBtn.title = `Delete "${slot.name}"`;
+      delBtn.addEventListener('click', () => {
+        Sound.click();
+        const next = loadArmory().filter(x => x.id !== slot.id);
+        saveArmory(next);
+        renderArmoryBar();
+        setArmoryStatus(`Deleted "${slot.name}".`, 'var(--muted)');
+      });
+      wrap.appendChild(loadBtn);
+      wrap.appendChild(delBtn);
+      box.appendChild(wrap);
+    });
+  }
+
+  document.getElementById('armorySaveBtn')?.addEventListener('click', () => {
+    Sound.click();
+    const list = STATE.forgeDrafts[STATE.forgeOwner] || [];
+    const total = list.reduce((s, u) => s + Number(u.maxHP || 0), 0);
+    if (!list.length || total !== STATE.poolHP) {
+      setArmoryStatus(`Allocate all ${STATE.poolHP} HP before saving to Armory.`, 'var(--warn)');
+      return;
+    }
+    const inp = document.getElementById('armoryNameInput');
+    const rawName = (inp?.value || '').trim();
+    const name = rawName || `${classifySquadStyle(list)} ${STATE.poolHP}`;
+    const saved = loadArmory();
+    const existingIdx = saved.findIndex(x => x.name.toLowerCase() === name.toLowerCase());
+    const entry = {
+      id: existingIdx !== -1 ? saved[existingIdx].id : ('sq_' + Date.now().toString(36)),
+      name,
+      poolHP: STATE.poolHP,
+      units: list.map(u => ({ name: u.name, role: u.role, maxHP: u.maxHP }))
+    };
+    if (existingIdx !== -1) saved[existingIdx] = entry;
+    else {
+      if (saved.length >= 6) {
+        setArmoryStatus('Armory full (6/6 slots) — delete a slot or overwrite an existing name.', 'var(--warn)');
+        return;
+      }
+      saved.unshift(entry);
+    }
+    saveArmory(saved);
+    if (inp) inp.value = '';
+    renderArmoryBar();
+    setArmoryStatus(`Saved "${name}" (${encodeSquadCode(list)}).`, 'var(--good)');
+  });
+
+  document.getElementById('armoryCopyCodeBtn')?.addEventListener('click', () => {
+    Sound.click();
+    const list = STATE.forgeDrafts[STATE.forgeOwner] || [];
+    if (!list.length) return;
+    const code = encodeSquadCode(list);
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(code).catch(() => {});
+    }
+    const imp = document.getElementById('armoryImportInput');
+    if (imp) imp.value = code;
+    setArmoryStatus(`Copied squad code: ${code}`, 'var(--good)');
+  });
+
+  document.getElementById('armoryImportBtn')?.addEventListener('click', () => {
+    Sound.click();
+    const imp = document.getElementById('armoryImportInput');
+    const parsed = decodeSquadCode(imp?.value || '');
+    if (parsed.error) {
+      setArmoryStatus(parsed.error, 'var(--crit)');
+      return;
+    }
+    const fitted = fitSquadToPool(parsed.units, STATE.poolHP);
+    if (!fitted) {
+      setArmoryStatus(`Imported squad has ${parsed.units.length} units — needs at least ${parsed.units.length * 10} HP pool.`, 'var(--warn)');
+      return;
+    }
+    STATE.forgeDrafts[STATE.forgeOwner] = fitted.units;
+    renderForge();
+    setArmoryStatus(fitted.scaled ? `Imported squad and scaled to ${STATE.poolHP} HP!` : `Imported squad (${encodeSquadCode(fitted.units)})!`, 'var(--good)');
+  });
+
   function openForgeFor(owner) {
     STATE.forgeOwner = owner;
     const label = `${getPlayerName(owner).toUpperCase()} — FRACTURE FORGE`;
@@ -2809,6 +3003,7 @@
     const mapName = MAPS[STATE.mapId]?.name || 'Arena';
     document.getElementById('matchBadge').textContent = `${STATE.poolHP} HP · ${mapName.toUpperCase()}`;
     renderForgeRoomBar();
+    renderArmoryBar();
     renderForge();
     showScreen('forge');
   }
@@ -5772,12 +5967,20 @@
   /* ============================================================================
      13. WHAT'S NEW / VERSION CHANGELOG MODAL
      ============================================================================ */
-  const APP_VERSION = '3.8';
+  const APP_VERSION = '3.9a';
   const SEEN_VER_KEY = 'fracture_seen_version_v1';
   const CHANGELOG = [
     {
-      ver: 'v3.8',
+      ver: 'v3.9a',
       tag: 'LATEST',
+      title: 'Forge Armories: Save, Load & Share Squad Codes',
+      items: [
+        'Custom Squad Slots (Up to 6): Save your favorite Forge rosters (custom names, roles, and exact HP splits) right inside the Fracture Forge and reload them in 1 click.',
+        'Shareable Squad Codes: Export any build as a short code (e.g. FRAC-100-V45-S35-A20) and paste any code into Import to load it — automatically scales cleanly if the match HP pool differs.'
+      ]
+    },
+    {
+      ver: 'v3.8',
       title: 'Quick Match Queue, Daily Skirmish & Persistent ELO Storage',
       items: [
         '1-Click Find Quick Match: Click ⚡ Find Quick Match in Online PvP to auto-pair with the next searching commander (1v1 · 100 HP · random arena) and jump straight into the Forge with no room codes needed.',
