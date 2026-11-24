@@ -934,7 +934,7 @@
     <div class="topbar-actions">
       <span class="turn-pill" id="netStatusPill" style="font-size:11px; padding:4px 10px;">LOCAL MODE</span>
       <button id="lobbyLbBtn">LEADERBOARD</button>
-      <button id="whatsNewBtn" style="position:relative; border-color:rgba(212,163,89,0.45); color:var(--brass);">v3.7 · WHAT'S NEW<span id="whatsNewDot" style="display:none; position:absolute; top:-3px; right:-3px; width:8px; height:8px; border-radius:50%; background:var(--crit); border:1px solid var(--panel);"></span></button>
+      <button id="whatsNewBtn" style="position:relative; border-color:rgba(212,163,89,0.45); color:var(--brass);">v3.8 · WHAT'S NEW<span id="whatsNewDot" style="display:none; position:absolute; top:-3px; right:-3px; width:8px; height:8px; border-radius:50%; background:var(--crit); border:1px solid var(--panel);"></span></button>
       <button id="howToPlayBtn">HOW TO PLAY</button>
       <button id="soundBtn">SOUND: OFF</button>
       <button id="newMatchBtn" style="display:none;">NEW MATCH</button>
@@ -1027,14 +1027,18 @@
         </div>
 
         <div class="form-group" id="onlinePanel" style="display:none; background:#10141c; border:1px solid var(--border); border-radius:8px; padding:12px;">
-          <label class="form-label">Online Match Room</label>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; gap:8px;">
+            <button id="quickMatchBtn" style="flex:1; border-color:rgba(16,185,129,0.55); background:rgba(16,185,129,0.14); color:#6ee7b7; padding:8px 10px;">⚡ FIND QUICK MATCH (1v1 · 100 HP)</button>
+            <span id="queueCountBadge" style="font-family:var(--font-mono); font-size:10.5px; color:var(--muted); white-space:nowrap;">0 in queue</span>
+          </div>
+          <label class="form-label">Or Custom Online Room</label>
           <div style="display:flex; gap:6px; margin-bottom:8px;">
             <button class="primary" id="createRoomBtn" style="flex:1;">Create Room (Agreed HP)</button>
             <input type="text" id="joinCodeInput" placeholder="CODE" maxlength="4" style="width:78px; text-transform:uppercase; font-family:var(--font-mono); text-align:center;" />
             <button id="joinRoomBtn">Join</button>
             <button id="watchRoomBtn" style="border-color:rgba(168,85,247,0.55); color:#d8b4fe;">Watch</button>
           </div>
-          <div id="onlineStatusBox" style="font-family:var(--font-mono); font-size:11.5px; color:var(--muted); margin-bottom:6px;">Create a room, join with a 4-letter code, or watch a live match.</div>
+          <div id="onlineStatusBox" style="font-family:var(--font-mono); font-size:11.5px; color:var(--muted); margin-bottom:6px;">Click Find Quick Match to auto-pair, or create/join a 4-letter room code.</div>
           <div id="openRoomsList" style="display:flex; flex-direction:column; gap:5px; max-height:92px; overflow-y:auto;"></div>
         </div>
 
@@ -1060,7 +1064,11 @@
             QUICK BATTLE
           </button>
         </div>
-        <div style="margin-top:8px;">
+        <div style="margin-top:8px; display:flex; flex-direction:column; gap:7px;">
+          <button id="dailySkirmishBtn" style="width:100%; padding:8px 12px; font-size:12.5px; border-color:rgba(56,189,248,0.5); background:rgba(56,189,248,0.09); color:#7dd3fc; text-align:left; display:flex; justify-content:space-between; align-items:center; gap:8px;">
+            <span id="dailyBtnLabel">📅 DAILY SKIRMISH · Loading...</span>
+            <span id="dailyBtnBadge" style="font-family:var(--font-mono); font-size:10.5px; color:var(--brass); white-space:nowrap;"></span>
+          </button>
           <button id="playTutorialBtn" style="width:100%; padding:8px 12px; font-size:12.5px; border-color:rgba(212,163,89,0.5); color:var(--brass);">
             ▶ PLAY 1-TURN INTERACTIVE TUTORIAL (30 SEC)
           </button>
@@ -1384,7 +1392,7 @@
 <div class="overlay" id="whatsNewOverlay" style="z-index:55;">
   <div class="modal" style="max-width:580px; text-align:left; max-height:84vh; display:flex; flex-direction:column;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-shrink:0;">
-      <span id="whatsNewVersionBadge" style="font-family:var(--font-mono); font-size:11px; color:var(--brass); letter-spacing:0.1em;">PATCH NOTES · CURRENT v3.7</span>
+      <span id="whatsNewVersionBadge" style="font-family:var(--font-mono); font-size:11px; color:var(--brass); letter-spacing:0.1em;">PATCH NOTES · CURRENT v3.8</span>
       <button id="whatsNewCloseBtn" style="padding:4px 10px; font-size:11.5px;">Close</button>
     </div>
     <h2 style="font-size:20px; margin-bottom:10px; text-align:left; flex-shrink:0;">What's New in FRACTURE</h2>
@@ -1438,10 +1446,13 @@
     openRooms: [],
     liveMatches: [],
     onlinePlayers: [],
+    queueCount: 0,
+    inQueue: false,
     init() {
       if (!this.isServer) {
         this.updateStatusUI();
         renderOnlinePlayers();
+        renderQueueUI();
         return;
       }
       this.connectStream();
@@ -1460,10 +1471,23 @@
         this.openRooms = data.rooms || [];
         this.liveMatches = data.liveMatches || [];
         this.onlinePlayers = data.onlinePlayers || [];
+        this.queueCount = data.queueCount || 0;
         this.updateStatusUI(data.playersOnline);
         renderLeaderboard();
         renderOpenRooms();
         renderOnlinePlayers();
+        renderQueueUI();
+      });
+      es.addEventListener('queue_update', e => {
+        const data = JSON.parse(e.data);
+        this.queueCount = data.count || 0;
+        renderQueueUI();
+      });
+      es.addEventListener('match_found', e => {
+        const data = JSON.parse(e.data);
+        this.inQueue = false;
+        renderQueueUI();
+        enterQuickMatchedRoom(data);
       });
       es.addEventListener('presence_update', e => {
         const data = JSON.parse(e.data);
@@ -1674,8 +1698,19 @@
     },
     async createRoom(hostName, poolHP, mapId, maxPlayers = 2, winMode = 'elimination', suddenDeath = false) {
       const data = await this.post('/api/rooms', { hostName, poolHP, mapId, maxPlayers, winMode, suddenDeath, clientId: this.clientId });
+      this.inQueue = false;
+      renderQueueUI();
       this.connectStream(data.code);
       return data;
+    },
+    async findQuickMatch(name) {
+      return this.post('/api/matchmake', { clientId: this.clientId, name });
+    },
+    async cancelQuickMatch() {
+      this.inQueue = false;
+      renderQueueUI();
+      if (!this.connected) return;
+      return this.post('/api/matchmake/cancel', { clientId: this.clientId }).catch(() => {});
     },
     async sendInvite(toClientId, roomCode) {
       return this.post('/api/invite', { fromClientId: this.clientId, toClientId, roomCode });
@@ -2073,6 +2108,8 @@
 
   const STATE = {
     mode: 'ai',
+    isDaily: false,
+    dailyConfig: null,
     winMode: 'elimination',
     cpGoal: 10,
     suddenDeath: false,
@@ -2494,8 +2531,171 @@
     syncLobbyMapHeader();
   });
 
+  function renderQueueUI() {
+    const btn = document.getElementById('quickMatchBtn');
+    const badge = document.getElementById('queueCountBadge');
+    if (badge) {
+      const n = NetworkAdapter.queueCount || 0;
+      badge.textContent = n === 1 ? '1 searching...' : `${n} searching`;
+      badge.style.color = n > 0 ? 'var(--good)' : 'var(--muted)';
+    }
+    if (btn) {
+      if (NetworkAdapter.inQueue) {
+        btn.textContent = '⏳ SEARCHING FOR OPPONENT... (CLICK TO CANCEL)';
+        btn.style.borderColor = 'var(--warn)';
+        btn.style.background = 'rgba(245,158,11,0.16)';
+        btn.style.color = '#fcd34d';
+      } else {
+        btn.textContent = '⚡ FIND QUICK MATCH (1v1 · 100 HP)';
+        btn.style.borderColor = 'rgba(16,185,129,0.55)';
+        btn.style.background = 'rgba(16,185,129,0.14)';
+        btn.style.color = '#6ee7b7';
+      }
+    }
+  }
+
+  function enterQuickMatchedRoom(data) {
+    Sound.card();
+    STATE.isDaily = false;
+    STATE.dailyConfig = null;
+    STATE.isSpectator = false;
+    STATE.spectatorCount = 0;
+    STATE.mode = 'online';
+    STATE.localPlayerNum = data.playerNum || 1;
+    STATE.playerCount = 2;
+    STATE.roomCode = data.code;
+    STATE.poolHP = data.poolHP || 100;
+    STATE.winMode = data.winMode === 'conduit' ? 'conduit' : 'elimination';
+    STATE.suddenDeath = Boolean(data.suddenDeath);
+    STATE.readySeats = data.readySeats || [];
+    if (data.mapId && MAPS[data.mapId]) STATE.mapId = data.mapId;
+    STATE.playerNames = data.playerNames || { 1: data.p1Name, 2: data.p2Name };
+    STATE.p1Name = STATE.playerNames[1] || data.p1Name;
+    STATE.p2Name = STATE.playerNames[2] || data.p2Name;
+    NetworkAdapter.connectStream(data.code);
+    if (!STATE.forgeDrafts[STATE.localPlayerNum] || !STATE.forgeDrafts[STATE.localPlayerNum].length) {
+      applySplitPreset(3, STATE.localPlayerNum);
+    }
+    hideModal();
+    openForgeFor(STATE.localPlayerNum);
+  }
+
+  document.getElementById('quickMatchBtn')?.addEventListener('click', async () => {
+    const status = document.getElementById('onlineStatusBox');
+    if (!NetworkAdapter.connected) {
+      if (status) { status.textContent = 'Connect to the online server to use Quick Match.'; status.style.color = 'var(--warn)'; }
+      return;
+    }
+    Sound.click();
+    if (NetworkAdapter.inQueue) {
+      await NetworkAdapter.cancelQuickMatch();
+      if (status) { status.textContent = 'Quick Match search cancelled.'; status.style.color = 'var(--muted)'; }
+      return;
+    }
+    try {
+      const name = document.getElementById('playerNameInput').value.trim() || 'Commander';
+      const res = await NetworkAdapter.findQuickMatch(name);
+      if (res.matched) {
+        NetworkAdapter.inQueue = false;
+        renderQueueUI();
+        enterQuickMatchedRoom(res);
+      } else {
+        NetworkAdapter.inQueue = true;
+        NetworkAdapter.queueCount = res.queueCount || 1;
+        renderQueueUI();
+        if (status) {
+          status.textContent = 'Searching for a 1v1 Quick Match opponent (100 HP)... you will enter the Forge automatically once paired.';
+          status.style.color = 'var(--good)';
+        }
+      }
+    } catch (err) {
+      if (status) { status.textContent = err.message; status.style.color = 'var(--crit)'; }
+    }
+  });
+
+  // DAILY SKIRMISH CHALLENGE (Deterministic UTC-date seeded solo challenge)
+  const DAILY_KEY = 'fracture_daily_v1';
+  function getTodayDateStr() {
+    return new Date().toISOString().slice(0, 10);
+  }
+  function getDailyChallenge() {
+    const dateStr = getTodayDateStr();
+    let h = 2166136261;
+    for (let i = 0; i < dateStr.length; i++) { h ^= dateStr.charCodeAt(i); h = Math.imul(h, 16777619); }
+    const rng = seededRand(h >>> 0);
+    const maps = ['timberline', 'citadel', 'caldera', 'sanctuary'];
+    const docs = ['monolith', 'twins', 'triad', 'swarm'];
+    const docNames = { monolith: 'The Monolith (Titan)', twins: 'Iron Phalanx (Twins)', triad: 'Combined Arms (Triad)', swarm: 'The Hive (Swarm)' };
+    const mapId = maps[Math.floor(rng() * maps.length)];
+    const doctrine = docs[Math.floor(rng() * docs.length)];
+    const winMode = rng() < 0.45 ? 'conduit' : 'elimination';
+    const parTurns = winMode === 'conduit' ? 7 : 6;
+    return { dateStr, mapId, mapName: MAPS[mapId].name, doctrine, doctrineName: docNames[doctrine], winMode, poolHP: 100, parTurns };
+  }
+  function loadDailyRecord() {
+    try { const raw = localStorage.getItem(DAILY_KEY); if (raw) return JSON.parse(raw); } catch (_) {}
+    return { lastClearedDate: null, streak: 0, history: {} };
+  }
+  function recordDailyWin(dateStr, turns, hpLeft) {
+    const rec = loadDailyRecord();
+    if (rec.lastClearedDate !== dateStr) {
+      const yest = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+      rec.streak = rec.lastClearedDate === yest ? (rec.streak || 0) + 1 : 1;
+      rec.lastClearedDate = dateStr;
+    }
+    const prev = rec.history?.[dateStr];
+    if (!prev || turns < prev.turns || (turns === prev.turns && hpLeft > prev.hpLeft)) {
+      rec.history = rec.history || {};
+      rec.history[dateStr] = { turns, hpLeft };
+    }
+    try { localStorage.setItem(DAILY_KEY, JSON.stringify(rec)); } catch (_) {}
+    renderDailyButton();
+    return rec;
+  }
+  function renderDailyButton() {
+    const lbl = document.getElementById('dailyBtnLabel');
+    const badge = document.getElementById('dailyBtnBadge');
+    if (!lbl || !badge) return;
+    const cfg = getDailyChallenge();
+    const rec = loadDailyRecord();
+    const cleared = rec.lastClearedDate === cfg.dateStr;
+    const modeTag = cfg.winMode === 'conduit' ? 'Conduit 10CP' : 'Elimination';
+    lbl.textContent = `📅 DAILY SKIRMISH (${cfg.dateStr}) · ${cfg.mapName} · ${modeTag} vs ${cfg.doctrineName}`;
+    badge.textContent = cleared ? `✓ CLEARED${rec.streak > 1 ? ` · 🔥${rec.streak}` : ''}` : `PAR ${cfg.parTurns}T`;
+    badge.style.color = cleared ? 'var(--good)' : 'var(--brass)';
+  }
+  renderDailyButton();
+
+  document.getElementById('dailySkirmishBtn')?.addEventListener('click', () => {
+    Sound.click();
+    const cfg = getDailyChallenge();
+    STATE.isDaily = true;
+    STATE.dailyConfig = cfg;
+    STATE.isSpectator = false;
+    STATE.spectatorCount = 0;
+    STATE.p1Name = document.getElementById('playerNameInput').value.trim() || 'Commander';
+    STATE.mode = 'ai';
+    STATE.poolHP = cfg.poolHP;
+    STATE.winMode = cfg.winMode;
+    STATE.suddenDeath = false;
+    STATE.playerCount = 2;
+    STATE.aiDoctrine = cfg.doctrine;
+    STATE.aiDifficulty = 'standard';
+    STATE.mapId = cfg.mapId;
+    STATE.p2Name = `Daily: ${cfg.doctrineName}`;
+    STATE.playerNames = { 1: STATE.p1Name, 2: STATE.p2Name };
+    STATE.roomCode = null;
+    STATE.onlineSeed = null;
+    STATE.localPlayerNum = 1;
+    STATE.forgeOwner = 1;
+    applySplitPreset(3, 1);
+    openForgeFor(1);
+  });
+
   document.getElementById('startForgeBtn').addEventListener('click', () => {
     Sound.click();
+    STATE.isDaily = false;
+    STATE.dailyConfig = null;
     STATE.isSpectator = false;
     STATE.spectatorCount = 0;
     STATE.p1Name = document.getElementById('playerNameInput').value.trim() || 'Commander';
@@ -2518,6 +2718,8 @@
 
   document.getElementById('quickBattleBtn').addEventListener('click', () => {
     Sound.click();
+    STATE.isDaily = false;
+    STATE.dailyConfig = null;
     STATE.isSpectator = false;
     STATE.spectatorCount = 0;
     STATE.p1Name = document.getElementById('playerNameInput').value.trim() || 'Commander';
@@ -2536,6 +2738,8 @@
 
   document.getElementById('playTutorialBtn').addEventListener('click', () => {
     Sound.click();
+    STATE.isDaily = false;
+    STATE.dailyConfig = null;
     STATE.isSpectator = false;
     STATE.spectatorCount = 0;
     startPlayableTutorial();
@@ -3950,14 +4154,36 @@
       </div>
     `;
 
+    let dailyNote = '';
+    let dailyShareText = '';
+    if (STATE.isDaily && STATE.dailyConfig && winner === 1) {
+      const cfg = STATE.dailyConfig;
+      const hpLeft = STATE.units.filter(u => u.alive && u.owner === 1).reduce((s, u) => s + u.hp, 0);
+      const rec = recordDailyWin(cfg.dateStr, STATE.turn, hpLeft);
+      const underPar = STATE.turn <= cfg.parTurns;
+      const blocks = Math.max(1, Math.min(5, Math.round((hpLeft / cfg.poolHP) * 5)));
+      const bar = '🟦'.repeat(blocks) + '⬜'.repeat(5 - blocks);
+      dailyShareText = `FRACTURE Daily ${cfg.dateStr} (${cfg.mapName})\nVictory in ${STATE.turn}T (Par ${cfg.parTurns}${underPar ? ' ★' : ''}) · ${hpLeft}/${cfg.poolHP} HP left · ${wStyle}\n${bar}${rec.streak > 1 ? ` · 🔥${rec.streak} streak` : ''}\nhttps://fracture-online.onrender.com`;
+      dailyNote = ` Daily Skirmish cleared${underPar ? ' under Par ★' : ''} (Streak: ${rec.streak})!`;
+    }
+
     const modalBtns = STATE.isSpectator
       ? [
           { label: 'Stay for Rematch', primary: true, onClick: () => hideModal() },
           { label: 'Back to Lobby', primary: false, onClick: () => { hideModal(); leaveToLobby(true); } }
         ]
       : [
+          ...(dailyShareText ? [{
+            label: '📋 Copy Daily Result', primary: true,
+            onClick: (ev) => {
+              if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(dailyShareText).catch(() => {});
+              }
+              if (ev && ev.target) ev.target.textContent = '✓ Copied!';
+            }
+          }] : []),
           {
-            label: 'Rematch (Forge)', primary: true,
+            label: 'Rematch (Forge)', primary: !dailyShareText,
             onClick: () => {
               hideModal();
               if (STATE.mode === 'online' && STATE.roomCode) {
@@ -3975,7 +4201,7 @@
       : `Last commander standing in ${STATE.turn} turns`;
     showModal(
       `${wName.toUpperCase()} WINS!`,
-      `${reasonLead} on a ${STATE.poolHP} HP Pool (${wStyle}).${deltaText}`,
+      `${reasonLead} on a ${STATE.poolHP} HP Pool (${wStyle}).${deltaText}${dailyNote}`,
       modalBtns,
       statsHtml
     );
@@ -5546,12 +5772,21 @@
   /* ============================================================================
      13. WHAT'S NEW / VERSION CHANGELOG MODAL
      ============================================================================ */
-  const APP_VERSION = '3.7';
+  const APP_VERSION = '3.8';
   const SEEN_VER_KEY = 'fracture_seen_version_v1';
   const CHANGELOG = [
     {
-      ver: 'v3.7',
+      ver: 'v3.8',
       tag: 'LATEST',
+      title: 'Quick Match Queue, Daily Skirmish & Persistent ELO Storage',
+      items: [
+        '1-Click Find Quick Match: Click ⚡ Find Quick Match in Online PvP to auto-pair with the next searching commander (1v1 · 100 HP · random arena) and jump straight into the Forge with no room codes needed.',
+        'Daily Skirmish Challenge: Everyone gets the same date-seeded 100 HP map, win mode, and Tactician AI squad each day — Forge your counter-squad, track your daily streak, and copy a spoiler-free emoji result card.',
+        'Persistent Leaderboard Storage (DATA_DIR): server.js now supports an external DATA_DIR path (such as a Render Persistent Disk at /data) so live ELO standings survive deploys and restarts.'
+      ]
+    },
+    {
+      ver: 'v3.7',
       title: 'Conduit Control Mode & Sudden Death Collapse',
       items: [
         'Conduit Control Win Mode (First to 10 CP): Select Conduit Control in the Lobby to score +1 CP per Brass Conduit held at the end of your turn — giving multi-unit squads a real strategic counterplay lane against Titans alongside classic Elimination.',

@@ -15,8 +15,9 @@ const os = require('os');
 
 const PORT = Number(process.env.PORT) || 3000;
 const DIR = __dirname;
+const DATA_DIR = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : DIR;
 const HTML_PATH = path.join(DIR, 'FRACTURE.html');
-const LB_PATH = path.join(DIR, 'leaderboard.json');
+const LB_PATH = path.join(DATA_DIR, 'leaderboard.json');
 
 /* ============================================================================
    1. PERSISTENT ELO LEADERBOARD
@@ -41,6 +42,7 @@ function loadLeaderboard() {
 
 function saveLeaderboard(board) {
   try {
+    if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
     fs.writeFileSync(LB_PATH, JSON.stringify(board, null, 2), 'utf8');
   } catch (err) {
     console.error('Failed to write leaderboard.json:', err.message);
@@ -81,6 +83,37 @@ const rooms = new Map(); // code -> { code, poolHP, status, players: {1, 2}, squ
 const globalChat = [];   // last 40 lobby chat messages
 const clients = new Map(); // clientId -> { res, roomCode, name }
 const inviteCooldowns = new Map(); // "fromId->toId" -> timestamp
+const matchQueue = []; // [{ clientId, name, joinedAt }]
+const QUICK_MATCH_MAPS = ['timberline', 'citadel', 'caldera', 'sanctuary'];
+
+function pruneMatchQueue() {
+  let changed = false;
+  for (let i = matchQueue.length - 1; i >= 0; i--) {
+    const entry = matchQueue[i];
+    const c = clients.get(entry.clientId);
+    if (!c || c.roomCode) {
+      matchQueue.splice(i, 1);
+      changed = true;
+    }
+  }
+  return changed;
+}
+
+function broadcastQueue() {
+  pruneMatchQueue();
+  broadcastAll('queue_update', { count: matchQueue.length });
+}
+
+function removeFromQueue(clientId) {
+  if (!clientId) return false;
+  const idx = matchQueue.findIndex(e => e.clientId === clientId);
+  if (idx !== -1) {
+    matchQueue.splice(idx, 1);
+    broadcastQueue();
+    return true;
+  }
+  return false;
+}
 
 function generateRoomCode() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -301,12 +334,14 @@ const server = http.createServer(async (req, res) => {
       }
     }
     clients.set(clientId, { res, roomCode, name: cleanName });
+    pruneMatchQueue();
     sendSSE(res, 'hello', {
       clientId,
       playersOnline: clients.size,
       onlinePlayers: getOnlinePlayersSummary(),
       rooms: getOpenRoomsSummary(),
       liveMatches: getLiveMatchesSummary(),
+      queueCount: matchQueue.length,
       leaderboard,
       globalChat
     });
@@ -333,6 +368,7 @@ const server = http.createServer(async (req, res) => {
       const entry = clients.get(clientId);
       if (entry && entry.res !== res) return;
       clients.delete(clientId);
+      removeFromQueue(clientId);
       if (entry && entry.roomCode && rooms.has(entry.roomCode)) {
         const room = rooms.get(entry.roomCode);
         if (room.spectators && room.spectators.delete(clientId)) {
@@ -401,6 +437,77 @@ const server = http.createServer(async (req, res) => {
         });
       }
       return json(res, 200, { ok: true });
+    }
+
+    // Quick Matchmaking Queue API
+    if (req.method === 'POST' && pathname === '/api/matchmake') {
+      const { clientId, name } = await readBody(req);
+      if (!clientId || !clients.has(clientId)) {
+        return json(res, 400, { error: 'Connect to the online server first.' });
+      }
+      pruneMatchQueue();
+      const cleanName = String(name || clients.get(clientId)?.name || 'Commander').trim().slice(0, 18) || 'Commander';
+      clients.get(clientId).name = cleanName;
+      const existingIdx = matchQueue.findIndex(e => e.clientId === clientId);
+      if (existingIdx !== -1) {
+        matchQueue[existingIdx].name = cleanName;
+        return json(res, 200, { queued: true, matched: false, queueCount: matchQueue.length });
+      }
+      const oppIdx = matchQueue.findIndex(e => e.clientId !== clientId && clients.has(e.clientId) && !clients.get(e.clientId).roomCode);
+      if (oppIdx !== -1) {
+        const opp = matchQueue.splice(oppIdx, 1)[0];
+        const code = generateRoomCode();
+        const mapId = QUICK_MATCH_MAPS[Math.floor(Math.random() * QUICK_MATCH_MAPS.length)];
+        const room = {
+          code,
+          poolHP: 100,
+          mapId,
+          winMode: 'elimination',
+          suddenDeath: false,
+          maxPlayers: 2,
+          status: 'drafting',
+          players: {
+            1: { name: opp.name, clientId: opp.clientId },
+            2: { name: cleanName, clientId }
+          },
+          squads: {},
+          spectators: new Set(),
+          seed: null,
+          chat: [],
+          createdAt: Date.now()
+        };
+        rooms.set(code, room);
+        if (clients.has(opp.clientId)) clients.get(opp.clientId).roomCode = code;
+        if (clients.has(clientId)) clients.get(clientId).roomCode = code;
+        const playerNames = getRoomPlayerNames(room);
+        const basePayload = {
+          code,
+          poolHP: 100,
+          mapId,
+          winMode: 'elimination',
+          suddenDeath: false,
+          maxPlayers: 2,
+          playerNames,
+          p1Name: playerNames[1],
+          p2Name: playerNames[2],
+          readySeats: []
+        };
+        if (clients.has(opp.clientId)) {
+          sendSSE(clients.get(opp.clientId).res, 'match_found', { ...basePayload, playerNum: 1 });
+        }
+        broadcastQueue();
+        broadcastAll('rooms_update', { rooms: getOpenRoomsSummary(), liveMatches: getLiveMatchesSummary() });
+        broadcastPresence();
+        return json(res, 200, { queued: false, matched: true, playerNum: 2, ...basePayload });
+      }
+      matchQueue.push({ clientId, name: cleanName, joinedAt: Date.now() });
+      broadcastQueue();
+      return json(res, 200, { queued: true, matched: false, queueCount: matchQueue.length });
+    }
+    if (req.method === 'POST' && pathname === '/api/matchmake/cancel') {
+      const { clientId } = await readBody(req);
+      removeFromQueue(clientId);
+      return json(res, 200, { ok: true, queueCount: matchQueue.length });
     }
 
     // Leaderboard API
@@ -476,6 +583,7 @@ const server = http.createServer(async (req, res) => {
         createdAt: Date.now()
       };
       rooms.set(code, room);
+      removeFromQueue(clientId);
       if (clientId && clients.has(clientId)) {
         clients.get(clientId).roomCode = code;
         clients.get(clientId).name = cleanHost;
@@ -582,6 +690,7 @@ const server = http.createServer(async (req, res) => {
         const joinedCount = Object.values(room.players).filter(Boolean).length;
         const allJoined = joinedCount >= maxP;
         if (allJoined) room.status = 'drafting';
+        removeFromQueue(body.clientId);
         if (body.clientId && clients.has(body.clientId)) {
           clients.get(body.clientId).roomCode = code;
           clients.get(body.clientId).name = cleanGuest;
@@ -795,5 +904,6 @@ server.listen(PORT, '0.0.0.0', () => {
   const ip = getLocalIP();
   console.log(`\n  FRACTURE Online Server running!`);
   console.log(`  Local:   http://localhost:${PORT}`);
-  console.log(`  Network: http://${ip}:${PORT}  (share on Wi-Fi)\n`);
+  console.log(`  Network: http://${ip}:${PORT}  (share on Wi-Fi)`);
+  console.log(`  Data:    ${LB_PATH}\n`);
 });
