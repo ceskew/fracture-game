@@ -919,6 +919,7 @@
         <span id="turnLabel">TURN 1 — PLAYER 1</span>
       </div>
       <span id="turnTimerBadge" style="display:none; font-family:var(--font-mono); font-size:12px; font-weight:700; padding:4px 9px; border-radius:999px; border:1px solid var(--border); background:#0f131b; color:var(--brass);">60s</span>
+      <span id="cpScoreBadge" style="display:none; font-family:var(--font-mono); font-size:11.5px; font-weight:700; padding:4px 10px; border-radius:999px; border:1px solid rgba(212,163,89,0.55); background:var(--brass-dim); color:var(--brass);"></span>
       <span id="spectatorBadge" style="display:none; font-family:var(--font-mono); font-size:11px; font-weight:700; padding:4px 9px; border-radius:999px; border:1px solid var(--purple); background:rgba(168,85,247,0.14); color:#d8b4fe;"></span>
       <div class="ap-bar">
         <span>AP</span>
@@ -933,7 +934,7 @@
     <div class="topbar-actions">
       <span class="turn-pill" id="netStatusPill" style="font-size:11px; padding:4px 10px;">LOCAL MODE</span>
       <button id="lobbyLbBtn">LEADERBOARD</button>
-      <button id="whatsNewBtn" style="position:relative; border-color:rgba(212,163,89,0.45); color:var(--brass);">v3.6 · WHAT'S NEW<span id="whatsNewDot" style="display:none; position:absolute; top:-3px; right:-3px; width:8px; height:8px; border-radius:50%; background:var(--crit); border:1px solid var(--panel);"></span></button>
+      <button id="whatsNewBtn" style="position:relative; border-color:rgba(212,163,89,0.45); color:var(--brass);">v3.7 · WHAT'S NEW<span id="whatsNewDot" style="display:none; position:absolute; top:-3px; right:-3px; width:8px; height:8px; border-radius:50%; background:var(--crit); border:1px solid var(--panel);"></span></button>
       <button id="howToPlayBtn">HOW TO PLAY</button>
       <button id="soundBtn">SOUND: OFF</button>
       <button id="newMatchBtn" style="display:none;">NEW MATCH</button>
@@ -1007,6 +1008,22 @@
             <option value="sanctuary">Ruined Sanctuary (Forest Courtyard, Pools &amp; Cover)</option>
             <option value="crossfire">Crossfire Arena (8×8 — 3–4 Player Free-For-All)</option>
           </select>
+        </div>
+
+        <div class="form-group">
+          <div style="display:grid; grid-template-columns: 1.25fr 1fr; gap:8px; align-items:end;">
+            <div>
+              <label class="form-label">Win Condition</label>
+              <select id="winModeSelect" style="width:100%;">
+                <option value="elimination" selected>Elimination (Last Standing)</option>
+                <option value="conduit">Conduit Control (First to 10 CP)</option>
+              </select>
+            </div>
+            <label style="display:flex; align-items:center; gap:7px; padding:7px 10px; border-radius:6px; border:1px solid var(--border); background:#0f131b; cursor:pointer; font-size:12px; color:var(--ink);">
+              <input type="checkbox" id="suddenDeathCheck" style="width:14px; height:14px; accent-color:var(--purple); cursor:pointer;" />
+              <span>Sudden Death <span style="color:var(--muted); font-size:10.5px;">(T8+)</span></span>
+            </label>
+          </div>
         </div>
 
         <div class="form-group" id="onlinePanel" style="display:none; background:#10141c; border:1px solid var(--border); border-radius:8px; padding:12px;">
@@ -1198,6 +1215,7 @@
             <strong style="color:var(--ink);">Turn Flow (4 AP Shared):</strong><br/>
             Move = 1 AP (moves up to <strong>MOV tiles around obstacles</strong>, not 1 AP/tile; 1 move/unit/turn; cannot move after attacking) · Attack = 2 AP (1 attack/unit/turn; Titans get 2) · Role Special = 2 AP (<em>Execute</em> &amp; <em>Overcharge</em> consume your attack; <em>Fortify</em> &amp; <em>Transfuse</em> do not) · Blood Card = 0 AP (paid in unit HP).<br/>
             <strong>Shield Decay:</strong> Shields halve (50% decay) at the start of your next turn.<br/>
+            <strong>Win Modes:</strong> <em>Elimination</em> (last commander standing) or <em>Conduit Control</em> (+1 CP per held Brass Conduit at end of turn; first to <strong>10 CP</strong> or wipeout wins). Optional <strong>Sudden Death</strong> cracks outer rings into Rift Hazards starting Turn 8.<br/>
             <strong>Turn 1 Free Deploy:</strong> Click gold back-row tiles to reposition for 0 AP before your first move/attack. Press <code>Z</code> to undo a move, <code>Esc</code> to cancel, <code>Space</code> to end turn.
           </div>
           <div>
@@ -1366,7 +1384,7 @@
 <div class="overlay" id="whatsNewOverlay" style="z-index:55;">
   <div class="modal" style="max-width:580px; text-align:left; max-height:84vh; display:flex; flex-direction:column;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-shrink:0;">
-      <span id="whatsNewVersionBadge" style="font-family:var(--font-mono); font-size:11px; color:var(--brass); letter-spacing:0.1em;">PATCH NOTES · CURRENT v3.6</span>
+      <span id="whatsNewVersionBadge" style="font-family:var(--font-mono); font-size:11px; color:var(--brass); letter-spacing:0.1em;">PATCH NOTES · CURRENT v3.7</span>
       <button id="whatsNewCloseBtn" style="padding:4px 10px; font-size:11.5px;">Close</button>
     </div>
     <h2 style="font-size:20px; margin-bottom:10px; text-align:left; flex-shrink:0;">What's New in FRACTURE</h2>
@@ -1459,9 +1477,10 @@
         Sound.card();
         const mapName = MAPS[data.mapId]?.name || data.mapId || 'Arena';
         const modeTxt = (data.maxPlayers || 2) > 2 ? `${data.maxPlayers}P FFA` : '1v1';
+        const ruleTxt = `${data.winMode === 'conduit' ? ' · Conduit Control (10 CP)' : ''}${data.suddenDeath ? ' · Sudden Death' : ''}`;
         showModal(
           `⚔ MATCH INVITE FROM ${String(data.fromName || 'Commander').toUpperCase()}`,
-          `${data.fromName} invited you to a ${data.poolHP} HP ${modeTxt} match on ${mapName} (Room ${data.roomCode}).`,
+          `${data.fromName} invited you to a ${data.poolHP} HP ${modeTxt} match on ${mapName}${ruleTxt} (Room ${data.roomCode}).`,
           [
             {
               label: 'Accept & Join',
@@ -1526,6 +1545,8 @@
         STATE.mode = 'online';
         STATE.roomCode = data.code;
         STATE.poolHP = data.poolHP;
+        STATE.winMode = data.winMode === 'conduit' ? 'conduit' : 'elimination';
+        STATE.suddenDeath = Boolean(data.suddenDeath);
         STATE.playerCount = data.maxPlayers || 2;
         STATE.readySeats = data.readySeats || [];
         if (data.mapId && MAPS[data.mapId]) STATE.mapId = data.mapId;
@@ -1559,6 +1580,8 @@
         STATE.mode = 'online';
         STATE.roomCode = data.code;
         STATE.poolHP = data.poolHP;
+        STATE.winMode = data.winMode === 'conduit' ? 'conduit' : 'elimination';
+        STATE.suddenDeath = Boolean(data.suddenDeath);
         STATE.playerCount = data.maxPlayers || 2;
         if (data.mapId && MAPS[data.mapId]) STATE.mapId = data.mapId;
         STATE.playerNames = data.playerNames || { 1: data.p1Name, 2: data.p2Name };
@@ -1599,6 +1622,8 @@
       es.addEventListener('rematch_start', e => {
         const data = JSON.parse(e.data);
         STATE.poolHP = data.poolHP;
+        STATE.winMode = data.winMode === 'conduit' ? 'conduit' : 'elimination';
+        STATE.suddenDeath = Boolean(data.suddenDeath);
         STATE.playerCount = data.maxPlayers || STATE.playerCount || 2;
         if (STATE.isSpectator) {
           showModal(`SPECTATING ROOM ${data.code}`, 'Commanders started a rematch and are forging new squads — battle will resume live shortly.', [
@@ -1647,8 +1672,8 @@
       if (!res.ok) throw new Error(data.error || 'Request failed');
       return data;
     },
-    async createRoom(hostName, poolHP, mapId, maxPlayers = 2) {
-      const data = await this.post('/api/rooms', { hostName, poolHP, mapId, maxPlayers, clientId: this.clientId });
+    async createRoom(hostName, poolHP, mapId, maxPlayers = 2, winMode = 'elimination', suddenDeath = false) {
+      const data = await this.post('/api/rooms', { hostName, poolHP, mapId, maxPlayers, winMode, suddenDeath, clientId: this.clientId });
       this.connectStream(data.code);
       return data;
     },
@@ -2048,6 +2073,13 @@
 
   const STATE = {
     mode: 'ai',
+    winMode: 'elimination',
+    cpGoal: 10,
+    suddenDeath: false,
+    controlPoints: { 1: 0, 2: 0, 3: 0, 4: 0 },
+    collapsedRings: 0,
+    winReason: null,
+    winnerOwner: null,
     playerCount: 2,
     mapId: 'timberline',
     localPlayerNum: 1,
@@ -2125,7 +2157,9 @@
     if (!screens.lobby.classList.contains('active')) return;
     const mapKey = document.getElementById('mapSelect')?.value || 'timberline';
     const mapDef = MAPS[mapKey];
-    if (mapDef) document.getElementById('matchBadge').textContent = `${STATE.poolHP} HP · ${mapDef.name.toUpperCase()}`;
+    const wm = document.getElementById('winModeSelect')?.value === 'conduit' ? ' · CONDUIT 10CP' : '';
+    const sd = document.getElementById('suddenDeathCheck')?.checked ? ' · SD' : '';
+    if (mapDef) document.getElementById('matchBadge').textContent = `${STATE.poolHP} HP · ${mapDef.name.toUpperCase()}${wm}${sd}`;
   }
 
   function setPool(val) {
@@ -2225,7 +2259,9 @@
         STATE.localPlayerNum = 1;
         STATE.playerCount = Number(document.getElementById('playerCountSelect').value) || 2;
         STATE.mapId = STATE.playerCount > 2 ? 'crossfire' : (document.getElementById('mapSelect').value || 'timberline');
-        const data = await NetworkAdapter.createRoom(hostName, STATE.poolHP, STATE.mapId, STATE.playerCount);
+        STATE.winMode = document.getElementById('winModeSelect')?.value === 'conduit' ? 'conduit' : 'elimination';
+        STATE.suddenDeath = Boolean(document.getElementById('suddenDeathCheck')?.checked);
+        const data = await NetworkAdapter.createRoom(hostName, STATE.poolHP, STATE.mapId, STATE.playerCount, STATE.winMode, STATE.suddenDeath);
         STATE.roomCode = data.code;
         STATE.mode = 'online';
       }
@@ -2261,7 +2297,8 @@
       const b = document.createElement('button');
       b.style.cssText = 'display:flex; justify-content:space-between; width:100%; font-family:var(--font-mono); font-size:11.5px; padding:5px 8px;';
       const seats = rm.maxPlayers > 2 ? ` · ${rm.joinedCount || 1}/${rm.maxPlayers}P` : '';
-      b.innerHTML = `<span><strong>${rm.code}</strong> · ${rm.hostName}</span><span style="color:var(--brass);">${rm.poolHP} HP${seats} · JOIN</span>`;
+      const modeTag = `${rm.winMode === 'conduit' ? ' · 10CP' : ''}${rm.suddenDeath ? ' · SD' : ''}`;
+      b.innerHTML = `<span><strong>${rm.code}</strong> · ${rm.hostName}</span><span style="color:var(--brass);">${rm.poolHP} HP${seats}${modeTag} · JOIN</span>`;
       b.addEventListener('click', () => joinOnlineRoom(rm.code));
       box.appendChild(b);
     });
@@ -2295,6 +2332,8 @@
       STATE.playerCount = data.maxPlayers || 2;
       STATE.roomCode = data.code;
       STATE.poolHP = data.poolHP;
+      STATE.winMode = data.winMode === 'conduit' ? 'conduit' : 'elimination';
+      STATE.suddenDeath = Boolean(data.suddenDeath);
       STATE.readySeats = data.readySeats || [];
       if (data.mapId && MAPS[data.mapId]) STATE.mapId = data.mapId;
       STATE.playerNames = data.playerNames || { 1: data.p1Name, 2: data.p2Name };
@@ -2349,6 +2388,8 @@
       STATE.playerCount = data.maxPlayers || 2;
       STATE.roomCode = data.code;
       STATE.poolHP = data.poolHP;
+      STATE.winMode = data.winMode === 'conduit' ? 'conduit' : 'elimination';
+      STATE.suddenDeath = Boolean(data.suddenDeath);
       STATE.spectatorCount = data.spectators || 1;
       if (data.mapId && MAPS[data.mapId]) STATE.mapId = data.mapId;
       STATE.playerNames = data.playerNames || { 1: data.p1Name, 2: data.p2Name };
@@ -2399,7 +2440,9 @@
       STATE.localPlayerNum = 1;
       STATE.playerCount = Number(document.getElementById('playerCountSelect').value) || 2;
       STATE.mapId = STATE.playerCount > 2 ? 'crossfire' : (document.getElementById('mapSelect').value || 'timberline');
-      const data = await NetworkAdapter.createRoom(hostName, STATE.poolHP, STATE.mapId, STATE.playerCount);
+      STATE.winMode = document.getElementById('winModeSelect')?.value === 'conduit' ? 'conduit' : 'elimination';
+      STATE.suddenDeath = Boolean(document.getElementById('suddenDeathCheck')?.checked);
+      const data = await NetworkAdapter.createRoom(hostName, STATE.poolHP, STATE.mapId, STATE.playerCount, STATE.winMode, STATE.suddenDeath);
       STATE.roomCode = data.code;
       STATE.mode = 'online';
       status.innerHTML = `Room <strong style="color:var(--brass); font-size:13px;">${data.code}</strong> created (${data.poolHP} HP · ${STATE.playerCount}P · ${MAPS[STATE.mapId].name}) — share this code!`;
@@ -2442,6 +2485,14 @@
     STATE.mapId = e.target.value;
     syncLobbyMapHeader();
   });
+  document.getElementById('winModeSelect')?.addEventListener('change', e => {
+    STATE.winMode = e.target.value === 'conduit' ? 'conduit' : 'elimination';
+    syncLobbyMapHeader();
+  });
+  document.getElementById('suddenDeathCheck')?.addEventListener('change', e => {
+    STATE.suddenDeath = Boolean(e.target.checked);
+    syncLobbyMapHeader();
+  });
 
   document.getElementById('startForgeBtn').addEventListener('click', () => {
     Sound.click();
@@ -2449,6 +2500,8 @@
     STATE.spectatorCount = 0;
     STATE.p1Name = document.getElementById('playerNameInput').value.trim() || 'Commander';
     STATE.mode = document.getElementById('modeSelect').value;
+    STATE.winMode = document.getElementById('winModeSelect')?.value === 'conduit' ? 'conduit' : 'elimination';
+    STATE.suddenDeath = Boolean(document.getElementById('suddenDeathCheck')?.checked);
     STATE.playerCount = Number(document.getElementById('playerCountSelect').value) || 2;
     STATE.aiDoctrine = document.getElementById('aiDoctrineSelect').value;
     STATE.aiDifficulty = document.getElementById('aiDifficultySelect').value;
@@ -2469,6 +2522,8 @@
     STATE.spectatorCount = 0;
     STATE.p1Name = document.getElementById('playerNameInput').value.trim() || 'Commander';
     STATE.mode = 'ai';
+    STATE.winMode = document.getElementById('winModeSelect')?.value === 'conduit' ? 'conduit' : 'elimination';
+    STATE.suddenDeath = Boolean(document.getElementById('suddenDeathCheck')?.checked);
     STATE.playerCount = Number(document.getElementById('playerCountSelect').value) || 2;
     STATE.aiDoctrine = document.getElementById('aiDoctrineSelect').value;
     STATE.aiDifficulty = document.getElementById('aiDifficultySelect').value;
@@ -2803,7 +2858,9 @@
     (mapDef.brush || []).forEach(([r, c]) => { STATE.grid[r][c] = 'brush'; });
     (mapDef.conduits || []).forEach(([r, c]) => { STATE.grid[r][c] = 'conduit'; });
     (mapDef.rifts || []).forEach(([r, c]) => { STATE.grid[r][c] = 'rift'; });
-    document.getElementById('matchBadge').textContent = `${STATE.poolHP} HP · ${nPlayers}P · ${mapDef.name.toUpperCase()}`;
+    const wmTag = STATE.winMode === 'conduit' ? ' · CONDUIT 10CP' : '';
+    const sdTag = STATE.suddenDeath ? ' · SD' : '';
+    document.getElementById('matchBadge').textContent = `${STATE.poolHP} HP · ${nPlayers}P · ${mapDef.name.toUpperCase()}${wmTag}${sdTag}`;
 
     // Fair randomized first player (deterministic from onlineSeed in Online PvP)
     STATE.firstPlayer = STATE.onlineSeed !== null
@@ -2882,6 +2939,10 @@
     STATE.activeCardIndex = null;
     STATE.gameOver = false;
     STATE.aiBusy = false;
+    STATE.controlPoints = { 1: 0, 2: 0, 3: 0, 4: 0 };
+    STATE.collapsedRings = 0;
+    STATE.winReason = null;
+    STATE.winnerOwner = null;
     STATE.floatingTexts = [];
     STATE.vfx = [];
     STATE.particles = [];
@@ -2898,6 +2959,8 @@
     const firstName = getPlayerName(STATE.firstPlayer);
     document.getElementById('logList').innerHTML = '';
     addLog(`Arena: ${mapDef.name} (${nPlayers} Commanders) — Agreed Pool: ${STATE.poolHP} HP each.`, 'sys');
+    if (STATE.winMode === 'conduit') addLog(`Win Mode: CONDUIT CONTROL — Hold Brass Conduits at end of turn (+1 CP each). First to ${STATE.cpGoal} CP or wipeout wins!`, 'sys');
+    if (STATE.suddenDeath) addLog(`Sudden Death ACTIVE: Outer arena rings collapse into Rift Hazards starting Turn 8.`, 'sys');
     addLog(`Turn order: ${turnOrder.map(o => getPlayerName(o)).join(' → ')}. Later seats get +1 Bonus Card & Starting Shield.`, 'sys');
     addLog(`Turn 1 Free Deploy: Click your units to reposition inside your gold deploy zone (0 AP) before acting.`, 'sys');
     for (let owner = 1; owner <= nPlayers; owner++) {
@@ -2922,6 +2985,12 @@
     COLS = 8; ROWS = 6;
     STATE.playerCount = 2;
     STATE.mode = 'tutorial';
+    STATE.winMode = 'elimination';
+    STATE.suddenDeath = false;
+    STATE.controlPoints = { 1: 0, 2: 0, 3: 0, 4: 0 };
+    STATE.collapsedRings = 0;
+    STATE.winReason = null;
+    STATE.winnerOwner = null;
     STATE.mapId = 'timberline';
     STATE.poolHP = 100;
     STATE.roomCode = null;
@@ -3252,6 +3321,13 @@
       activePlayer: STATE.activePlayer,
       ap: STATE.ap,
       gameOver: STATE.gameOver,
+      winMode: STATE.winMode,
+      suddenDeath: STATE.suddenDeath,
+      controlPoints: { ...(STATE.controlPoints || {}) },
+      collapsedRings: STATE.collapsedRings || 0,
+      winReason: STATE.winReason || null,
+      winnerOwner: STATE.winnerOwner || null,
+      grid: STATE.suddenDeath ? STATE.grid.map(row => [...row]) : null,
       lastMove: STATE.lastMove ? { ...STATE.lastMove } : null,
       freeDeployActive: { ...STATE.freeDeployActive },
       actedTurn1: { ...STATE.actedTurn1 },
@@ -3273,6 +3349,13 @@
     STATE.turn = snap.turn;
     STATE.activePlayer = snap.activePlayer;
     STATE.ap = snap.ap;
+    if (snap.winMode) STATE.winMode = snap.winMode;
+    if (typeof snap.suddenDeath === 'boolean') STATE.suddenDeath = snap.suddenDeath;
+    if (snap.controlPoints) STATE.controlPoints = { ...snap.controlPoints };
+    if (typeof snap.collapsedRings === 'number') STATE.collapsedRings = snap.collapsedRings;
+    if (snap.winReason) STATE.winReason = snap.winReason;
+    if (snap.winnerOwner) STATE.winnerOwner = snap.winnerOwner;
+    if (Array.isArray(snap.grid) && snap.grid.length === ROWS) STATE.grid = snap.grid.map(row => [...row]);
     STATE.lastMove = snap.lastMove || null;
     if (snap.freeDeployActive) STATE.freeDeployActive = { ...snap.freeDeployActive };
     if (snap.actedTurn1) STATE.actedTurn1 = { ...snap.actedTurn1 };
@@ -3643,6 +3726,37 @@
     return true;
   }
 
+  function collapseArenaRing(ringIdx) {
+    let changed = 0;
+    const fxSpots = [];
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const onRing = (r === ringIdx || r === ROWS - 1 - ringIdx || c === ringIdx || c === COLS - 1 - ringIdx)
+          && r >= ringIdx && r <= ROWS - 1 - ringIdx && c >= ringIdx && c <= COLS - 1 - ringIdx;
+        if (!onRing) continue;
+        const t = STATE.grid[r][c];
+        if (t === 'floor' || t === 'brush') {
+          STATE.grid[r][c] = 'rift';
+          changed++;
+          if (changed % 4 === 1) fxSpots.push([r, c]);
+        }
+      }
+    }
+    if (changed > 0) {
+      fxSpots.forEach(([r, c]) => {
+        spawnShockwave(r, c, '#a855f7', 0.9);
+        spawnParticles(r, c, '#a855f7', 8, 2.6, false);
+      });
+      triggerBoardImpact(5.5, 0, '#a855f7');
+      Sound.card();
+      showRollToast(
+        `<strong style="color:#c084fc;">⚠ SUDDEN DEATH: RING ${ringIdx + 1} COLLAPSED!</strong><br/>Outer tiles fractured into Rift Hazards (-3 HP end of turn).`,
+        '#a855f7'
+      );
+      addLog(`SUDDEN DEATH (Turn ${STATE.turn}): Ring ${ringIdx + 1} fractured into Rift Hazards (${changed} tiles)!`, 'sys');
+    }
+  }
+
   function endTurn(isRemote = false) {
     if (STATE.gameOver) return;
     STATE.lastMove = null;
@@ -3660,6 +3774,27 @@
       return;
     }
 
+    // Conduit Control scoring at end of active commander's turn
+    if (STATE.winMode === 'conduit') {
+      const holders = STATE.units.filter(u => u.alive && u.owner === STATE.activePlayer && STATE.grid[u.r][u.c] === 'conduit');
+      if (holders.length > 0) {
+        STATE.controlPoints[STATE.activePlayer] = (STATE.controlPoints[STATE.activePlayer] || 0) + holders.length;
+        holders.forEach(u => {
+          spawnShockwave(u.r, u.c, '#d4a359', 0.8);
+          spawnFloat(u.r, u.c, '+1 CP', '#d4a359');
+        });
+        const curCP = STATE.controlPoints[STATE.activePlayer];
+        addLog(`${getPlayerName(STATE.activePlayer)} scores +${holders.length} Conduit CP (${curCP}/${STATE.cpGoal}).`, `p${STATE.activePlayer}`);
+        if (curCP >= STATE.cpGoal) {
+          STATE.winReason = 'conduit';
+          STATE.winnerOwner = STATE.activePlayer;
+          checkVictory();
+          if (STATE.mode === 'online' && !isRemote) NetworkAdapter.sendAction(STATE.roomCode, { type: 'endTurn' });
+          return;
+        }
+      }
+    }
+
     const nPlayers = STATE.playerCount || 2;
     let next = STATE.activePlayer;
     let wrapped = false;
@@ -3668,7 +3803,18 @@
       if (next === STATE.firstPlayer) wrapped = true;
       if (STATE.units.some(u => u.alive && u.owner === next)) break;
     }
-    if (wrapped) STATE.turn += 1;
+    if (wrapped) {
+      STATE.turn += 1;
+      if (STATE.suddenDeath) {
+        if (STATE.turn >= 8 && STATE.collapsedRings < 1) {
+          STATE.collapsedRings = 1;
+          collapseArenaRing(0);
+        } else if (STATE.turn >= 10 && STATE.collapsedRings < 2) {
+          STATE.collapsedRings = 2;
+          collapseArenaRing(1);
+        }
+      }
+    }
     STATE.activePlayer = next;
     STATE.ap = STATE.maxAP;
     STATE.actionMode = 'normal';
@@ -3744,17 +3890,22 @@
   function checkVictory(officialResult = null) {
     const nPlayers = STATE.playerCount || 2;
     const aliveOwners = [];
+    let cpWinner = null;
     for (let o = 1; o <= nPlayers; o++) {
       if (STATE.units.some(u => u.alive && u.owner === o)) aliveOwners.push(o);
+      if (STATE.winMode === 'conduit' && (STATE.controlPoints?.[o] || 0) >= STATE.cpGoal) cpWinner = o;
     }
-    if (aliveOwners.length > 1 && !officialResult) return;
+    if (aliveOwners.length > 1 && !cpWinner && !officialResult) return;
     STATE.gameOver = true;
     stopTurnTimer();
     clearTimeout(rollToastTimer);
     document.getElementById('rollToast')?.classList.remove('visible');
     document.getElementById('hoverTooltip')?.classList.remove('visible');
     hideDiceTray();
-    const winner = officialResult?.winner || aliveOwners[0] || STATE.activePlayer || 1;
+    const winner = officialResult?.winner || cpWinner || aliveOwners[0] || STATE.winnerOwner || STATE.activePlayer || 1;
+    const winReason = officialResult?.winReason || (cpWinner ? 'conduit' : (STATE.winReason || 'elimination'));
+    STATE.winnerOwner = winner;
+    STATE.winReason = winReason;
     const wName = getPlayerName(winner);
     STATE.winnerName = wName;
     const wStyle = classifySquadStyle(STATE.forgeDrafts[winner] || []);
@@ -3780,11 +3931,15 @@
     const mvpLine = mvp && mvp.dmgDealt > 0
       ? `<div style="margin-top:8px; padding:6px 8px; border-radius:6px; background:var(--brass-dim); color:var(--brass); font-family:var(--font-mono); font-size:11.5px;">★ MATCH MVP: <strong>${mvp.name}</strong> (${ROLES[mvp.role].name}) — ${mvp.dmgDealt} DMG</div>`
       : '';
+    const cpRowHtml = STATE.winMode === 'conduit'
+      ? `<tr><td>Control Pts</td>${owners.map(o => `<td style="color:var(--brass); font-weight:700;">${STATE.controlPoints?.[o] || 0}/${STATE.cpGoal}</td>`).join('')}</tr>`
+      : '';
     const statsHtml = `
       <div style="margin:12px 0 4px; text-align:left; background:#0f131b; border:1px solid var(--border); border-radius:8px; padding:10px; overflow-x:auto;">
         <table class="lb-table" style="font-size:11px;">
           <thead><tr><th>Stat</th>${owners.map(o => `<th style="color:${getPlayerVar(o)};">${getPlayerName(o).slice(0, 12)}</th>`).join('')}</tr></thead>
           <tbody>
+            ${cpRowHtml}
             <tr><td>Damage</td>${owners.map(o => `<td>${getS(o).dmg}</td>`).join('')}</tr>
             <tr><td>Crits</td>${owners.map(o => `<td>${getS(o).crits}</td>`).join('')}</tr>
             <tr><td>Traps</td>${owners.map(o => `<td>${getS(o).traps}</td>`).join('')}</tr>
@@ -3815,9 +3970,12 @@
           { label: 'Back to Lobby', primary: false, onClick: () => { hideModal(); leaveToLobby(true); } }
         ];
 
+    const reasonLead = winReason === 'conduit'
+      ? `Captured ${STATE.controlPoints?.[winner] || STATE.cpGoal}/${STATE.cpGoal} Conduit Control Points in ${STATE.turn} turns`
+      : `Last commander standing in ${STATE.turn} turns`;
     showModal(
       `${wName.toUpperCase()} WINS!`,
-      `Last commander standing in ${STATE.turn} turns on a ${STATE.poolHP} HP Pool (${wStyle}).${deltaText}`,
+      `${reasonLead} on a ${STATE.poolHP} HP Pool (${wStyle}).${deltaText}`,
       modalBtns,
       statsHtml
     );
@@ -3959,6 +4117,10 @@
             let score = (curD - nd) * 14 + (diff === 'easy' ? (Math.random() * 18 - 9) : 0);
             if (nd <= idealD && hasLineOfSight(tile.r, tile.c, nearest.r, nearest.c)) score += (diff === 'hard' ? 38 : 26);
             if (u.prevR === tile.r && u.prevC === tile.c) score -= 20;
+            if (STATE.winMode === 'conduit') {
+              if (STATE.grid[tile.r][tile.c] === 'conduit') score += (diff === 'hard' ? 44 : (diff === 'standard' ? 32 : 16));
+              else if (STATE.grid[u.r][u.c] === 'conduit') score -= (diff === 'hard' ? 28 : 18);
+            }
             if (diff !== 'easy') {
               if (STATE.grid[tile.r][tile.c] === 'conduit') score += (diff === 'hard' ? 18 : 10);
               if (STATE.grid[tile.r][tile.c] === 'brush') score += (diff === 'hard' ? 12 : 6);
@@ -4894,6 +5056,21 @@
     endBtn.disabled = !isMyTurn();
     undoBtn.disabled = !(isMyTurn() && STATE.lastMove);
 
+    const cpBadge = document.getElementById('cpScoreBadge');
+    if (cpBadge) {
+      if (STATE.winMode === 'conduit') {
+        const parts = [];
+        for (let o = 1; o <= (STATE.playerCount || 2); o++) {
+          const nm = getPlayerName(o).slice(0, 7);
+          parts.push(`${nm} ${STATE.controlPoints?.[o] || 0}/${STATE.cpGoal}`);
+        }
+        cpBadge.style.display = 'inline-block';
+        cpBadge.textContent = `◆ CP: ${parts.join(' · ')}`;
+      } else {
+        cpBadge.style.display = 'none';
+      }
+    }
+
     const specBadge = document.getElementById('spectatorBadge');
     if (specBadge) {
       if (STATE.isSpectator) {
@@ -5369,12 +5546,21 @@
   /* ============================================================================
      13. WHAT'S NEW / VERSION CHANGELOG MODAL
      ============================================================================ */
-  const APP_VERSION = '3.6';
+  const APP_VERSION = '3.7';
   const SEEN_VER_KEY = 'fracture_seen_version_v1';
   const CHANGELOG = [
     {
-      ver: 'v3.6',
+      ver: 'v3.7',
       tag: 'LATEST',
+      title: 'Conduit Control Mode & Sudden Death Collapse',
+      items: [
+        'Conduit Control Win Mode (First to 10 CP): Select Conduit Control in the Lobby to score +1 CP per Brass Conduit held at the end of your turn — giving multi-unit squads a real strategic counterplay lane against Titans alongside classic Elimination.',
+        'Optional Sudden Death Collapse (Turn 8+, Default OFF): Toggle Sudden Death in the Lobby to fracture the outer arena rings into Rift Hazards on Turn 8 and Turn 10 so late-game matches never stall.',
+        'Full Online PvP & AI Support: Rooms, Lobby Invites, Spectator sync, official ELO adjudication, and AI pathing all honor Conduit Control and Sudden Death.'
+      ]
+    },
+    {
+      ver: 'v3.6',
       title: 'Tactile Combat Juice & Social Share Polish',
       items: [
         'Animated 2d6 Dice Tray: Every attack now tumbles two live 3×3 pip dice on the board before snapping onto your exact Glance, Hit, Heavy, or Crit roll.',

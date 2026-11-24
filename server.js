@@ -184,6 +184,8 @@ function getOpenRoomsSummary() {
         code,
         hostName: room.players[1]?.name || 'Host',
         poolHP: room.poolHP,
+        winMode: room.winMode || 'elimination',
+        suddenDeath: Boolean(room.suddenDeath),
         maxPlayers: room.maxPlayers || 2,
         joinedCount
       });
@@ -201,6 +203,8 @@ function getLiveMatchesSummary() {
         status: room.status,
         poolHP: room.poolHP,
         mapId: room.mapId,
+        winMode: room.winMode || 'elimination',
+        suddenDeath: Boolean(room.suddenDeath),
         maxPlayers: room.maxPlayers || 2,
         playerNames: getRoomPlayerNames(room),
         turn: room.state?.turn || 1,
@@ -381,6 +385,8 @@ const server = http.createServer(async (req, res) => {
         roomCode: code,
         poolHP: room.poolHP,
         mapId: room.mapId,
+        winMode: room.winMode || 'elimination',
+        suddenDeath: Boolean(room.suddenDeath),
         maxPlayers: room.maxPlayers || 2
       });
       return json(res, 200, { ok: true, targetName: target.name, roomCode: code });
@@ -446,16 +452,20 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { rooms: getOpenRoomsSummary(), liveMatches: getLiveMatchesSummary() });
     }
     if (req.method === 'POST' && pathname === '/api/rooms') {
-      const { hostName, poolHP, mapId, maxPlayers, clientId } = await readBody(req);
+      const { hostName, poolHP, mapId, maxPlayers, winMode, suddenDeath, clientId } = await readBody(req);
       const code = generateRoomCode();
       const cleanHost = String(hostName || 'Commander').trim().slice(0, 20);
       const cleanPool = Math.max(40, Math.min(240, Number(poolHP) || 100));
       const cleanMax = Math.max(2, Math.min(4, Number(maxPlayers) || 2));
       const cleanMap = cleanMax > 2 ? 'crossfire' : String(mapId || 'timberline').slice(0, 24);
+      const cleanWinMode = winMode === 'conduit' ? 'conduit' : 'elimination';
+      const cleanSD = Boolean(suddenDeath);
       const room = {
         code,
         poolHP: cleanPool,
         mapId: cleanMap,
+        winMode: cleanWinMode,
+        suddenDeath: cleanSD,
         maxPlayers: cleanMax,
         status: 'waiting', // waiting -> drafting -> battle -> finished
         players: { 1: { name: cleanHost, clientId } },
@@ -472,7 +482,7 @@ const server = http.createServer(async (req, res) => {
       }
       broadcastAll('rooms_update', { rooms: getOpenRoomsSummary(), liveMatches: getLiveMatchesSummary() });
       broadcastPresence();
-      return json(res, 200, { code, playerNum: 1, poolHP: cleanPool, mapId: cleanMap, maxPlayers: cleanMax, hostName: cleanHost });
+      return json(res, 200, { code, playerNum: 1, poolHP: cleanPool, mapId: cleanMap, winMode: cleanWinMode, suddenDeath: cleanSD, maxPlayers: cleanMax, hostName: cleanHost });
     }
 
     const roomMatch = pathname.match(/^\/api\/rooms\/([A-Za-z0-9]{4})\/(join|squad|action|rematch|spectate|leave)$/);
@@ -544,6 +554,8 @@ const server = http.createServer(async (req, res) => {
             status: room.status,
             poolHP: room.poolHP,
             mapId: room.mapId,
+            winMode: room.winMode || 'elimination',
+            suddenDeath: Boolean(room.suddenDeath),
             maxPlayers: maxP,
             joinedCount,
             allJoined: joinedCount >= maxP,
@@ -582,6 +594,8 @@ const server = http.createServer(async (req, res) => {
             code,
             poolHP: room.poolHP,
             mapId: room.mapId,
+            winMode: room.winMode || 'elimination',
+            suddenDeath: Boolean(room.suddenDeath),
             maxPlayers: maxP,
             playerNames,
             p1Name: playerNames[1] || 'Player 1',
@@ -602,6 +616,8 @@ const server = http.createServer(async (req, res) => {
           status: room.status,
           poolHP: room.poolHP,
           mapId: room.mapId,
+          winMode: room.winMode || 'elimination',
+          suddenDeath: Boolean(room.suddenDeath),
           maxPlayers: maxP,
           joinedCount,
           allJoined,
@@ -631,6 +647,8 @@ const server = http.createServer(async (req, res) => {
           status: room.status,
           poolHP: room.poolHP,
           mapId: room.mapId,
+          winMode: room.winMode || 'elimination',
+          suddenDeath: Boolean(room.suddenDeath),
           maxPlayers: room.maxPlayers || 2,
           playerNames,
           p1Name: playerNames[1] || 'Player 1',
@@ -673,6 +691,8 @@ const server = http.createServer(async (req, res) => {
             code,
             poolHP: room.poolHP,
             mapId: room.mapId,
+            winMode: room.winMode || 'elimination',
+            suddenDeath: Boolean(room.suddenDeath),
             maxPlayers: maxP,
             playerNames,
             p1Name: playerNames[1] || 'Player 1',
@@ -714,7 +734,12 @@ const server = http.createServer(async (req, res) => {
             room.winnerRecorded = true;
             room.status = 'finished';
             const aliveOwners = [...new Set((body.snapshot.units || []).filter(u => u.alive && u.hp > 0).map(u => u.owner))];
-            const winner = aliveOwners[0] || senderSeat || 1;
+            let winner = aliveOwners.length === 1 ? aliveOwners[0] : null;
+            const winReason = body.snapshot.winReason || 'elimination';
+            if (!winner && body.snapshot.winnerOwner >= 1 && body.snapshot.winnerOwner <= maxP) {
+              winner = body.snapshot.winnerOwner;
+            }
+            if (!winner) winner = aliveOwners[0] || senderSeat || 1;
             let delta = 0;
             if (maxP === 2) {
               const loser = winner === 1 ? 2 : 1;
@@ -727,7 +752,7 @@ const server = http.createServer(async (req, res) => {
               );
               delta = resElo.delta;
             }
-            officialResult = { winner, delta };
+            officialResult = { winner, delta, winReason };
             broadcastAll('rooms_update', { rooms: getOpenRoomsSummary(), liveMatches: getLiveMatchesSummary() });
           }
         }
@@ -744,7 +769,7 @@ const server = http.createServer(async (req, res) => {
         room.state = null;
         room.winnerRecorded = false;
         room.activePlayer = null;
-        broadcastRoom(code, 'rematch_start', { code, poolHP: room.poolHP, mapId: room.mapId, maxPlayers: room.maxPlayers || 2 });
+        broadcastRoom(code, 'rematch_start', { code, poolHP: room.poolHP, mapId: room.mapId, winMode: room.winMode || 'elimination', suddenDeath: Boolean(room.suddenDeath), maxPlayers: room.maxPlayers || 2 });
         broadcastAll('rooms_update', { rooms: getOpenRoomsSummary(), liveMatches: getLiveMatchesSummary() });
         return json(res, 200, { ok: true });
       }
