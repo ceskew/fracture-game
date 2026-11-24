@@ -4,6 +4,16 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>FRACTURE — Tactical HP-Pool Wargame</title>
+<meta name="description" content="Free browser tactical wargame where your shared HP pool is your entire army budget. Build 1–6 fighters with dynamic Wound Dials, 2d6 combat, 0-AP Blood Cards, AI skirmishes, and 1v1–4P Online PvP." />
+<meta name="theme-color" content="#0c0e13" />
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="FRACTURE" />
+<meta property="og:url" content="https://fracture-online.onrender.com" />
+<meta property="og:title" content="FRACTURE — Tactical HP-Pool Wargame" />
+<meta property="og:description" content="Both commanders share the exact same Hit Point pool and secretly split it across 1–6 fighters. Play solo vs AI or live 1v1–4P Online PvP right in your browser." />
+<meta name="twitter:card" content="summary" />
+<meta name="twitter:title" content="FRACTURE — Tactical HP-Pool Wargame" />
+<meta name="twitter:description" content="Free browser tactical grid game where your shared HP pool is your army budget. Dynamic Wound Dials, 2d6 combat, 0-AP Blood Cards, and Online PvP." />
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230c0e13'/%3E%3Crect x='9' y='9' width='14' height='14' transform='rotate(45 16 16)' fill='none' stroke='%23d4a359' stroke-width='2.5'/%3E%3Crect x='13' y='13' width='6' height='6' transform='rotate(45 16 16)' fill='%23d4a359'/%3E%3C/svg%3E" />
 <style>
   :root {
@@ -630,6 +640,65 @@
   }
   .roll-toast.visible { opacity: 1; transform: translateY(0); }
 
+  /* ANIMATED 2d6 DICE TRAY */
+  .dice-tray {
+    position: absolute;
+    top: 10px;
+    left: 12px;
+    background: rgba(12, 14, 19, 0.94);
+    border: 1px solid var(--brass);
+    border-radius: 10px;
+    padding: 8px 11px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    pointer-events: none;
+    opacity: 0;
+    transform: translateY(-6px) scale(0.92);
+    transition: opacity 0.18s ease, transform 0.18s ease, box-shadow 0.2s ease;
+    z-index: 6;
+  }
+  .dice-tray.visible { opacity: 1; transform: translateY(0) scale(1); }
+  .dice-tray.crit-pop { box-shadow: 0 0 22px rgba(250, 204, 21, 0.45); }
+  .dice-pair { display: flex; gap: 6px; }
+  .die-face {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    background: linear-gradient(145deg, #1e2636 0%, #10141e 100%);
+    border: 1.5px solid var(--border-hi);
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    padding: 4px;
+    gap: 2px;
+    align-items: center;
+    justify-items: center;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 3px 8px rgba(0,0,0,0.45);
+    transition: transform 0.08s ease, border-color 0.15s ease;
+  }
+  .die-face.rolling { transform: rotate(-10deg) scale(0.94); }
+  .die-face.rolling-alt { transform: rotate(10deg) scale(1.04); }
+  .die-face.settled { animation: diceSettle 0.24s cubic-bezier(0.22, 1.4, 0.36, 1); }
+  @keyframes diceSettle {
+    0% { transform: scale(1.22) rotate(-6deg); }
+    100% { transform: scale(1) rotate(0deg); }
+  }
+  .die-pip {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--ink);
+    opacity: 0;
+  }
+  .die-pip.on { opacity: 1; }
+  .dice-meta {
+    font-family: var(--font-mono);
+    line-height: 1.25;
+  }
+  .dice-meta-title { font-size: 10px; color: var(--muted); letter-spacing: 0.06em; }
+  .dice-meta-sum { font-size: 13px; font-weight: 800; }
+
   /* HAND OF BLOOD CARDS */
   .hand-bar {
     height: 132px;
@@ -864,7 +933,7 @@
     <div class="topbar-actions">
       <span class="turn-pill" id="netStatusPill" style="font-size:11px; padding:4px 10px;">LOCAL MODE</span>
       <button id="lobbyLbBtn">LEADERBOARD</button>
-      <button id="whatsNewBtn" style="position:relative; border-color:rgba(212,163,89,0.45); color:var(--brass);">v3.5 · WHAT'S NEW<span id="whatsNewDot" style="display:none; position:absolute; top:-3px; right:-3px; width:8px; height:8px; border-radius:50%; background:var(--crit); border:1px solid var(--panel);"></span></button>
+      <button id="whatsNewBtn" style="position:relative; border-color:rgba(212,163,89,0.45); color:var(--brass);">v3.6 · WHAT'S NEW<span id="whatsNewDot" style="display:none; position:absolute; top:-3px; right:-3px; width:8px; height:8px; border-radius:50%; background:var(--crit); border:1px solid var(--panel);"></span></button>
       <button id="howToPlayBtn">HOW TO PLAY</button>
       <button id="soundBtn">SOUND: OFF</button>
       <button id="newMatchBtn" style="display:none;">NEW MATCH</button>
@@ -1074,6 +1143,7 @@
       <div class="board-wrap" id="boardWrap">
         <canvas id="boardCanvas"></canvas>
         <div class="board-banner" id="boardBanner"></div>
+        <div class="dice-tray" id="diceTray" aria-live="polite"></div>
         <div class="roll-toast" id="rollToast"></div>
         <div class="hover-tooltip" id="hoverTooltip"></div>
       </div>
@@ -1296,7 +1366,7 @@
 <div class="overlay" id="whatsNewOverlay" style="z-index:55;">
   <div class="modal" style="max-width:580px; text-align:left; max-height:84vh; display:flex; flex-direction:column;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-shrink:0;">
-      <span id="whatsNewVersionBadge" style="font-family:var(--font-mono); font-size:11px; color:var(--brass); letter-spacing:0.1em;">PATCH NOTES · CURRENT v3.5</span>
+      <span id="whatsNewVersionBadge" style="font-family:var(--font-mono); font-size:11px; color:var(--brass); letter-spacing:0.1em;">PATCH NOTES · CURRENT v3.6</span>
       <button id="whatsNewCloseBtn" style="padding:4px 10px; font-size:11.5px;">Close</button>
     </div>
     <h2 style="font-size:20px; margin-bottom:10px; text-align:left; flex-shrink:0;">What's New in FRACTURE</h2>
@@ -1865,6 +1935,72 @@
     rollToastTimer = setTimeout(() => el.classList.remove('visible'), 3600);
   }
 
+  const PIP_LAYOUTS = {
+    1: [4],
+    2: [2, 6],
+    3: [2, 4, 6],
+    4: [0, 2, 6, 8],
+    5: [0, 2, 4, 6, 8],
+    6: [0, 2, 3, 5, 6, 8]
+  };
+  let diceRollAnimTimer = null;
+  let diceHideTimer = null;
+  function renderDieFaceHtml(val, extraCls = '', pipColor = '') {
+    const on = PIP_LAYOUTS[val] || [4];
+    let pips = '';
+    for (let i = 0; i < 9; i++) {
+      const active = on.includes(i);
+      pips += `<span class="die-pip${active ? ' on' : ''}"${active && pipColor ? ` style="background:${pipColor};"` : ''}></span>`;
+    }
+    return `<div class="die-face ${extraCls}"${pipColor ? ` style="border-color:${pipColor};"` : ''}>${pips}</div>`;
+  }
+  function hideDiceTray() {
+    clearInterval(diceRollAnimTimer);
+    clearTimeout(diceHideTimer);
+    const el = document.getElementById('diceTray');
+    if (el) el.classList.remove('visible', 'crit-pop');
+  }
+  function showDiceRoll(roll, attackerName = '') {
+    const el = document.getElementById('diceTray');
+    if (!el || !roll) return;
+    clearInterval(diceRollAnimTimer);
+    clearTimeout(diceHideTimer);
+    el.classList.remove('crit-pop');
+    el.style.borderColor = 'var(--border-hi)';
+    el.classList.add('visible');
+    let step = 0;
+    const totalSteps = 6;
+    const paintFrame = () => {
+      if (step < totalSteps) {
+        const r1 = 1 + Math.floor(Math.random() * 6);
+        const r2 = 1 + Math.floor(Math.random() * 6);
+        const cls1 = step % 2 === 0 ? 'rolling' : 'rolling-alt';
+        const cls2 = step % 2 === 0 ? 'rolling-alt' : 'rolling';
+        el.innerHTML = `
+          <div class="dice-pair">${renderDieFaceHtml(r1, cls1)}${renderDieFaceHtml(r2, cls2)}</div>
+          <div class="dice-meta">
+            <div class="dice-meta-title">${attackerName ? attackerName.slice(0, 10) : '2d6 ROLL'}</div>
+            <div class="dice-meta-sum" style="color:var(--muted);">ROLLING...</div>
+          </div>`;
+        step++;
+        return;
+      }
+      clearInterval(diceRollAnimTimer);
+      const isCrit = roll.sum === 12;
+      el.style.borderColor = roll.color;
+      if (isCrit) el.classList.add('crit-pop');
+      el.innerHTML = `
+        <div class="dice-pair">${renderDieFaceHtml(roll.d1, 'settled', roll.color)}${renderDieFaceHtml(roll.d2, 'settled', roll.color)}</div>
+        <div class="dice-meta">
+          <div class="dice-meta-title">${attackerName ? attackerName.slice(0, 10) : '2d6'} · ${roll.d1}+${roll.d2}</div>
+          <div class="dice-meta-sum" style="color:${roll.color};">${roll.sum} · ${roll.label}</div>
+        </div>`;
+      diceHideTimer = setTimeout(() => el.classList.remove('visible', 'crit-pop'), 2800);
+    };
+    paintFrame();
+    diceRollAnimTimer = setInterval(paintFrame, 38);
+  }
+
   function getWeightClass(maxHP) {
     if (maxHP < 25) return { id: 'swarm', label: 'SWARM', armBonus: 0, movBonus: 1, perk: 'Pack Tactics (+2 ATK per adjacent ally)' };
     if (maxHP < 50) return { id: 'skirmisher', label: 'SKIRMISHER', armBonus: 0, movBonus: 0, perk: 'Flanker (+2 ATK vs enemies next to an ally)' };
@@ -1949,6 +2085,11 @@
     hoverCell: null,
     floatingTexts: [],
     vfx: [],
+    particles: [],
+    boardShake: 0,
+    hitStopUntil: 0,
+    critFlash: 0,
+    critFlashColor: '#facc15',
     tutorialStep: null,
     gameOver: false,
     aiBusy: false
@@ -2743,6 +2884,11 @@
     STATE.aiBusy = false;
     STATE.floatingTexts = [];
     STATE.vfx = [];
+    STATE.particles = [];
+    STATE.boardShake = 0;
+    STATE.hitStopUntil = 0;
+    STATE.critFlash = 0;
+    hideDiceTray();
     STATE.lastMove = null;
     STATE.lastSeq = 0;
     STATE.tutorialStep = null;
@@ -2816,6 +2962,11 @@
     STATE.aiBusy = false;
     STATE.floatingTexts = [];
     STATE.vfx = [];
+    STATE.particles = [];
+    STATE.boardShake = 0;
+    STATE.hitStopUntil = 0;
+    STATE.critFlash = 0;
+    hideDiceTray();
     STATE.traps = { 1: [], 2: [] };
     STATE.lastMove = null;
     STATE.freeDeployActive = { 1: false, 2: false };
@@ -3023,10 +3174,14 @@
     }
     target.hitFlash = 1.0;
     spawnShockwave(target.r, target.c, hpDmg > 0 ? '#f43f5e' : '#38bdf8', 0.65);
+    spawnParticles(target.r, target.c, hpDmg > 0 ? '#f43f5e' : '#38bdf8', hpDmg > 0 ? 10 : 6, 2.6, false);
+    if (hpDmg > 0) triggerBoardImpact(2.6, 0, null);
     spawnFloat(target.r, target.c, hpDmg > 0 ? `-${hpDmg}` : `BLOCKED`, hpDmg > 0 ? '#f43f5e' : '#38bdf8');
     if (target.hp <= 0) {
       target.alive = false;
       spawnShockwave(target.r, target.c, '#ef4444', 1.1);
+      spawnParticles(target.r, target.c, '#ef4444', 28, 4.4, true);
+      triggerBoardImpact(9.5, 75, '#ef4444');
       Sound.kill();
       addLog(`${target.name} was shattered by ${sourceLabel}!`, attacker ? `p${attacker.owner}` : 'sys');
       if (attacker && getWeightClass(attacker.maxHP).id === 'champion') {
@@ -3271,12 +3426,18 @@
     attacker.lungeY = (dy / dLen) * 0.32;
     target.hitFlash = 1.0;
 
+    showDiceRoll(roll, attacker.name);
+    const isCrit = roll.sum === 12;
+    const isHeavy = roll.sum >= 10 && roll.sum <= 11;
+    const impactColor = isCrit ? '#facc15' : (hpDmg > 0 ? roll.color : '#38bdf8');
     if (dist(attacker.r, attacker.c, target.r, target.c) <= 1) {
-      spawnSlash(attacker.r, attacker.c, target.r, target.c, roll.sum === 12 ? '#facc15' : (label === 'EXECUTES' ? '#f59e0b' : teamColor));
+      spawnSlash(attacker.r, attacker.c, target.r, target.c, isCrit ? '#facc15' : (label === 'EXECUTES' ? '#f59e0b' : teamColor));
     } else {
-      spawnBeam(attacker.r, attacker.c, target.r, target.c, roll.sum === 12 ? '#facc15' : (forcePierce ? '#a855f7' : teamColor));
+      spawnBeam(attacker.r, attacker.c, target.r, target.c, isCrit ? '#facc15' : (forcePierce ? '#a855f7' : teamColor));
     }
-    spawnShockwave(target.r, target.c, roll.sum === 12 ? '#facc15' : (hpDmg > 0 ? roll.color : '#38bdf8'), roll.sum === 12 ? 1.2 : 0.8);
+    spawnShockwave(target.r, target.c, impactColor, isCrit ? 1.25 : 0.8);
+    spawnParticles(target.r, target.c, impactColor, isCrit ? 26 : (isHeavy ? 18 : (hpDmg > 0 ? 12 : 8)), isCrit ? 4.2 : (isHeavy ? 3.4 : 2.8), false);
+    triggerBoardImpact(isCrit ? 9.5 : (isHeavy ? 5.8 : (hpDmg > 0 ? 3.5 : 2.0)), isCrit ? 75 : 0, isCrit ? '#facc15' : null);
     Sound.hit();
 
     target.shield -= shieldAbsorb;
@@ -3287,7 +3448,9 @@
     let momentumNote = '';
     if (target.hp <= 0) {
       target.alive = false;
-      spawnShockwave(target.r, target.c, '#ef4444', 1.25);
+      spawnShockwave(target.r, target.c, '#ef4444', 1.35);
+      spawnParticles(target.r, target.c, '#ef4444', 32, 4.8, true);
+      triggerBoardImpact(11, 85, isCrit ? '#facc15' : '#ef4444');
       Sound.kill();
       if (getWeightClass(attacker.maxHP).id === 'champion') {
         STATE.ap = Math.min(STATE.maxAP + 2, STATE.ap + 1);
@@ -3487,6 +3650,7 @@
     clearTimeout(rollToastTimer);
     document.getElementById('rollToast')?.classList.remove('visible');
     document.getElementById('hoverTooltip')?.classList.remove('visible');
+    hideDiceTray();
     STATE.units.filter(u => u.alive && u.owner === STATE.activePlayer && STATE.grid[u.r][u.c] === 'rift')
       .forEach(u => {
         applyDamage(u, 3, 'Rift Hazard', true);
@@ -3589,6 +3753,7 @@
     clearTimeout(rollToastTimer);
     document.getElementById('rollToast')?.classList.remove('visible');
     document.getElementById('hoverTooltip')?.classList.remove('visible');
+    hideDiceTray();
     const winner = officialResult?.winner || aliveOwners[0] || STATE.activePlayer || 1;
     const wName = getPlayerName(winner);
     STATE.winnerName = wName;
@@ -3880,6 +4045,37 @@
       color, scale, life: 1.0
     });
   }
+  function spawnParticles(r, c, color, count = 14, speed = 3.2, isKill = false) {
+    const cx = (c + 0.5) * tileSize;
+    const cy = (r + 0.5) * tileSize;
+    const palette = isKill ? [color, '#d4a359', '#ffffff', '#fb923c'] : [color, '#ffffff', color];
+    for (let i = 0; i < count; i++) {
+      const ang = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.5;
+      const spd = speed * (0.45 + Math.random() * 0.95);
+      STATE.particles.push({
+        x: cx + (Math.random() - 0.5) * 6,
+        y: cy + (Math.random() - 0.5) * 6,
+        vx: Math.cos(ang) * spd,
+        vy: Math.sin(ang) * spd,
+        size: (isKill ? 3.4 : 2.4) + Math.random() * (isKill ? 3.8 : 2.4),
+        rot: Math.random() * Math.PI * 2,
+        vrot: (Math.random() - 0.5) * 0.35,
+        color: palette[i % palette.length],
+        life: 0.75 + Math.random() * 0.35,
+        maxLife: 1.0
+      });
+    }
+  }
+  function triggerBoardImpact(shake = 4, hitStopMs = 0, flashColor = null) {
+    STATE.boardShake = Math.max(STATE.boardShake || 0, shake);
+    if (hitStopMs > 0) {
+      STATE.hitStopUntil = Math.max(STATE.hitStopUntil || 0, performance.now() + hitStopMs);
+    }
+    if (flashColor) {
+      STATE.critFlash = 1.0;
+      STATE.critFlashColor = flashColor;
+    }
+  }
 
   function getCardValidTargets(card, payer) {
     if (!card || !payer || payer.hp <= card.cost) return { tiles: [], units: [] };
@@ -3920,7 +4116,19 @@
     if (!screens.battle.classList.contains('active') || !STATE.grid.length) return;
     if (canvas.width < 100 || canvas.height < 100) resizeCanvas();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    const now = performance.now() * 0.004;
+    const nowMs = performance.now();
+    const now = nowMs * 0.004;
+    const inHitStop = nowMs < (STATE.hitStopUntil || 0);
+
+    ctx.save();
+    if ((STATE.boardShake || 0) > 0.25) {
+      const sx = (Math.random() - 0.5) * 2 * STATE.boardShake;
+      const sy = (Math.random() - 0.5) * 2 * STATE.boardShake;
+      ctx.translate(sx, sy);
+      if (!inHitStop) STATE.boardShake *= 0.84;
+    } else {
+      STATE.boardShake = 0;
+    }
 
     const sel = STATE.units.find(u => u.id === STATE.selectedUnitId && u.alive);
     const canAct = sel && sel.owner === STATE.activePlayer && !STATE.aiBusy && !STATE.gameOver;
@@ -4424,10 +4632,37 @@
         ctx.beginPath();
         ctx.arc(v.x, v.y, tileSize * (0.18 + prog * v.scale), 0, Math.PI * 2);
         ctx.stroke();
-        v.life -= 0.05;
+        if (!inHitStop) v.life -= 0.05;
       }
       ctx.restore();
       if (v.life <= 0) STATE.vfx.splice(i, 1);
+    }
+
+    // Fracture spark & shard particles
+    for (let i = (STATE.particles || []).length - 1; i >= 0; i--) {
+      const p = STATE.particles[i];
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rot);
+      ctx.globalAlpha = Math.max(0, Math.min(1, p.life));
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.moveTo(0, -p.size);
+      ctx.lineTo(p.size * 0.65, 0);
+      ctx.lineTo(0, p.size);
+      ctx.lineTo(-p.size * 0.65, 0);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+      if (!inHitStop) {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vx *= 0.92;
+        p.vy *= 0.92;
+        p.rot += p.vrot;
+        p.life -= 0.028;
+      }
+      if (p.life <= 0) STATE.particles.splice(i, 1);
     }
 
     // Floating combat numbers
@@ -4440,11 +4675,27 @@
       ctx.fillStyle = f.color;
       ctx.fillText(f.text, f.x, f.y);
       ctx.restore();
-      f.y -= 0.7;
-      f.life -= 0.02;
+      if (!inHitStop) {
+        f.y -= 0.7;
+        f.life -= 0.02;
+      }
       if (f.life <= 0) STATE.floatingTexts.splice(i, 1);
     }
 
+    ctx.restore();
+
+    // Subtle Crit / Kill edge flash
+    if ((STATE.critFlash || 0) > 0.02) {
+      ctx.save();
+      ctx.strokeStyle = STATE.critFlashColor || '#facc15';
+      ctx.globalAlpha = STATE.critFlash * 0.48;
+      ctx.lineWidth = 8;
+      ctx.strokeRect(4, 4, canvas.width - 8, canvas.height - 8);
+      ctx.restore();
+      if (!inHitStop) STATE.critFlash *= 0.86;
+    } else {
+      STATE.critFlash = 0;
+    }
   }
   requestAnimationFrame(drawBoard);
 
@@ -5118,12 +5369,21 @@
   /* ============================================================================
      13. WHAT'S NEW / VERSION CHANGELOG MODAL
      ============================================================================ */
-  const APP_VERSION = '3.5';
+  const APP_VERSION = '3.6';
   const SEEN_VER_KEY = 'fracture_seen_version_v1';
   const CHANGELOG = [
     {
-      ver: 'v3.5',
+      ver: 'v3.6',
       tag: 'LATEST',
+      title: 'Tactile Combat Juice & Social Share Polish',
+      items: [
+        'Animated 2d6 Dice Tray: Every attack now tumbles two live 3×3 pip dice on the board before snapping onto your exact Glance, Hit, Heavy, or Crit roll.',
+        'Fracture Shard Particles & Impact Feel: Hits, Crits, and unit eliminations burst angular fracture sparks with scaled board shake, brief Crit/Kill hit-stop freeze frames, and a crisp impact edge flash.',
+        'Social Preview Meta Tags: Added Open Graph and Twitter card metadata so FRACTURE links render with a clean title and description on Reddit, Discord, and messaging apps.'
+      ]
+    },
+    {
+      ver: 'v3.5',
       title: 'Live Lobby Invites & Challenge Popups',
       items: [
         'One-Click Lobby Invites: Click any idle commander in the Commanders Online list (⚔ Invite) to nudge them straight into a match — automatically uses your open room or creates one with your selected HP pool, map, and player count.',
