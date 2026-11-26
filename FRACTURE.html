@@ -603,8 +603,17 @@
     border-radius: 999px;
     pointer-events: none;
     display: none;
+    z-index: 7;
+    white-space: nowrap;
+    max-width: calc(100% - 24px);
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .board-banner.visible { display: block; }
+  .board-banner.visible ~ .roll-toast,
+  .board-banner.visible ~ .dice-tray {
+    top: 46px;
+  }
 
   .hover-tooltip {
     position: absolute;
@@ -701,7 +710,8 @@
 
   /* HAND OF BLOOD CARDS */
   .hand-bar {
-    height: 132px;
+    min-height: 132px;
+    height: auto;
     background: var(--panel);
     border: 1px solid var(--border);
     border-radius: 10px;
@@ -714,11 +724,14 @@
   .hand-hdr {
     display: flex;
     justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
     font-family: var(--font-mono);
     font-size: 11px;
     color: var(--muted);
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.05em;
   }
   .cards-row {
     display: grid;
@@ -921,7 +934,7 @@
       <span id="turnTimerBadge" style="display:none; font-family:var(--font-mono); font-size:12px; font-weight:700; padding:4px 9px; border-radius:999px; border:1px solid var(--border); background:#0f131b; color:var(--brass);">60s</span>
       <span id="cpScoreBadge" style="display:none; font-family:var(--font-mono); font-size:11.5px; font-weight:700; padding:4px 10px; border-radius:999px; border:1px solid rgba(212,163,89,0.55); background:var(--brass-dim); color:var(--brass);"></span>
       <span id="spectatorBadge" style="display:none; font-family:var(--font-mono); font-size:11px; font-weight:700; padding:4px 9px; border-radius:999px; border:1px solid var(--purple); background:rgba(168,85,247,0.14); color:#d8b4fe;"></span>
-      <div class="ap-bar">
+      <div class="ap-bar" id="apBarWrap">
         <span>AP</span>
         <div class="ap-pips" id="apPips"></div>
         <span id="apCountText" style="color:var(--brass); font-weight:700;">4/4</span>
@@ -935,7 +948,7 @@
       <span class="turn-pill" id="netStatusPill" style="font-size:11px; padding:4px 10px;">LOCAL MODE</span>
       <button id="profileBtn">PROFILE</button>
       <button id="lobbyLbBtn">LEADERBOARD</button>
-      <button id="whatsNewBtn" style="position:relative; border-color:rgba(212,163,89,0.45); color:var(--brass);">v4.0 · WHAT'S NEW<span id="whatsNewDot" style="display:none; position:absolute; top:-3px; right:-3px; width:8px; height:8px; border-radius:50%; background:var(--crit); border:1px solid var(--panel);"></span></button>
+      <button id="whatsNewBtn" style="position:relative; border-color:rgba(212,163,89,0.45); color:var(--brass);">v4.0.1 · WHAT'S NEW<span id="whatsNewDot" style="display:none; position:absolute; top:-3px; right:-3px; width:8px; height:8px; border-radius:50%; background:var(--crit); border:1px solid var(--panel);"></span></button>
       <button id="howToPlayBtn">HOW TO PLAY</button>
       <button id="confirmAtkBtn" title="Require a second click on an enemy target to confirm 2d6 attacks">2-CLICK ATK: OFF</button>
       <button id="soundBtn">SOUND: OFF</button>
@@ -1165,9 +1178,9 @@
   <section id="battleScreen" class="screen">
     <!-- LEFT: INSPECTOR & ROSTER -->
     <aside class="side-col">
-      <div class="panel-hdr">
-        <span>Tactical Inspector</span>
-        <span id="poolTotalsBadge" style="color:var(--brass);"></span>
+      <div class="panel-hdr" style="gap:6px;">
+        <span>Inspector</span>
+        <span id="poolTotalsBadge" style="color:var(--brass); font-size:10.5px; letter-spacing:0.03em; white-space:nowrap;"></span>
       </div>
       <div class="panel-body">
         <div id="inspectorBox">
@@ -1194,9 +1207,9 @@
 
       <div class="hand-bar">
         <div class="hand-hdr">
-          <span>Blood-Cost Hand (0 AP — Pay from Selected Unit's HP)</span>
-          <span id="trapStatusBar" style="color:var(--brass);"></span>
-          <span id="deckCountLabel">DECK: 15</span>
+          <span id="handTitleLabel">Blood Hand (0 AP · Pay Unit HP)</span>
+          <span id="trapStatusBar" style="color:var(--brass); font-weight:700; white-space:nowrap;"></span>
+          <span id="deckCountLabel" style="white-space:nowrap;">DECK: 15</span>
         </div>
         <div class="cards-row" id="cardsRow"></div>
       </div>
@@ -1243,7 +1256,7 @@
             Move = 1 AP (moves up to <strong>MOV tiles around obstacles</strong>, not 1 AP/tile; 1 move/unit/turn; cannot move after attacking) · Attack = 2 AP (1 attack/unit/turn; Titans get 2) · Role Special = 2 AP (<em>Execute</em> &amp; <em>Overcharge</em> consume your attack; <em>Fortify</em>, <em>Transfuse</em> &amp; <em>Proximity Mine</em> do not) · Blood Card = 0 AP (paid in unit HP).<br/>
             <strong>Shield Decay:</strong> Shields halve (50% decay) at the start of your next turn.<br/>
             <strong>Win Modes:</strong> <em>Elimination</em> (last commander standing) or <em>Conduit Control</em> (+1 CP per held Brass Conduit at end of turn; first to <strong>10 CP</strong> or wipeout wins). Optional <strong>Sudden Death</strong> cracks outer rings into Rift Hazards starting Turn 8.<br/>
-            <strong>Turn 1 Free Deploy:</strong> Click gold back-row tiles to reposition for 0 AP before your first move/attack. Press <code>Z</code> to undo a move, <code>Esc</code> to cancel, <code>Space</code> to end turn.
+            <strong>Turn 1 Free Deploy &amp; Coordinates:</strong> Click gold back-row tiles to reposition for 0 AP before your first move/attack. Log &amp; board coordinates use 1-based <code>(Col, Row)</code> from top-left <code>(1,1)</code>. Keys: <code>Z</code> undo, <code>Esc</code> cancel, <code>Space</code> end turn.
           </div>
           <div>
             <strong style="color:var(--ink);">2d6 RNG Combat Rolls &amp; Piercing:</strong><br/>
@@ -1426,7 +1439,7 @@
 <div class="overlay" id="whatsNewOverlay" style="z-index:55;">
   <div class="modal" style="max-width:580px; text-align:left; max-height:84vh; display:flex; flex-direction:column;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-shrink:0;">
-      <span id="whatsNewVersionBadge" style="font-family:var(--font-mono); font-size:11px; color:var(--brass); letter-spacing:0.1em;">PATCH NOTES · CURRENT v4.0</span>
+      <span id="whatsNewVersionBadge" style="font-family:var(--font-mono); font-size:11px; color:var(--brass); letter-spacing:0.1em;">PATCH NOTES · CURRENT v4.0.1</span>
       <button id="whatsNewCloseBtn" style="padding:4px 10px; font-size:11.5px;">Close</button>
     </div>
     <h2 style="font-size:20px; margin-bottom:10px; text-align:left; flex-shrink:0;">What's New in FRACTURE</h2>
@@ -3129,6 +3142,11 @@
       const dummy = { ...u, hp: u.maxHP };
       const st = computeUnitStats(dummy);
       const maxAllowed = Math.max(10, u.maxHP + Math.max(0, rem));
+      const wcBonusParts = [];
+      if (st.wc.armBonus) wcBonusParts.push(`+${st.wc.armBonus} ARM`);
+      if (st.wc.movBonus) wcBonusParts.push(`+${st.wc.movBonus} MOV`);
+      const statNote = `Role Base: ${st.role.armMod} ARM · ${st.role.movBase} MOV · ${st.role.rngBase} RNG` +
+        (wcBonusParts.length ? `  |  ${st.wc.label}: ${wcBonusParts.join(', ')}` : `  |  ${st.wc.label}: +0 stat mod`);
 
       const card = document.createElement('div');
       card.className = 'unit-forge-card';
@@ -3156,6 +3174,7 @@
           <div><div class="uf-stat-lbl">MOV</div><div class="uf-stat-val">${st.mov}</div></div>
           <div><div class="uf-stat-lbl">RNG</div><div class="uf-stat-val">${st.rng}</div></div>
         </div>
+        <div style="font-family:var(--font-mono); font-size:10px; color:var(--brass); line-height:1.35;">${statNote}</div>
         <div class="uf-perk">
           <strong>${st.wc.label}:</strong> ${st.wc.perk}<br/>
           <strong>${st.role.specialName}:</strong> ${st.role.specialDesc}
@@ -3537,6 +3556,8 @@
     STATE.boardShake = 0;
     STATE.hitStopUntil = 0;
     STATE.critFlash = 0;
+    clearTimeout(rollToastTimer);
+    document.getElementById('rollToast')?.classList.remove('visible');
     hideDiceTray();
     STATE.mines = [];
     STATE.pendingAttackTargetId = null;
@@ -3559,12 +3580,8 @@
     };
 
     document.getElementById('logList').innerHTML = '';
-    addLog('1-TURN INTERACTIVE TUTORIAL: Follow the pulsing gold target to feel the core loop!', 'sys');
+    addLog('1-TURN INTERACTIVE TUTORIAL: Follow the top gold banner to feel the core loop!', 'sys');
     showScreen('battle');
-    showRollToast(
-      `<strong style="color:var(--brass);">STEP 1/4: CLAIM THE CONDUIT</strong><br/>Click the pulsing gold tile (4,2) to move AEGIS-01 (+2 ATK &amp; +1 RNG · 1 AP).`,
-      'var(--brass)'
-    );
   }
 
   async function runTutorialEnemyResponse() {
@@ -3982,7 +3999,6 @@
     unit.movedThisTurn = true;
     if (STATE.mode === 'tutorial' && STATE.tutorialStep === 1 && unit.owner === 1) {
       STATE.tutorialStep = 2;
-      showRollToast('<strong style="color:var(--good);">STEP 2/4: ATTACK TALON-01</strong><br/>Conduit claimed (+2 ATK, +1 RNG)! Now click the pulsing enemy TALON-01 to strike (2 AP).', 'var(--good)');
     }
     Sound.move();
     addLog(`${unit.name} advances to (${c + 1},${r + 1}).`, `p${unit.owner}`);
@@ -4291,7 +4307,6 @@
     document.getElementById('hoverTooltip')?.classList.remove('visible');
     if (STATE.mode === 'tutorial' && STATE.tutorialStep === 3 && payer.owner === 1) {
       STATE.tutorialStep = 4;
-      showRollToast('<strong style="color:var(--brass);">STEP 4/4: END TURN</strong><br/>Secret Deflect Trap armed for 0 AP! Press <strong>END TURN [Space]</strong> to watch it spring.', 'var(--brass)');
     }
     checkVictory();
     if (STATE.mode === 'online' && !isRemote) {
@@ -4662,9 +4677,14 @@
 
     const owners = Array.from({ length: nPlayers }, (_, i) => i + 1);
     const getS = o => STATE.stats?.[o] || { dmg: 0, crits: 0, traps: 0, blood: 0 };
-    const mvp = [...STATE.units].sort((a, b) => (b.dmgDealt || 0) - (a.dmgDealt || 0))[0];
-    const mvpLine = mvp && mvp.dmgDealt > 0
-      ? `<div style="margin-top:8px; padding:6px 8px; border-radius:6px; background:var(--brass-dim); color:var(--brass); font-family:var(--font-mono); font-size:11.5px;">★ MATCH MVP: <strong>${mvp.name}</strong> (${ROLES[mvp.role].name}) — ${mvp.dmgDealt} DMG</div>`
+    const winUnits = STATE.units.filter(u => u.owner === winner).sort((a, b) => ((b.dmgDealt || 0) - (a.dmgDealt || 0)) || (Number(b.alive) - Number(a.alive)));
+    const topRival = STATE.units.filter(u => u.owner !== winner).sort((a, b) => (b.dmgDealt || 0) - (a.dmgDealt || 0))[0];
+    const mvp = (winUnits[0] && (winUnits[0].dmgDealt || 0) > 0) ? winUnits[0] : (winUnits[0] || topRival);
+    const rivalNote = topRival && mvp && topRival.owner !== mvp.owner && (topRival.dmgDealt || 0) > (mvp.dmgDealt || 0)
+      ? ` <span style="color:var(--muted);">· Top Rival: ${topRival.name} (${topRival.dmgDealt} DMG)</span>`
+      : '';
+    const mvpLine = mvp
+      ? `<div style="margin-top:8px; padding:6px 8px; border-radius:6px; background:var(--brass-dim); color:var(--brass); font-family:var(--font-mono); font-size:11.5px;">★ MATCH MVP: <strong>${mvp.name}</strong> (${ROLES[mvp.role].name}) — ${mvp.dmgDealt || 0} DMG${rivalNote}</div>`
       : '';
     const medalHtml = newMedals.length > 0
       ? `<div style="margin-top:8px; padding:7px 9px; border-radius:6px; background:rgba(212,163,89,0.14); border:1px solid var(--brass); color:var(--ink); font-size:11.5px;"><strong style="color:var(--brass); font-family:var(--font-mono);">🏅 MEDAL${newMedals.length > 1 ? 'S' : ''} UNLOCKED:</strong> ${newMedals.map(m => `<strong>${m.icon} ${m.name}</strong>`).join(' · ')}</div>`
@@ -4675,7 +4695,7 @@
     const statsHtml = `
       <div style="margin:12px 0 4px; text-align:left; background:#0f131b; border:1px solid var(--border); border-radius:8px; padding:10px; overflow-x:auto;">
         <table class="lb-table" style="font-size:11px;">
-          <thead><tr><th>Stat</th>${owners.map(o => `<th style="color:${getPlayerVar(o)};">${getPlayerName(o).slice(0, 12)}</th>`).join('')}</tr></thead>
+          <thead><tr><th>Stat</th>${owners.map(o => `<th style="color:${getPlayerVar(o)};">${shortCommanderLabel(o, 12)}</th>`).join('')}</tr></thead>
           <tbody>
             ${cpRowHtml}
             <tr><td>Damage</td>${owners.map(o => `<td>${getS(o).dmg}</td>`).join('')}</tr>
@@ -5246,6 +5266,22 @@
         ctx.strokeStyle = '#1f2634';
         ctx.lineWidth = 1;
         ctx.strokeRect(x, y, tileSize, tileSize);
+        if (r === 0 || c === 0) {
+          ctx.save();
+          ctx.font = '600 9px monospace';
+          ctx.fillStyle = 'rgba(139, 151, 173, 0.42)';
+          if (r === 0 && c === 0) {
+            ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+            ctx.fillText('1,1', x + 3, y + 3);
+          } else if (r === 0) {
+            ctx.textAlign = 'right'; ctx.textBaseline = 'top';
+            ctx.fillText(String(c + 1), x + tileSize - 4, y + 3);
+          } else if (c === 0) {
+            ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+            ctx.fillText(String(r + 1), x + 4, y + tileSize - 3);
+          }
+          ctx.restore();
+        }
       }
     }
 
@@ -5514,6 +5550,31 @@
       ctx.stroke();
       ctx.fillStyle = '#e8ecf2';
       ctx.fillText(lbl, cx, ny + nh / 2 + 0.5);
+
+      // Selected friendly unit on-board Move / Attack readiness tag
+      if (canAct && !STATE.isSpectator && u.id === STATE.selectedUnitId && u.owner === STATE.activePlayer) {
+        const movOk = canUnitMove(u);
+        const maxA = wc.id === 'titan' ? 2 : 1;
+        const atkLeft = STATE.ap >= 2 ? Math.max(0, maxA - u.attacksThisTurn) : 0;
+        const hasAct = movOk || atkLeft > 0;
+        const actTxt = hasAct ? `MOV ${movOk ? '✓' : '–'} · ATK ${atkLeft}` : 'DONE';
+        ctx.save();
+        ctx.font = '700 9px monospace';
+        const aw = ctx.measureText(actTxt).width + 8;
+        const ah = 13;
+        const ay = (ny + nh + ah + 3 <= canvas.height) ? (ny + nh + 2) : Math.max(2, cy - radius - ah - 4);
+        drawRoundRect(cx - aw / 2, ay, aw, ah, 4);
+        ctx.fillStyle = 'rgba(12, 14, 19, 0.94)';
+        ctx.fill();
+        ctx.strokeStyle = hasAct ? 'rgba(212, 163, 89, 0.8)' : 'rgba(139, 151, 173, 0.45)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        ctx.fillStyle = hasAct ? '#facc15' : '#8b97ad';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(actTxt, cx, ay + ah / 2 + 0.5);
+        ctx.restore();
+      }
 
       // Shield badge pill
       if (u.shield > 0) {
@@ -5902,6 +5963,19 @@
   /* ============================================================================
      11. UI RENDERING (HUD, INSPECTOR, ROSTER, HAND, LEADERBOARD, LOG/CHAT)
      ============================================================================ */
+  function shortCommanderLabel(owner, maxLen = 10) {
+    let s = String(getPlayerName(owner) || `P${owner}`)
+      .replace(/^AI:\s*/i, '')
+      .replace(/^Daily:\s*/i, '')
+      .replace(/\s*\[[^\]]+\]\s*$/g, '')
+      .replace(/^The\s+/i, '')
+      .trim();
+    if (s === 'Combined Arms') s = 'Combined';
+    else if (s === 'Iron Phalanx') s = 'Phalanx';
+    if (s.length > maxLen) s = s.slice(0, maxLen).trim();
+    return s || `P${owner}`;
+  }
+
   function renderBattleUI() {
     // Top HUD
     const activeName = getPlayerName(STATE.activePlayer);
@@ -5914,8 +5988,10 @@
     document.getElementById('turnDot').style.background = getPlayerVar(STATE.activePlayer);
     const undoBtn = document.getElementById('undoMoveBtn');
     const endBtn = document.getElementById('endTurnBtn');
-    undoBtn.style.display = STATE.isSpectator ? 'none' : 'inline-block';
-    endBtn.style.display = STATE.isSpectator ? 'none' : 'inline-block';
+    const apWrap = document.getElementById('apBarWrap');
+    if (apWrap) apWrap.style.display = STATE.gameOver ? 'none' : 'flex';
+    undoBtn.style.display = (STATE.isSpectator || STATE.gameOver) ? 'none' : 'inline-block';
+    endBtn.style.display = (STATE.isSpectator || STATE.gameOver) ? 'none' : 'inline-block';
     endBtn.disabled = !isMyTurn();
     undoBtn.disabled = !(isMyTurn() && STATE.lastMove);
 
@@ -5924,7 +6000,7 @@
       if (STATE.winMode === 'conduit') {
         const parts = [];
         for (let o = 1; o <= (STATE.playerCount || 2); o++) {
-          const nm = getPlayerName(o).slice(0, 7);
+          const nm = shortCommanderLabel(o, 8);
           parts.push(`${nm} ${STATE.controlPoints?.[o] || 0}/${STATE.cpGoal}`);
         }
         cpBadge.style.display = 'inline-block';
@@ -5953,8 +6029,8 @@
       let totalTraps = 0;
       for (let o = 1; o <= (STATE.playerCount || 2); o++) totalTraps += (STATE.traps[o] || []).length;
       const sParts = [];
-      if (totalTraps) sParts.push(`SECRET TRAPS ARMED: ${totalTraps}`);
-      if (totalMines) sParts.push(`⬟ MINES ON BOARD: ${totalMines}`);
+      if (totalTraps) sParts.push(`🪤 TRAPS: ${totalTraps}`);
+      if (totalMines) sParts.push(`⬟ MINES: ${totalMines}`);
       if (trapBar) trapBar.textContent = sParts.join(' · ');
     } else {
       const viewerOwner = STATE.mode === 'online' ? STATE.localPlayerNum : ((STATE.mode === 'ai' || STATE.mode === 'tutorial') ? 1 : STATE.activePlayer);
@@ -5966,10 +6042,10 @@
       const myMines = (STATE.mines || []).filter(m => m.owner === viewerOwner).length;
       const oppMines = totalMines - myMines;
       const trapParts = [];
-      if (myTraps.length) trapParts.push(`YOUR TRAPS: ${myTraps.map(t => t.name.replace('Trap: ', '')).join(', ')}`);
-      if (oppTrapCount) trapParts.push(`ENEMY SECRET TRAPS: ${oppTrapCount}`);
-      if (myMines) trapParts.push(`⬟ YOUR MINES: ${myMines}/3`);
-      if (oppMines) trapParts.push(`⬟ ENEMY MINES: ${oppMines}`);
+      if (myTraps.length) trapParts.push(`🪤 ${myTraps.map(t => t.name.replace('Trap: ', '')).join(', ')}`);
+      if (oppTrapCount) trapParts.push(`🪤 FOE: ${oppTrapCount}`);
+      if (myMines) trapParts.push(`⬟ MINES: ${myMines}/3`);
+      if (oppMines) trapParts.push(`⬟ FOE MINES: ${oppMines}`);
       if (trapBar) trapBar.textContent = trapParts.join(' · ');
     }
 
@@ -5987,7 +6063,7 @@
     const totals = [];
     for (let o = 1; o <= (STATE.playerCount || 2); o++) {
       const hpSum = STATE.units.filter(u => u.alive && u.owner === o).reduce((s, u) => s + u.hp, 0);
-      const lbl = getPlayerName(o).slice(0, 8);
+      const lbl = shortCommanderLabel(o, 9);
       const youTag = STATE.mode === 'online' && o === STATE.localPlayerNum ? '★' : '';
       totals.push(`${youTag}${lbl} ${hpSum}`);
     }
@@ -6159,6 +6235,17 @@
     }
     const viewer = STATE.mode === 'online' ? STATE.localPlayerNum : ((STATE.mode === 'ai' || STATE.mode === 'tutorial') ? 1 : STATE.activePlayer);
     const hand = STATE.hands[viewer] || [];
+    const handTitleEl = document.getElementById('handTitleLabel');
+    if (handTitleEl) {
+      const myLiving = STATE.units.filter(u => u.alive && u.owner === viewer);
+      const canAffordAnyCard = isMyTurn() && viewer === STATE.activePlayer && STATE.ap === 0 &&
+        hand.some(c => myLiving.some(u => u.hp > c.cost));
+      if (canAffordAnyCard) {
+        handTitleEl.innerHTML = '<strong style="color:var(--brass);">⚡ 0 AP LEFT — BLOOD CARDS STILL COST 0 AP (PAY HP)!</strong>';
+      } else {
+        handTitleEl.textContent = 'Blood Hand (0 AP · Pay Unit HP)';
+      }
+    }
     document.getElementById('deckCountLabel').textContent = `DECK: ${(STATE.decks[viewer] || []).length}`;
     cardsRow.classList.toggle('locked', !isMyTurn() || viewer !== STATE.activePlayer);
     cardsRow.innerHTML = '';
@@ -6490,12 +6577,21 @@
   /* ============================================================================
      13. WHAT'S NEW / VERSION CHANGELOG MODAL
      ============================================================================ */
-  const APP_VERSION = '4.0';
+  const APP_VERSION = '4.0.1';
   const SEEN_VER_KEY = 'fracture_seen_version_v1';
   const CHANGELOG = [
     {
+      ver: 'v4.0.1',
+      tag: 'PLAYTEST POLISH',
+      title: 'On-Board Action Tags, Forge Stat Breakdown, Winning-Team MVP & HUD Clarity',
+      items: [
+        'On-Board Unit Readiness Tag & 0-AP Hand Cue: Selected friendly fighters now show a live MOV ✓ · ATK 1 badge directly on the board, and the Blood Hand header highlights when you hit 0 AP with playable 0-AP Blood Cards remaining.',
+        'Forge Stat Breakdown & Tutorial Non-Overlap: Forge cards now display Role Base + Weight Class stat bonuses (explaining Swarm +1 MOV and Champion +1 ARM), Tutorial banners no longer overlap roll toasts, and subtle 1-based (Col, Row) indices appear along the arena edge.',
+        'HUD & Victory Polish: Cleaned up AI doctrine labels in the Inspector header, kept Trap & Mine counters visible together, hid leftover AP pips on Match Over, and awarded ★ Match MVP from the winning squad.'
+      ]
+    },
+    {
       ver: 'v4.0',
-      tag: 'MILESTONE RELEASE',
       title: 'Saboteur Role & Proximity Mines, Commander Profile & Medals, Role Audio & Forge Armories',
       items: [
         '5th Fighter Role — ⬟ Saboteur (PROXIMITY MINE): Mid-range tactical sapper (3 MOV, 2 RNG) that rigs open tiles within 3 steps (max 3/team). Stepping, teleporting, or getting knocked onto an enemy mine strips Shield and deals 8 Armor-piercing DMG.',
