@@ -3,17 +3,17 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>FRACTURE — Tactical HP-Pool Wargame</title>
-<meta name="description" content="Free browser tactical wargame where your shared HP pool is your entire army budget. Build 1–6 fighters with dynamic Wound Dials, 2d6 combat, 0-AP Blood Cards, AI skirmishes, and 1v1–4P Online PvP." />
+<title>FRACTURE v4.0 — Tactical HP-Pool Wargame</title>
+<meta name="description" content="Free browser tactical wargame where your shared HP pool is your entire army budget. Forge 1–6 fighters across 5 roles with dynamic Wound Dials, 2d6 combat, 0-AP Blood Cards, Daily Skirmishes, and 1v1–4P Online PvP." />
 <meta name="theme-color" content="#0c0e13" />
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="FRACTURE" />
 <meta property="og:url" content="https://fracture-online.onrender.com" />
-<meta property="og:title" content="FRACTURE — Tactical HP-Pool Wargame" />
-<meta property="og:description" content="Both commanders share the exact same Hit Point pool and secretly split it across 1–6 fighters. Play solo vs AI or live 1v1–4P Online PvP right in your browser." />
+<meta property="og:title" content="FRACTURE v4.0 — Tactical HP-Pool Wargame" />
+<meta property="og:description" content="Both commanders share the exact same Hit Point pool and secretly split it across 1–6 fighters from 5 tactical roles. Save Forge Armories, earn medals, and battle AI or live 1v1–4P Online PvP." />
 <meta name="twitter:card" content="summary" />
-<meta name="twitter:title" content="FRACTURE — Tactical HP-Pool Wargame" />
-<meta name="twitter:description" content="Free browser tactical grid game where your shared HP pool is your army budget. Dynamic Wound Dials, 2d6 combat, 0-AP Blood Cards, and Online PvP." />
+<meta name="twitter:title" content="FRACTURE v4.0 — Tactical HP-Pool Wargame" />
+<meta name="twitter:description" content="Free browser tactical grid game where your shared HP pool is your army budget. 5 Fighter Roles, Dynamic Wound Dials, 2d6 combat, 0-AP Blood Cards, and Online PvP." />
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230c0e13'/%3E%3Crect x='9' y='9' width='14' height='14' transform='rotate(45 16 16)' fill='none' stroke='%23d4a359' stroke-width='2.5'/%3E%3Crect x='13' y='13' width='6' height='6' transform='rotate(45 16 16)' fill='%23d4a359'/%3E%3C/svg%3E" />
 <style>
   :root {
@@ -933,9 +933,11 @@
 
     <div class="topbar-actions">
       <span class="turn-pill" id="netStatusPill" style="font-size:11px; padding:4px 10px;">LOCAL MODE</span>
+      <button id="profileBtn">PROFILE</button>
       <button id="lobbyLbBtn">LEADERBOARD</button>
-      <button id="whatsNewBtn" style="position:relative; border-color:rgba(212,163,89,0.45); color:var(--brass);">v3.9a · WHAT'S NEW<span id="whatsNewDot" style="display:none; position:absolute; top:-3px; right:-3px; width:8px; height:8px; border-radius:50%; background:var(--crit); border:1px solid var(--panel);"></span></button>
+      <button id="whatsNewBtn" style="position:relative; border-color:rgba(212,163,89,0.45); color:var(--brass);">v4.0 · WHAT'S NEW<span id="whatsNewDot" style="display:none; position:absolute; top:-3px; right:-3px; width:8px; height:8px; border-radius:50%; background:var(--crit); border:1px solid var(--panel);"></span></button>
       <button id="howToPlayBtn">HOW TO PLAY</button>
+      <button id="confirmAtkBtn" title="Require a second click on an enemy target to confirm 2d6 attacks">2-CLICK ATK: OFF</button>
       <button id="soundBtn">SOUND: OFF</button>
       <button id="newMatchBtn" style="display:none;">NEW MATCH</button>
     </div>
@@ -1238,7 +1240,7 @@
         <div class="panel-body" style="font-size:11.5px; color:var(--muted); line-height:1.48; display:flex; flex-direction:column; gap:10px;">
           <div>
             <strong style="color:var(--ink);">Turn Flow (4 AP Shared):</strong><br/>
-            Move = 1 AP (moves up to <strong>MOV tiles around obstacles</strong>, not 1 AP/tile; 1 move/unit/turn; cannot move after attacking) · Attack = 2 AP (1 attack/unit/turn; Titans get 2) · Role Special = 2 AP (<em>Execute</em> &amp; <em>Overcharge</em> consume your attack; <em>Fortify</em> &amp; <em>Transfuse</em> do not) · Blood Card = 0 AP (paid in unit HP).<br/>
+            Move = 1 AP (moves up to <strong>MOV tiles around obstacles</strong>, not 1 AP/tile; 1 move/unit/turn; cannot move after attacking) · Attack = 2 AP (1 attack/unit/turn; Titans get 2) · Role Special = 2 AP (<em>Execute</em> &amp; <em>Overcharge</em> consume your attack; <em>Fortify</em>, <em>Transfuse</em> &amp; <em>Proximity Mine</em> do not) · Blood Card = 0 AP (paid in unit HP).<br/>
             <strong>Shield Decay:</strong> Shields halve (50% decay) at the start of your next turn.<br/>
             <strong>Win Modes:</strong> <em>Elimination</em> (last commander standing) or <em>Conduit Control</em> (+1 CP per held Brass Conduit at end of turn; first to <strong>10 CP</strong> or wipeout wins). Optional <strong>Sudden Death</strong> cracks outer rings into Rift Hazards starting Turn 8.<br/>
             <strong>Turn 1 Free Deploy:</strong> Click gold back-row tiles to reposition for 0 AP before your first move/attack. Press <code>Z</code> to undo a move, <code>Esc</code> to cancel, <code>Space</code> to end turn.
@@ -1246,7 +1248,7 @@
           <div>
             <strong style="color:var(--ink);">2d6 RNG Combat Rolls &amp; Piercing:</strong><br/>
             • <strong style="color:#f59e0b;">2–3 GLANCE:</strong> 65% damage · <strong style="color:#f43f5e;">4–9 HIT:</strong> 100% · <strong style="color:#fb923c;">10–11 HEAVY:</strong> 125% · <strong style="color:#facc15;">12 CRIT!:</strong> 150% &amp; ignores 100% Armor.<br/>
-            • <strong>Piercing:</strong> Arcanist attacks &amp; Overcharge pierce <strong>50% of Armor</strong>. All piercing &amp; Crit damage is still absorbed by <strong>Shield</strong> first.
+            • <strong>Piercing:</strong> Arcanist attacks &amp; Overcharge pierce <strong>50% of Armor</strong>. All piercing &amp; Crit damage is still absorbed by <strong>Shield</strong> first (Proximity Mines strip Shield before dealing 8 piercing DMG).
           </div>
           <div>
             <strong style="color:var(--ink);">Terrain Guide:</strong><br/>
@@ -1258,11 +1260,12 @@
             • <strong>Rift (Violet):</strong> -3 HP at end of turn (+5 if pushed in).
           </div>
           <div>
-            <strong style="color:var(--ink);">Fighter Roles:</strong><br/>
+            <strong style="color:var(--ink);">Fighter Roles (5 Specialists):</strong><br/>
             • <strong>◈ Vanguard (Tank):</strong> Frontline bruiser with high Armor; <em>FORTIFY</em> adds +6 Shield (max 10; halves next turn) and <em>Last Stand</em> spikes ATK/ARM at low HP.<br/>
             • <strong>▲ Striker (Assassin):</strong> Fast melee flanker (4 MOV, high ATK); <em>EXECUTE</em> (uses attack) deals +5 bonus damage to wounded foes.<br/>
             • <strong>✦ Arcanist (Ranged):</strong> Long-range caster (3 RNG) that pierces 50% Armor; <em>OVERCHARGE</em> (uses attack) burns 4 HP for a +3 DMG Range-4 blast.<br/>
-            • <strong>✚ Catalyst (Support):</strong> Tactical healer/mid-range fighter; <em>TRANSFUSE</em> (does not use attack) transfers 8 HP to an ally within 3 tiles.
+            • <strong>✚ Catalyst (Support):</strong> Tactical healer/mid-range fighter; <em>TRANSFUSE</em> (does not use attack) transfers 8 HP to an ally within 3 tiles.<br/>
+            • <strong>⬟ Saboteur (Sapper):</strong> Mid-range disruptor (3 MOV, 2 RNG); <em>PROXIMITY MINE</em> (does not use attack) rigs an open tile within 3 tiles (max 3/team) that strips Shield &amp; deals 8 piercing DMG on enemy entry.
           </div>
           <div>
             <strong style="color:var(--ink);">Weight Classes &amp; Wound Dials:</strong><br/>
@@ -1357,7 +1360,7 @@
           <text x="400" y="41" text-anchor="start" fill="#8b97ad" font-family="sans-serif" font-size="9.5">Absorbs first · halves next turn</text>
           <line x1="328" y1="65" x2="395" y2="65" stroke="#8b97ad" stroke-width="1"/>
           <text x="400" y="63" text-anchor="start" fill="#e8ecf2" font-family="monospace" font-size="10.5" font-weight="700">Role &amp; HP</text>
-          <text x="400" y="75" text-anchor="start" fill="#8b97ad" font-family="sans-serif" font-size="9.5">◈Tank ▲Melee ✦Ranged ✚Heal</text>
+          <text x="400" y="75" text-anchor="start" fill="#8b97ad" font-family="sans-serif" font-size="9.2">◈Tank ▲Melee ✦Rng ✚Heal ⬟Mine</text>
         </svg>
       </div>
       <div style="background:#0f131b; border:1px solid var(--border); border-radius:8px; padding:10px 12px;">
@@ -1405,11 +1408,25 @@
   </div>
 </div>
 
+<!-- COMMANDER PROFILE & TACTICAL MEDALS OVERLAY -->
+<div class="overlay" id="profileOverlay" style="z-index:54;">
+  <div class="modal" style="max-width:620px; text-align:left; max-height:86vh; display:flex; flex-direction:column;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-shrink:0;">
+      <span style="font-family:var(--font-mono); font-size:11px; color:var(--brass); letter-spacing:0.1em;">SERVICE RECORD &amp; TACTICAL MEDALS</span>
+      <div style="display:flex; gap:6px;">
+        <button id="profileResetBtn" style="padding:4px 9px; font-size:11px; color:var(--muted);">Reset Career</button>
+        <button id="profileCloseBtn" style="padding:4px 10px; font-size:11.5px;">Close</button>
+      </div>
+    </div>
+    <div id="profileContent" style="overflow-y:auto; flex:1; min-height:0; display:flex; flex-direction:column; gap:12px; padding-right:4px;"></div>
+  </div>
+</div>
+
 <!-- WHAT'S NEW / PATCH NOTES OVERLAY -->
 <div class="overlay" id="whatsNewOverlay" style="z-index:55;">
   <div class="modal" style="max-width:580px; text-align:left; max-height:84vh; display:flex; flex-direction:column;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-shrink:0;">
-      <span id="whatsNewVersionBadge" style="font-family:var(--font-mono); font-size:11px; color:var(--brass); letter-spacing:0.1em;">PATCH NOTES · CURRENT v3.9a</span>
+      <span id="whatsNewVersionBadge" style="font-family:var(--font-mono); font-size:11px; color:var(--brass); letter-spacing:0.1em;">PATCH NOTES · CURRENT v4.0</span>
       <button id="whatsNewCloseBtn" style="padding:4px 10px; font-size:11.5px;">Close</button>
     </div>
     <h2 style="font-size:20px; margin-bottom:10px; text-align:left; flex-shrink:0;">What's New in FRACTURE</h2>
@@ -1831,24 +1848,47 @@
   /* ============================================================================
      2. WEB AUDIO SYNTH (Muted by default)
      ============================================================================ */
+  const SOUND_PREF_KEY = 'fracture_sound_v1';
   const Sound = {
     enabled: false,
     ctx: null,
+    ensureCtx() {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!this.ctx && AC) this.ctx = new AC();
+      if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
+    },
+    syncBtn() {
+      const btn = document.getElementById('soundBtn');
+      if (!btn) return;
+      btn.textContent = this.enabled ? 'SOUND: ON' : 'SOUND: OFF';
+      btn.style.borderColor = this.enabled ? 'rgba(16,185,129,0.5)' : '';
+      btn.style.color = this.enabled ? 'var(--good)' : '';
+    },
+    initFromStorage() {
+      try { this.enabled = localStorage.getItem(SOUND_PREF_KEY) === '1'; } catch (_) { this.enabled = false; }
+      this.syncBtn();
+      const unlock = () => {
+        if (this.enabled) this.ensureCtx();
+        window.removeEventListener('pointerdown', unlock);
+        window.removeEventListener('keydown', unlock);
+      };
+      window.addEventListener('pointerdown', unlock, { passive: true });
+      window.addEventListener('keydown', unlock, { passive: true });
+    },
     toggle() {
       this.enabled = !this.enabled;
+      try { localStorage.setItem(SOUND_PREF_KEY, this.enabled ? '1' : '0'); } catch (_) {}
       if (this.enabled) {
-        const AC = window.AudioContext || window.webkitAudioContext;
-        if (!this.ctx && AC) this.ctx = new AC();
-        if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
-        // Immediate two-note chime so you hear audio is live
+        this.ensureCtx();
         this.tone(440, 0.08, 'triangle', 0.22, 0);
         this.tone(660, 0.12, 'triangle', 0.22, 0.07);
       }
-      document.getElementById('soundBtn').textContent = this.enabled ? 'SOUND: ON' : 'SOUND: OFF';
+      this.syncBtn();
     },
     tone(freq, dur = 0.09, type = 'triangle', gain = 0.22, delay = 0, endFreq = null) {
-      if (!this.enabled || !this.ctx) return;
-      if (this.ctx.state === 'suspended') this.ctx.resume();
+      if (!this.enabled) return;
+      this.ensureCtx();
+      if (!this.ctx) return;
       const t0 = this.ctx.currentTime + delay;
       const o = this.ctx.createOscillator();
       const g = this.ctx.createGain();
@@ -1866,6 +1906,52 @@
     hit() {
       this.tone(180, 0.14, 'sawtooth', 0.26, 0, 68);
       this.tone(95, 0.16, 'triangle', 0.24, 0.02, 48);
+    },
+    crit() {
+      this.tone(880, 0.11, 'square', 0.22, 0, 440);
+      this.tone(1320, 0.16, 'triangle', 0.24, 0.03, 660);
+      this.tone(140, 0.22, 'sawtooth', 0.28, 0.02, 52);
+    },
+    fortify() {
+      this.tone(330, 0.14, 'triangle', 0.22, 0, 392);
+      this.tone(494, 0.18, 'sine', 0.22, 0.06, 659);
+    },
+    execute() {
+      this.tone(620, 0.09, 'sawtooth', 0.25, 0, 190);
+      this.tone(440, 0.12, 'sawtooth', 0.25, 0.05, 110);
+    },
+    overcharge() {
+      this.tone(260, 0.15, 'sawtooth', 0.22, 0, 780);
+      this.tone(520, 0.16, 'triangle', 0.24, 0.08, 180);
+    },
+    transfuse() {
+      this.tone(392, 0.12, 'sine', 0.2, 0);
+      this.tone(494, 0.14, 'sine', 0.2, 0.06);
+      this.tone(587, 0.18, 'triangle', 0.2, 0.12);
+    },
+    mineArm() {
+      this.tone(740, 0.05, 'square', 0.16, 0);
+      this.tone(988, 0.07, 'square', 0.18, 0.07);
+    },
+    mineBoom() {
+      this.tone(135, 0.28, 'sawtooth', 0.3, 0, 38);
+      this.tone(85, 0.32, 'square', 0.22, 0.02, 32);
+      this.tone(420, 0.1, 'triangle', 0.18, 0, 110);
+    },
+    conduit() {
+      this.tone(523, 0.09, 'triangle', 0.2, 0);
+      this.tone(784, 0.15, 'sine', 0.2, 0.06);
+    },
+    victory() {
+      this.tone(440, 0.12, 'triangle', 0.22, 0);
+      this.tone(554, 0.12, 'triangle', 0.22, 0.1);
+      this.tone(659, 0.24, 'triangle', 0.26, 0.2);
+    },
+    medal() {
+      this.tone(523, 0.1, 'triangle', 0.22, 0);
+      this.tone(659, 0.1, 'triangle', 0.22, 0.08);
+      this.tone(784, 0.12, 'triangle', 0.24, 0.16);
+      this.tone(1047, 0.26, 'sine', 0.26, 0.25);
     },
     card() {
       this.tone(480, 0.09, 'triangle', 0.2, 0);
@@ -1919,6 +2005,16 @@
         { label: 'FRESH', atk: 0, arm: 0, mov: 0, rng: 0, note: 'Channeling' },
         { label: 'BLOODIED', atk: 0, arm: 1, mov: 0, rng: 1, note: '+1 ARM +1 RNG' },
         { label: 'CRITICAL', atk: 0, arm: 2, mov: 0, rng: 1, note: 'Martyr Grace' }
+      ]
+    },
+    saboteur: {
+      name: 'Saboteur', symbol: '⬟', atkMod: 0, armMod: 1, movBase: 3, rngBase: 2,
+      desc: 'Tactical sapper — mid-range disruptor that rigs choke points and Conduits with armed PROXIMITY MINES.',
+      specialName: 'PROXIMITY MINE', specialDesc: '2 AP: Rig an open tile within 3 tiles (max 3/team): strips Shield & deals 8 piercing DMG on enemy entry.',
+      dial: [
+        { label: 'FRESH', atk: 0, arm: 0, mov: 0, rng: 0, note: 'Rigged' },
+        { label: 'BLOODIED', atk: 1, arm: 0, mov: 1, rng: 0, note: '+1 ATK +1 MOV' },
+        { label: 'CRITICAL', atk: 3, arm: 0, mov: 0, rng: 1, note: 'Deadman' }
       ]
     }
   };
@@ -2161,6 +2257,10 @@
     selectedUnitId: null,
     actionMode: 'normal', // 'normal' | 'special' | 'card'
     activeCardIndex: null,
+    confirmAttacks: false,
+    pendingAttackTargetId: null,
+    mines: [],
+    profileRecorded: false,
     decks: { 1: [], 2: [], 3: [], 4: [] },
     hands: { 1: [], 2: [], 3: [], 4: [] },
     traps: { 1: [], 2: [], 3: [], 4: [] },
@@ -2776,7 +2876,7 @@
     const rolesCycle = count === 1 ? ['vanguard'] :
       count === 2 ? ['vanguard', 'arcanist'] :
       count === 3 ? ['vanguard', 'striker', 'arcanist'] :
-      ['vanguard', 'striker', 'striker', 'arcanist', 'catalyst'];
+      ['vanguard', 'striker', 'arcanist', 'saboteur', 'catalyst'];
     const weights = count === 3 ? [0.45, 0.35, 0.20] : Array(count).fill(1 / count);
     let remaining = pool;
     const list = [];
@@ -2820,8 +2920,8 @@
   }
 
   const ARMORY_KEY = 'fracture_armory_v1';
-  const ROLE_TO_CODE = { vanguard: 'V', striker: 'S', arcanist: 'A', catalyst: 'C' };
-  const CODE_TO_ROLE = { V: 'vanguard', S: 'striker', A: 'arcanist', C: 'catalyst' };
+  const ROLE_TO_CODE = { vanguard: 'V', striker: 'S', arcanist: 'A', catalyst: 'C', saboteur: 'B' };
+  const CODE_TO_ROLE = { V: 'vanguard', S: 'striker', A: 'arcanist', C: 'catalyst', B: 'saboteur' };
   let armoryStatusTimer = null;
 
   function setArmoryStatus(msg, color = 'var(--good)') {
@@ -2855,13 +2955,13 @@
   function decodeSquadCode(raw) {
     const clean = String(raw || '').trim().toUpperCase();
     const tokens = clean.split('-').filter(Boolean);
-    if (tokens.length < 3 || tokens[0] !== 'FRAC') return { error: 'Code must start with FRAC-<HP>-<ROLE><HP> (e.g. FRAC-100-V45-S35-A20).' };
+    if (tokens.length < 3 || tokens[0] !== 'FRAC') return { error: 'Code must start with FRAC-<HP>-<ROLE><HP> (e.g. FRAC-100-V45-S30-B25).' };
     const unitTokens = tokens.slice(2);
     if (unitTokens.length < 1 || unitTokens.length > 6) return { error: 'Squad code must contain 1 to 6 units.' };
     const units = [];
     for (let i = 0; i < unitTokens.length; i++) {
-      const m = unitTokens[i].match(/^([VSAC])(\d+)$/);
-      if (!m || !CODE_TO_ROLE[m[1]]) return { error: `Invalid unit token "${unitTokens[i]}" in code.` };
+      const m = unitTokens[i].match(/^([VSACB])(\d+)$/);
+      if (!m || !CODE_TO_ROLE[m[1]]) return { error: `Invalid unit token "${unitTokens[i]}" in code (use V, S, A, C, or B).` };
       const hp = Number(m[2]);
       if (hp < 10) return { error: `Each unit must have at least 10 HP ("${unitTokens[i]}").` };
       const role = CODE_TO_ROLE[m[1]];
@@ -3123,7 +3223,7 @@
     if (list.length >= 6 || rem < 10) return;
     list.push({
       name: `${CALLSIGNS[(list.length + 2) % CALLSIGNS.length]}-0${list.length + 1}`,
-      role: ['vanguard', 'striker', 'arcanist', 'catalyst'][list.length % 4],
+      role: ['vanguard', 'striker', 'arcanist', 'catalyst', 'saboteur'][list.length % 5],
       maxHP: Math.min(rem, Math.max(10, Math.round(rem / 2)))
     });
     renderForge();
@@ -3277,6 +3377,9 @@
     };
 
     STATE.units = [];
+    STATE.mines = [];
+    STATE.pendingAttackTargetId = null;
+    STATE.profileRecorded = false;
     STATE.traps = {};
     STATE.freeDeployActive = {};
     STATE.stats = {};
@@ -3435,6 +3538,9 @@
     STATE.hitStopUntil = 0;
     STATE.critFlash = 0;
     hideDiceTray();
+    STATE.mines = [];
+    STATE.pendingAttackTargetId = null;
+    STATE.profileRecorded = false;
     STATE.traps = { 1: [], 2: [] };
     STATE.lastMove = null;
     STATE.freeDeployActive = { 1: false, 2: false };
@@ -3730,6 +3836,7 @@
       lastMove: STATE.lastMove ? { ...STATE.lastMove } : null,
       freeDeployActive: { ...STATE.freeDeployActive },
       actedTurn1: { ...STATE.actedTurn1 },
+      mines: JSON.parse(JSON.stringify(STATE.mines || [])),
       traps: JSON.parse(JSON.stringify(STATE.traps || {})),
       hands: JSON.parse(JSON.stringify(STATE.hands || {})),
       decks: JSON.parse(JSON.stringify(STATE.decks || {})),
@@ -3756,6 +3863,7 @@
     if (snap.winnerOwner) STATE.winnerOwner = snap.winnerOwner;
     if (Array.isArray(snap.grid) && snap.grid.length === ROWS) STATE.grid = snap.grid.map(row => [...row]);
     STATE.lastMove = snap.lastMove || null;
+    if (Array.isArray(snap.mines)) STATE.mines = JSON.parse(JSON.stringify(snap.mines));
     if (snap.freeDeployActive) STATE.freeDeployActive = { ...snap.freeDeployActive };
     if (snap.actedTurn1) STATE.actedTurn1 = { ...snap.actedTurn1 };
     if (snap.traps) STATE.traps = JSON.parse(JSON.stringify(snap.traps));
@@ -3778,7 +3886,46 @@
     if (snap.gameOver && !STATE.gameOver) checkVictory();
   }
 
+  function mineAt(r, c) {
+    return (STATE.mines || []).find(m => m.r === r && m.c === c) || null;
+  }
+
+  function getSaboteurMineTiles(unit) {
+    const out = [];
+    if (!unit || unit.role !== 'saboteur') return out;
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const d = dist(unit.r, unit.c, r, c);
+        if (d >= 1 && d <= 3 && !isImpassable(STATE.grid[r][c]) && !unitAt(r, c) && !mineAt(r, c)) {
+          out.push({ r, c });
+        }
+      }
+    }
+    return out;
+  }
+
+  function checkMineTrigger(unit) {
+    if (!unit || !unit.alive || !Array.isArray(STATE.mines)) return false;
+    const idx = STATE.mines.findIndex(m => m.r === unit.r && m.c === unit.c && m.owner !== unit.owner);
+    if (idx === -1) return false;
+    const [mine] = STATE.mines.splice(idx, 1);
+    STATE.lastMove = null;
+    if (STATE.stats && STATE.stats[mine.owner]) STATE.stats[mine.owner].traps += 1;
+    const hadShield = unit.shield > 0;
+    unit.shield = 0;
+    const planter = STATE.units.find(x => x.id === mine.planterId) || null;
+    Sound.mineBoom();
+    spawnShockwave(unit.r, unit.c, '#f97316', 1.25);
+    spawnParticles(unit.r, unit.c, '#f97316', 24, 3.9, false);
+    triggerBoardImpact(7.5, 45, '#f97316');
+    applyDamage(unit, 8, 'Proximity Mine', true, planter);
+    showRollToast(`<strong style="color:#fb923c;">💥 PROXIMITY MINE DETONATED!</strong><br/>${unit.name}${hadShield ? ' had Shield stripped &amp;' : ''} took -8 piercing HP!`, '#f97316');
+    addLog(`PROXIMITY MINE detonates under ${unit.name} (${hadShield ? 'Shield stripped, ' : ''}-8 piercing DMG)!`, `p${mine.owner}`);
+    return true;
+  }
+
   function executeDeploy(unit, r, c, isRemote = false) {
+    STATE.pendingAttackTargetId = null;
     unit.r = r; unit.c = c;
     Sound.click();
     addLog(`${unit.name} deploys to (${c + 1},${r + 1}) [0 AP].`, `p${unit.owner}`);
@@ -3790,6 +3937,7 @@
 
   function undoLastMove(isRemote = false) {
     if (!STATE.lastMove || STATE.gameOver) return;
+    STATE.pendingAttackTargetId = null;
     const u = STATE.units.find(x => x.id === STATE.lastMove.unitId && x.alive);
     if (u) {
       u.r = STATE.lastMove.prevR;
@@ -3825,6 +3973,7 @@
   }
 
   function executeMove(unit, r, c, isRemote = false) {
+    STATE.pendingAttackTargetId = null;
     STATE.freeDeployActive[unit.owner] = false;
     STATE.lastMove = { unitId: unit.id, prevR: unit.r, prevC: unit.c, prevMoved: unit.movedThisTurn };
     unit.prevR = unit.r; unit.prevC = unit.c;
@@ -3837,6 +3986,9 @@
     }
     Sound.move();
     addLog(`${unit.name} advances to (${c + 1},${r + 1}).`, `p${unit.owner}`);
+
+    // Check enemy Proximity Mines on destination tile
+    checkMineTrigger(unit);
 
     // Check rival Ambush Traps (triggers if moved within 2 tiles of any rival unit)
     for (let opp = 1; opp <= (STATE.playerCount || 2); opp++) {
@@ -3867,6 +4019,7 @@
   }
 
   function executeAttack(attacker, target, bonusDmg = 0, forcePierce = false, label = 'attacks', isRemote = false, forcedRoll = null) {
+    STATE.pendingAttackTargetId = null;
     STATE.freeDeployActive[attacker.owner] = false;
     STATE.lastMove = null;
     STATE.actionMode = 'normal';
@@ -3920,7 +4073,7 @@
     spawnShockwave(target.r, target.c, impactColor, isCrit ? 1.25 : 0.8);
     spawnParticles(target.r, target.c, impactColor, isCrit ? 26 : (isHeavy ? 18 : (hpDmg > 0 ? 12 : 8)), isCrit ? 4.2 : (isHeavy ? 3.4 : 2.8), false);
     triggerBoardImpact(isCrit ? 9.5 : (isHeavy ? 5.8 : (hpDmg > 0 ? 3.5 : 2.0)), isCrit ? 75 : 0, isCrit ? '#facc15' : null);
-    Sound.hit();
+    if (isCrit) Sound.crit(); else Sound.hit();
 
     target.shield -= shieldAbsorb;
     target.hp = Math.max(0, target.hp - hpDmg);
@@ -3988,6 +4141,11 @@
   function executeSpecial(unit, target = null, isRemote = false, forcedRoll = null) {
     if (STATE.ap < 2) return;
     if ((unit.role === 'striker' || unit.role === 'arcanist') && !canUnitAttack(unit)) return;
+    if (unit.role === 'saboteur') {
+      if (!target || typeof target.r !== 'number' || typeof target.c !== 'number') return;
+      if (isImpassable(STATE.grid[target.r]?.[target.c]) || unitAt(target.r, target.c) || mineAt(target.r, target.c) || dist(unit.r, unit.c, target.r, target.c) > 3) return;
+    }
+    STATE.pendingAttackTargetId = null;
     STATE.freeDeployActive[unit.owner] = false;
     STATE.lastMove = null;
     STATE.actionMode = 'normal';
@@ -3999,16 +4157,18 @@
       STATE.ap -= 2;
       const gained = Math.min(10, unit.shield + 6) - unit.shield;
       unit.shield = Math.min(10, unit.shield + 6);
-      Sound.card();
+      Sound.fortify();
       spawnShockwave(unit.r, unit.c, '#38bdf8', 0.9);
       spawnFloat(unit.r, unit.c, `+${gained} SHD`, '#38bdf8');
       addLog(`${unit.name} activates FORTIFY (+${gained} Shield, ${unit.shield} total; halves next turn).`, `p${unit.owner}`);
     } else if (unit.role === 'striker' && target) {
+      Sound.execute();
       const bonus = target.hp < target.maxHP ? 5 : 1;
       specialRoll = rollAttack2d6(forcedRoll);
       executeAttack(unit, target, bonus, false, 'EXECUTES', true, specialRoll);
     } else if (unit.role === 'arcanist' && target) {
       if (unit.hp <= 4) return;
+      Sound.overcharge();
       unit.hp -= 4;
       spawnFloat(unit.r, unit.c, '-4 HP', '#fda4af');
       specialRoll = rollAttack2d6(forcedRoll);
@@ -4021,18 +4181,33 @@
       unit.hp -= 8;
       const actual = Math.min(target.maxHP - target.hp, healAmt);
       target.hp += actual;
-      Sound.card();
+      Sound.transfuse();
       spawnBeam(unit.r, unit.c, target.r, target.c, '#10b981');
       spawnShockwave(target.r, target.c, '#10b981', 0.85);
       spawnFloat(unit.r, unit.c, '-8 HP', '#fda4af');
       spawnFloat(target.r, target.c, `+${actual} HP`, '#10b981');
       addLog(`${unit.name} transfuses ${actual} HP into ${target.name}.`, `p${unit.owner}`);
+    } else if (unit.role === 'saboteur' && target) {
+      STATE.ap -= 2;
+      const ownMines = STATE.mines.filter(m => m.owner === unit.owner);
+      if (ownMines.length >= 3) {
+        const oldestIdx = STATE.mines.findIndex(m => m.owner === unit.owner);
+        if (oldestIdx !== -1) STATE.mines.splice(oldestIdx, 1);
+      }
+      STATE.mines.push({ r: target.r, c: target.c, owner: unit.owner, planterId: unit.id });
+      Sound.mineArm();
+      spawnShockwave(target.r, target.c, '#fb923c', 0.82);
+      spawnFloat(target.r, target.c, '⬟ ARMED', '#fb923c');
+      addLog(`${unit.name} rigs a Proximity Mine at (${target.c + 1},${target.r + 1}) [8 piercing DMG + strips SHD].`, `p${unit.owner}`);
     }
     STATE.actionMode = 'normal';
     STATE.activeCardIndex = null;
     if (STATE.mode === 'online' && !isRemote) {
       NetworkAdapter.sendAction(STATE.roomCode, {
-        type: 'special', unitId: unit.id, targetId: target ? target.id : null,
+        type: 'special',
+        unitId: unit.id,
+        targetId: target && target.id ? target.id : null,
+        targetTile: target && !target.id && typeof target.r === 'number' ? { r: target.r, c: target.c } : null,
         roll: specialRoll ? { d1: specialRoll.d1, d2: specialRoll.d2 } : null
       });
     }
@@ -4043,6 +4218,7 @@
     const hand = STATE.hands[STATE.activePlayer];
     const card = hand[cardIdx];
     if (!card || !payer || payer.hp <= card.cost) return false;
+    STATE.pendingAttackTargetId = null;
     STATE.freeDeployActive[payer.owner] = false;
     STATE.lastMove = null;
 
@@ -4060,6 +4236,7 @@
     } else if (card.id === 'phase' && targetObj) {
       payer.r = targetObj.r; payer.c = targetObj.c;
       addLog(`${payer.name} pays ${card.cost} HP for Phase Step to (${payer.c + 1},${payer.r + 1}).`, `p${payer.owner}`);
+      checkMineTrigger(payer);
     } else if (card.id === 'aegis') {
       payer.shield += 7;
       spawnShockwave(payer.r, payer.c, '#38bdf8', 0.8);
@@ -4088,12 +4265,14 @@
       const dc = Math.sign(targetObj.c - payer.c);
       const nr = targetObj.r + dr, nc = targetObj.c + dc;
       let extra = '';
+      let movedOntoTile = false;
       if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS) {
         if (isImpassable(STATE.grid[nr][nc]) || unitAt(nr, nc)) {
           applyDamage(targetObj, 5, 'Wall Impact', true, payer);
           extra = ' (+5 slam DMG)';
         } else {
           targetObj.r = nr; targetObj.c = nc;
+          movedOntoTile = true;
           if (STATE.grid[nr][nc] === 'rift') {
             applyDamage(targetObj, 5, 'Rift Knockback', true, payer);
             extra = ' (+5 Rift DMG)';
@@ -4103,6 +4282,7 @@
         extra = ' (knockback blocked at arena edge)';
       }
       addLog(`${payer.name} casts Sever & Push on ${targetObj.name}${extra}.`, `p${payer.owner}`);
+      if (movedOntoTile && targetObj.alive) checkMineTrigger(targetObj);
     }
 
     hand.splice(cardIdx, 1);
@@ -4158,6 +4338,7 @@
 
   function endTurn(isRemote = false) {
     if (STATE.gameOver) return;
+    STATE.pendingAttackTargetId = null;
     STATE.lastMove = null;
     STATE.freeDeployActive[STATE.activePlayer] = false;
     clearTimeout(rollToastTimer);
@@ -4178,6 +4359,7 @@
       const holders = STATE.units.filter(u => u.alive && u.owner === STATE.activePlayer && STATE.grid[u.r][u.c] === 'conduit');
       if (holders.length > 0) {
         STATE.controlPoints[STATE.activePlayer] = (STATE.controlPoints[STATE.activePlayer] || 0) + holders.length;
+        Sound.conduit();
         holders.forEach(u => {
           spawnShockwave(u.r, u.c, '#d4a359', 0.8);
           spawnFloat(u.r, u.c, '+1 CP', '#d4a359');
@@ -4264,7 +4446,7 @@
         const a = byId(msg.attackerId), t = byId(msg.targetId);
         if (a && t) executeAttack(a, t, msg.bonusDmg || 0, !!msg.forcePierce, msg.label || 'attacks', true, msg.roll || null);
       } else if (msg.type === 'special') {
-        const u = byId(msg.unitId), t = msg.targetId ? byId(msg.targetId) : null;
+        const u = byId(msg.unitId), t = msg.targetId ? byId(msg.targetId) : (msg.targetTile || null);
         if (u) executeSpecial(u, t, true, msg.roll || null);
       } else if (msg.type === 'card') {
         const p = byId(msg.payerId);
@@ -4286,6 +4468,140 @@
     renderBattleUI();
   }
 
+  const PROFILE_KEY = 'fracture_profile_v1';
+  const MEDAL_CATALOG = [
+    { id: 'first_win', icon: '⚔', name: 'First Fracture', desc: 'Win your first match in any arena mode.' },
+    { id: 'titan_slayer', icon: '🏔', name: 'Titan Slayer', desc: 'Defeat an enemy 80+ HP Titan using a multi-unit squad.' },
+    { id: 'conduit_master', icon: '❖', name: 'Conduit Master', desc: 'Win a match by capturing 10/10 Conduit Control Points.' },
+    { id: 'blood_pact', icon: '🩸', name: 'Blood Pact', desc: 'Spend 15+ Blood HP on cards in a single victorious match.' },
+    { id: 'sapper', icon: '⬟', name: 'Master Sapper', desc: 'Trigger 2+ Secret Traps or Proximity Mines in a single match.' },
+    { id: 'crit_storm', icon: '🎲', name: 'Critical Mass', desc: 'Land 10 career Critical Hits (2d6 = 12).' },
+    { id: 'under_par', icon: '⏱', name: "Tactician's Par", desc: 'Clear a Daily Skirmish at or under Par turns.' },
+    { id: 'unbroken', icon: '🛡', name: 'Unbroken', desc: 'Win a match without losing a single fighter.' }
+  ];
+
+  function defaultProfile() {
+    return {
+      matches: 0, wins: 0, losses: 0, dmgDealt: 0, crits: 0, trapsSprung: 0, bloodSpent: 0,
+      conduitWins: 0, titanSlays: 0, bestTurnWin: null,
+      byStyle: {},
+      medals: {}
+    };
+  }
+
+  function loadProfile() {
+    try {
+      const raw = localStorage.getItem(PROFILE_KEY);
+      const parsed = raw ? JSON.parse(raw) : null;
+      if (!parsed || typeof parsed !== 'object') return defaultProfile();
+      return { ...defaultProfile(), ...parsed, byStyle: parsed.byStyle || {}, medals: parsed.medals || {} };
+    } catch (_) { return defaultProfile(); }
+  }
+
+  function saveProfile(p) {
+    try { localStorage.setItem(PROFILE_KEY, JSON.stringify(p)); } catch (_) {}
+  }
+
+  function recordProfileMatch(winner, winReason) {
+    if (STATE.isSpectator || STATE.mode === 'tutorial' || STATE.profileRecorded) return [];
+    STATE.profileRecorded = true;
+    const me = STATE.mode === 'online' ? STATE.localPlayerNum : 1;
+    const myDraft = STATE.forgeDrafts[me] || [];
+    if (!myDraft.length) return [];
+    const won = winner === me;
+    const myStyle = classifySquadStyle(myDraft);
+    const myStats = STATE.stats?.[me] || { dmg: 0, crits: 0, traps: 0, blood: 0 };
+    const p = loadProfile();
+    p.matches += 1;
+    if (won) {
+      p.wins += 1;
+      if (!p.bestTurnWin || STATE.turn < p.bestTurnWin) p.bestTurnWin = STATE.turn;
+      if (winReason === 'conduit') p.conduitWins = (p.conduitWins || 0) + 1;
+    } else {
+      p.losses += 1;
+    }
+    p.dmgDealt += (myStats.dmg || 0);
+    p.crits += (myStats.crits || 0);
+    p.trapsSprung += (myStats.traps || 0);
+    p.bloodSpent += (myStats.blood || 0);
+    if (!p.byStyle[myStyle]) p.byStyle[myStyle] = { w: 0, l: 0 };
+    if (won) p.byStyle[myStyle].w += 1; else p.byStyle[myStyle].l += 1;
+
+    const slewEnemyTitan = won && myDraft.length > 1 && STATE.units.some(u => u.owner !== me && u.maxHP >= 80 && !u.alive);
+    if (slewEnemyTitan) p.titanSlays = (p.titanSlays || 0) + 1;
+    const allMyAlive = won && STATE.units.filter(u => u.owner === me).every(u => u.alive);
+    const dailyUnderPar = won && STATE.isDaily && STATE.dailyConfig && STATE.turn <= STATE.dailyConfig.parTurns;
+
+    const today = new Date().toISOString().slice(0, 10);
+    const newlyUnlocked = [];
+    const grant = (id) => {
+      if (!p.medals[id]) {
+        p.medals[id] = today;
+        const def = MEDAL_CATALOG.find(m => m.id === id);
+        if (def) newlyUnlocked.push(def);
+      }
+    };
+    if (won) grant('first_win');
+    if (slewEnemyTitan) grant('titan_slayer');
+    if (won && winReason === 'conduit') grant('conduit_master');
+    if (won && (myStats.blood || 0) >= 15) grant('blood_pact');
+    if ((myStats.traps || 0) >= 2) grant('sapper');
+    if (p.crits >= 10) grant('crit_storm');
+    if (dailyUnderPar) grant('under_par');
+    if (allMyAlive) grant('unbroken');
+
+    saveProfile(p);
+    return newlyUnlocked;
+  }
+
+  function renderProfileModal() {
+    const box = document.getElementById('profileContent');
+    if (!box) return;
+    const p = loadProfile();
+    const callsign = document.getElementById('playerNameInput')?.value.trim() || STATE.p1Name || 'Commander';
+    const winPct = p.matches > 0 ? Math.round((p.wins / p.matches) * 100) : 0;
+    const unlockedCount = Object.keys(p.medals || {}).length;
+    const styleEntries = Object.entries(p.byStyle || {});
+    const styleHtml = styleEntries.length
+      ? styleEntries.map(([st, rec]) => `<span style="padding:3px 9px; border-radius:999px; background:#141821; border:1px solid var(--border-hi); font-family:var(--font-mono); font-size:11px;"><strong style="color:var(--ink);">${st}</strong> · <span style="color:var(--good);">${rec.w}W</span>-<span style="color:var(--muted);">${rec.l}L</span></span>`).join('')
+      : '<span style="font-size:11.5px; color:var(--muted);">Complete a match to log squad archetype records.</span>';
+
+    box.innerHTML = `
+      <div style="display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:8px;">
+        <h2 style="font-size:20px; margin:0;">${callsign}</h2>
+        <span style="font-family:var(--font-mono); font-size:11.5px; color:var(--brass); font-weight:700;">MEDALS: ${unlockedCount} / ${MEDAL_CATALOG.length}</span>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:8px;">
+        <div style="background:#0f131b; border:1px solid var(--border); border-radius:8px; padding:8px 10px;"><div style="font-family:var(--font-mono); font-size:10px; color:var(--muted);">RECORD</div><div style="font-family:var(--font-mono); font-size:15px; font-weight:800; color:var(--ink);">${p.wins}W - ${p.losses}L <span style="font-size:11px; color:var(--brass);">(${winPct}%)</span></div></div>
+        <div style="background:#0f131b; border:1px solid var(--border); border-radius:8px; padding:8px 10px;"><div style="font-family:var(--font-mono); font-size:10px; color:var(--muted);">TOTAL DMG</div><div style="font-family:var(--font-mono); font-size:15px; font-weight:800; color:var(--ink);">${p.dmgDealt}</div></div>
+        <div style="background:#0f131b; border:1px solid var(--border); border-radius:8px; padding:8px 10px;"><div style="font-family:var(--font-mono); font-size:10px; color:var(--muted);">CRITS / TRAPS</div><div style="font-family:var(--font-mono); font-size:15px; font-weight:800; color:var(--ink);">${p.crits} / ${p.trapsSprung}</div></div>
+        <div style="background:#0f131b; border:1px solid var(--border); border-radius:8px; padding:8px 10px;"><div style="font-family:var(--font-mono); font-size:10px; color:var(--muted);">FASTEST WIN</div><div style="font-family:var(--font-mono); font-size:15px; font-weight:800; color:var(--brass);">${p.bestTurnWin ? `${p.bestTurnWin} Turns` : '—'}</div></div>
+      </div>
+      <div style="background:#0f131b; border:1px solid var(--border); border-radius:8px; padding:9px 11px;">
+        <div style="font-family:var(--font-mono); font-size:10px; color:var(--brass); letter-spacing:0.08em; margin-bottom:6px;">ARCHETYPE PERFORMANCE</div>
+        <div style="display:flex; flex-wrap:wrap; gap:6px;">${styleHtml}</div>
+      </div>
+      <div>
+        <div style="font-family:var(--font-mono); font-size:10.5px; color:var(--brass); letter-spacing:0.08em; margin-bottom:7px;">TACTICAL MEDALS</div>
+        <div style="display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px;">
+          ${MEDAL_CATALOG.map(m => {
+            const unlockedAt = p.medals?.[m.id];
+            return `<div style="display:flex; align-items:flex-start; gap:9px; padding:9px 10px; border-radius:8px; background:${unlockedAt ? 'rgba(212,163,89,0.09)' : '#0f131b'}; border:1px solid ${unlockedAt ? 'rgba(212,163,89,0.55)' : 'var(--border)'}; opacity:${unlockedAt ? '1' : '0.62'};">
+              <div style="width:30px; height:30px; border-radius:7px; display:flex; align-items:center; justify-content:center; font-size:16px; background:${unlockedAt ? 'var(--brass-dim)' : '#141821'}; border:1px solid ${unlockedAt ? 'var(--brass)' : 'var(--border)'}; flex-shrink:0;">${unlockedAt ? m.icon : '🔒'}</div>
+              <div style="min-width:0;">
+                <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                  <strong style="font-size:12.5px; color:${unlockedAt ? 'var(--ink)' : 'var(--muted)'};">${m.name}</strong>
+                  ${unlockedAt ? `<span style="font-family:var(--font-mono); font-size:9.5px; color:var(--brass);">✓ ${unlockedAt}</span>` : ''}
+                </div>
+                <div style="font-size:11px; color:var(--muted); line-height:1.35; margin-top:2px;">${m.desc}</div>
+              </div>
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+    `;
+  }
+
   function checkVictory(officialResult = null) {
     const nPlayers = STATE.playerCount || 2;
     const aliveOwners = [];
@@ -4296,6 +4612,7 @@
     }
     if (aliveOwners.length > 1 && !cpWinner && !officialResult) return;
     STATE.gameOver = true;
+    STATE.pendingAttackTargetId = null;
     stopTurnTimer();
     clearTimeout(rollToastTimer);
     document.getElementById('rollToast')?.classList.remove('visible');
@@ -4321,33 +4638,6 @@
       const res = NetworkAdapter.recordMatch(wName, getPlayerName(loser), wStyle, classifySquadStyle(STATE.forgeDrafts[loser] || []));
       deltaText = ` ELO swing: +${res.delta} / -${res.delta}.`;
     }
-    renderLeaderboard();
-    renderBattleUI();
-
-    const owners = Array.from({ length: nPlayers }, (_, i) => i + 1);
-    const getS = o => STATE.stats?.[o] || { dmg: 0, crits: 0, traps: 0, blood: 0 };
-    const mvp = [...STATE.units].sort((a, b) => (b.dmgDealt || 0) - (a.dmgDealt || 0))[0];
-    const mvpLine = mvp && mvp.dmgDealt > 0
-      ? `<div style="margin-top:8px; padding:6px 8px; border-radius:6px; background:var(--brass-dim); color:var(--brass); font-family:var(--font-mono); font-size:11.5px;">★ MATCH MVP: <strong>${mvp.name}</strong> (${ROLES[mvp.role].name}) — ${mvp.dmgDealt} DMG</div>`
-      : '';
-    const cpRowHtml = STATE.winMode === 'conduit'
-      ? `<tr><td>Control Pts</td>${owners.map(o => `<td style="color:var(--brass); font-weight:700;">${STATE.controlPoints?.[o] || 0}/${STATE.cpGoal}</td>`).join('')}</tr>`
-      : '';
-    const statsHtml = `
-      <div style="margin:12px 0 4px; text-align:left; background:#0f131b; border:1px solid var(--border); border-radius:8px; padding:10px; overflow-x:auto;">
-        <table class="lb-table" style="font-size:11px;">
-          <thead><tr><th>Stat</th>${owners.map(o => `<th style="color:${getPlayerVar(o)};">${getPlayerName(o).slice(0, 12)}</th>`).join('')}</tr></thead>
-          <tbody>
-            ${cpRowHtml}
-            <tr><td>Damage</td>${owners.map(o => `<td>${getS(o).dmg}</td>`).join('')}</tr>
-            <tr><td>Crits</td>${owners.map(o => `<td>${getS(o).crits}</td>`).join('')}</tr>
-            <tr><td>Traps</td>${owners.map(o => `<td>${getS(o).traps}</td>`).join('')}</tr>
-            <tr><td>Blood HP</td>${owners.map(o => `<td>${getS(o).blood}</td>`).join('')}</tr>
-          </tbody>
-        </table>
-        ${mvpLine}
-      </div>
-    `;
 
     let dailyNote = '';
     let dailyShareText = '';
@@ -4361,6 +4651,43 @@
       dailyShareText = `FRACTURE Daily ${cfg.dateStr} (${cfg.mapName})\nVictory in ${STATE.turn}T (Par ${cfg.parTurns}${underPar ? ' ★' : ''}) · ${hpLeft}/${cfg.poolHP} HP left · ${wStyle}\n${bar}${rec.streak > 1 ? ` · 🔥${rec.streak} streak` : ''}\nhttps://fracture-online.onrender.com`;
       dailyNote = ` Daily Skirmish cleared${underPar ? ' under Par ★' : ''} (Streak: ${rec.streak})!`;
     }
+
+    const newMedals = recordProfileMatch(winner, winReason);
+    const localSeat = STATE.mode === 'online' ? STATE.localPlayerNum : 1;
+    if (newMedals.length > 0) Sound.medal();
+    else if (!STATE.isSpectator && winner === localSeat) Sound.victory();
+
+    renderLeaderboard();
+    renderBattleUI();
+
+    const owners = Array.from({ length: nPlayers }, (_, i) => i + 1);
+    const getS = o => STATE.stats?.[o] || { dmg: 0, crits: 0, traps: 0, blood: 0 };
+    const mvp = [...STATE.units].sort((a, b) => (b.dmgDealt || 0) - (a.dmgDealt || 0))[0];
+    const mvpLine = mvp && mvp.dmgDealt > 0
+      ? `<div style="margin-top:8px; padding:6px 8px; border-radius:6px; background:var(--brass-dim); color:var(--brass); font-family:var(--font-mono); font-size:11.5px;">★ MATCH MVP: <strong>${mvp.name}</strong> (${ROLES[mvp.role].name}) — ${mvp.dmgDealt} DMG</div>`
+      : '';
+    const medalHtml = newMedals.length > 0
+      ? `<div style="margin-top:8px; padding:7px 9px; border-radius:6px; background:rgba(212,163,89,0.14); border:1px solid var(--brass); color:var(--ink); font-size:11.5px;"><strong style="color:var(--brass); font-family:var(--font-mono);">🏅 MEDAL${newMedals.length > 1 ? 'S' : ''} UNLOCKED:</strong> ${newMedals.map(m => `<strong>${m.icon} ${m.name}</strong>`).join(' · ')}</div>`
+      : '';
+    const cpRowHtml = STATE.winMode === 'conduit'
+      ? `<tr><td>Control Pts</td>${owners.map(o => `<td style="color:var(--brass); font-weight:700;">${STATE.controlPoints?.[o] || 0}/${STATE.cpGoal}</td>`).join('')}</tr>`
+      : '';
+    const statsHtml = `
+      <div style="margin:12px 0 4px; text-align:left; background:#0f131b; border:1px solid var(--border); border-radius:8px; padding:10px; overflow-x:auto;">
+        <table class="lb-table" style="font-size:11px;">
+          <thead><tr><th>Stat</th>${owners.map(o => `<th style="color:${getPlayerVar(o)};">${getPlayerName(o).slice(0, 12)}</th>`).join('')}</tr></thead>
+          <tbody>
+            ${cpRowHtml}
+            <tr><td>Damage</td>${owners.map(o => `<td>${getS(o).dmg}</td>`).join('')}</tr>
+            <tr><td>Crits</td>${owners.map(o => `<td>${getS(o).crits}</td>`).join('')}</tr>
+            <tr><td>Traps/Mines</td>${owners.map(o => `<td>${getS(o).traps}</td>`).join('')}</tr>
+            <tr><td>Blood HP</td>${owners.map(o => `<td>${getS(o).blood}</td>`).join('')}</tr>
+          </tbody>
+        </table>
+        ${mvpLine}
+        ${medalHtml}
+      </div>
+    `;
 
     const modalBtns = STATE.isSpectator
       ? [
@@ -4453,6 +4780,7 @@
 
     let safety = 0;
     let tauntedThisTurn = false;
+    let laidMineThisTurn = false;
     const maxActions = diff === 'easy' ? 2 : 10;
     while (STATE.ap > 0 && !STATE.gameOver && safety < maxActions) {
       safety++;
@@ -4546,6 +4874,8 @@
               if (STATE.grid[tile.r][tile.c] === 'conduit') score += (diff === 'hard' ? 18 : 10);
               if (STATE.grid[tile.r][tile.c] === 'brush') score += (diff === 'hard' ? 12 : 6);
               if (STATE.grid[tile.r][tile.c] === 'rift') score -= 22;
+              const mHere = mineAt(tile.r, tile.c);
+              if (mHere && mHere.owner !== aiOwner) score -= (diff === 'hard' ? 38 : 28);
               // Spread out when facing an enemy Titan so Cleave cannot splash multiple units
               if (myUnits.length > 1 && enemyTitans.some(et => dist(tile.r, tile.c, et.r, et.c) <= 4)) {
                 const adjAllies = myUnits.filter(a => a.id !== u.id && dist(tile.r, tile.c, a.r, a.c) === 1).length;
@@ -4565,8 +4895,27 @@
         }
       }
 
-      // 3. Vanguard fortify only with spare AP after advancing/attacking (Tactician & Warlord)
-      if (diff !== 'easy') {
+      // 3. Saboteur Proximity Mine placement & Vanguard Fortify with spare AP (Tactician & Warlord)
+      if (diff !== 'easy' && STATE.ap >= 2) {
+        const ownMineCount = (STATE.mines || []).filter(m => m.owner === aiOwner).length;
+        const sab = !laidMineThisTurn && ownMineCount < 3 ? myUnits.find(u => u.role === 'saboteur' && getSaboteurMineTiles(u).length > 0) : null;
+        if (sab) {
+          let bestMine = null;
+          for (const mt of getSaboteurMineTiles(sab)) {
+            const minFoeD = Math.min(...foes.map(f => dist(mt.r, mt.c, f.r, f.c)));
+            let mScore = (minFoeD === 1 ? 26 : (minFoeD === 2 ? 20 : (minFoeD === 3 ? 12 : 0)));
+            if (STATE.grid[mt.r][mt.c] === 'conduit') mScore += 22;
+            if (STATE.grid[mt.r][mt.c] === 'brush') mScore += 8;
+            if (!bestMine || mScore > bestMine.mScore) bestMine = { mt, mScore };
+          }
+          if (bestMine && bestMine.mScore >= 14) {
+            laidMineThisTurn = true;
+            STATE.selectedUnitId = sab.id;
+            executeSpecial(sab, bestMine.mt);
+            await wait(380);
+            continue;
+          }
+        }
         const van = myUnits.find(u => u.role === 'vanguard' && STATE.ap >= 2 && u.shield < 4 && (u.hp < u.maxHP * 0.8 || foes.some(f => dist(u.r, u.c, f.r, f.c) <= 3)));
         if (van) {
           STATE.selectedUnitId = van.id;
@@ -4719,6 +5068,7 @@
     let moveTiles = [];
     let attackTargets = [];
     let specialTargets = [];
+    let specialTiles = [];
     let cardTiles = [];
     let cardUnits = [];
     let activeRange = 0;
@@ -4740,6 +5090,9 @@
         else if (sel.role === 'catalyst' && sel.hp > 8) {
           specialTargets = STATE.units.filter(u => u.alive && u.owner === sel.owner && u.id !== sel.id && dist(sel.r, sel.c, u.r, u.c) <= 3);
           activeRange = 3; rangeColor = 'rgba(16, 185, 129, 0.55)';
+        } else if (sel.role === 'saboteur') {
+          specialTiles = getSaboteurMineTiles(sel);
+          activeRange = 3; rangeColor = 'rgba(251, 146, 60, 0.55)';
         }
       } else if (STATE.actionMode === 'card' && STATE.activeCardIndex !== null) {
         const card = STATE.hands[STATE.activePlayer][STATE.activeCardIndex];
@@ -4882,6 +5235,13 @@
           ctx.fillStyle = sel.role === 'catalyst' ? 'rgba(16, 185, 129, 0.26)' : 'rgba(245, 158, 11, 0.28)';
           ctx.fillRect(x + 2, y + 2, tileSize - 4, tileSize - 4);
         }
+        if (specialTiles.some(t => t.r === r && t.c === c)) {
+          ctx.fillStyle = 'rgba(251, 146, 60, 0.26)';
+          ctx.fillRect(x + 2, y + 2, tileSize - 4, tileSize - 4);
+          ctx.strokeStyle = 'rgba(251, 146, 60, 0.78)';
+          ctx.lineWidth = 1.5;
+          ctx.strokeRect(x + 3, y + 3, tileSize - 6, tileSize - 6);
+        }
 
         ctx.strokeStyle = '#1f2634';
         ctx.lineWidth = 1;
@@ -4915,7 +5275,7 @@
       const inRange = (rr, cc) => rr >= 0 && rr < ROWS && cc >= 0 && cc < COLS &&
         !blocksLOS(STATE.grid[rr][cc]) &&
         dist(sel.r, sel.c, rr, cc) <= activeRange &&
-        (STATE.actionMode === 'card' || hasLineOfSight(sel.r, sel.c, rr, cc));
+        (STATE.actionMode === 'card' || (STATE.actionMode === 'special' && sel.role === 'saboteur') || hasLineOfSight(sel.r, sel.c, rr, cc));
 
       ctx.save();
       ctx.strokeStyle = rangeColor;
@@ -4973,6 +5333,8 @@
             const steps = path.length - 1;
             hoverMovePreview = { path, label: `1 AP · ${steps} ${steps === 1 ? 'TILE' : 'TILES'}`, color: '#38bdf8', r, c };
           }
+        } else if (STATE.actionMode === 'special' && specialTiles.some(t => t.r === r && t.c === c)) {
+          hoverMovePreview = { path: [{ r: sel.r, c: sel.c }, { r, c }], label: '2 AP · RIG MINE', color: '#fb923c', r, c };
         } else if (STATE.actionMode === 'card' && cardTiles.some(t => t.r === r && t.c === c)) {
           const card = STATE.hands[STATE.activePlayer][STATE.activeCardIndex];
           hoverMovePreview = { path: [{ r: sel.r, c: sel.c }, { r, c }], label: `0 AP · -${card.cost} HP`, color: '#d4a359', r, c };
@@ -5019,6 +5381,38 @@
       ctx.restore();
     }
 
+    // Draw Armed Proximity Mines
+    if (Array.isArray(STATE.mines) && STATE.mines.length > 0) {
+      const mPulse = 0.55 + 0.45 * Math.sin(now * 3.2);
+      STATE.mines.forEach(m => {
+        const mx = (m.c + 0.5) * tileSize;
+        const my = (m.r + 0.5) * tileSize;
+        const mr = Math.max(10, tileSize * 0.2);
+        const teamCol = getPlayerColor(m.owner);
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(mx, my, mr + 3, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(251, 146, 60, ${0.32 + 0.38 * mPulse})`;
+        ctx.lineWidth = 1.6;
+        ctx.setLineDash([4, 3]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.beginPath();
+        ctx.arc(mx, my, mr, 0, Math.PI * 2);
+        ctx.fillStyle = '#131722';
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = teamCol;
+        ctx.stroke();
+        ctx.fillStyle = '#fb923c';
+        ctx.font = `700 ${Math.round(mr * 1.05)}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('⬟', mx, my + 0.5);
+        ctx.restore();
+      });
+    }
+
     // Draw Units with radial Wound Dials & Clear Nameplates
     STATE.units.filter(u => u.alive).forEach(u => {
       u.drawX += (u.c - u.drawX) * 0.24;
@@ -5032,6 +5426,24 @@
       const cy = (u.drawY + u.lungeY + 0.45) * tileSize;
       const wc = getWeightClass(u.maxHP);
       const radius = tileSize * (wc.id === 'titan' ? 0.36 : wc.id === 'champion' ? 0.33 : wc.id === 'skirmisher' ? 0.31 : 0.28);
+
+      // 2-Click Attack Confirmation Reticle
+      if (canAct && STATE.actionMode === 'normal' && STATE.confirmAttacks && STATE.pendingAttackTargetId === u.id) {
+        const cPulse = 0.6 + 0.4 * Math.sin(now * 4.5);
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(cx, cy, radius + 7, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(250, 204, 21, ${cPulse})`;
+        ctx.lineWidth = 2.6;
+        ctx.setLineDash([6, 3]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.font = '800 9.5px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#facc15';
+        ctx.fillText('CONFIRM', cx, cy - radius - 9);
+        ctx.restore();
+      }
 
       // Selection ring
       if (u.id === STATE.selectedUnitId) {
@@ -5304,6 +5716,7 @@
     const tip = document.getElementById('hoverTooltip');
     const sel = STATE.units.find(u => u.id === STATE.selectedUnitId && u.alive);
     const target = unitAt(r, c);
+    const mine = mineAt(r, c);
     const tile = STATE.grid[r][c];
     let text = '';
 
@@ -5311,10 +5724,13 @@
       const prev = previewAttackDamage(sel, target);
       const lo = Math.max(2, Math.round(prev.total * 0.65));
       const hi = Math.max(2, Math.round(prev.total * 1.5));
-      text = `2d6 ATTACK ${target.name}: ${lo}–${hi} DMG (Base ${prev.hpDmg})${prev.shieldAbsorb ? ` · SHD ${prev.shieldAbsorb}` : ''}${prev.lethal ? ' [LETHAL ON HIT]' : ''}`;
+      const confirmTag = STATE.confirmAttacks ? (STATE.pendingAttackTargetId === target.id ? ' [CLICK AGAIN TO FIRE]' : ' [1ST CLICK ARMS]') : '';
+      text = `2d6 ATTACK ${target.name}: ${lo}–${hi} DMG (Base ${prev.hpDmg})${prev.shieldAbsorb ? ` · SHD ${prev.shieldAbsorb}` : ''}${prev.lethal ? ' [LETHAL ON HIT]' : ''}${confirmTag}`;
     } else if (target) {
       const st = computeUnitStats(target, tile);
       text = `${target.name} (${st.wc.label} ${st.role.name}) · ${target.hp}/${target.maxHP} HP · ATK ${st.atk} ARM ${st.arm} MOV ${st.mov} RNG ${st.rng}`;
+    } else if (mine) {
+      text = `⬟ PROXIMITY MINE (${getPlayerName(mine.owner)}): Detonates on enemy entry — strips Shield & deals 8 piercing DMG`;
     } else if (tile === 'tree') {
       text = 'TIMBER TREE: Impassable (go around) · Blocks Line-of-Sight';
     } else if (tile === 'water') {
@@ -5378,8 +5794,17 @@
         if (sel.role === 'catalyst' && clickedUnit && clickedUnit.owner === sel.owner && clickedUnit.id !== sel.id && dist(sel.r, sel.c, clickedUnit.r, clickedUnit.c) <= 3) {
           executeSpecial(sel, clickedUnit); return;
         }
+        if (sel.role === 'saboteur' && !clickedUnit && getSaboteurMineTiles(sel).some(t => t.r === r && t.c === c)) {
+          executeSpecial(sel, { r, c }); return;
+        }
         let blockMsg = '';
-        if (clickedUnit && (sel.role === 'striker' || sel.role === 'arcanist') && clickedUnit.owner !== sel.owner) {
+        if (sel.role === 'saboteur') {
+          const d = dist(sel.r, sel.c, r, c);
+          if (clickedUnit) blockMsg = 'PROXIMITY MINE must be placed on an empty walkable tile.';
+          else if (mineAt(r, c)) blockMsg = 'That tile already has an armed Proximity Mine.';
+          else if (isImpassable(STATE.grid[r][c])) blockMsg = 'Cannot rig a Proximity Mine on impassable terrain.';
+          else if (d > 3 || d < 1) blockMsg = `PROXIMITY MINE must be placed within 3 tiles (distance ${d}).`;
+        } else if (clickedUnit && (sel.role === 'striker' || sel.role === 'arcanist') && clickedUnit.owner !== sel.owner) {
           const maxR = sel.role === 'arcanist' ? 4 : 1;
           const d = dist(sel.r, sel.c, clickedUnit.r, clickedUnit.c);
           if (d > maxR) blockMsg = `${ROLES[sel.role].specialName} out of range (distance ${d} > RNG ${maxR}).`;
@@ -5403,9 +5828,24 @@
       if (sel && sel.owner === STATE.activePlayer) {
         if (clickedUnit && clickedUnit.owner !== sel.owner) {
           if (canUnitAttack(sel) && getAttackableTargets(sel).includes(clickedUnit)) {
+            if (STATE.confirmAttacks && STATE.pendingAttackTargetId !== clickedUnit.id) {
+              STATE.pendingAttackTargetId = clickedUnit.id;
+              Sound.click();
+              const prev = previewAttackDamage(sel, clickedUnit);
+              const lo = Math.max(2, Math.round(prev.total * 0.65));
+              const hi = Math.max(2, Math.round(prev.total * 1.5));
+              showRollToast(
+                `<strong style="color:#facc15;">🎯 CONFIRM ATTACK ON ${clickedUnit.name}</strong><br/>Click <strong>${clickedUnit.name}</strong> again to fire (${lo}–${hi} DMG · 2 AP) or Esc to cancel.`,
+                '#facc15'
+              );
+              renderBattleUI();
+              return;
+            }
+            STATE.pendingAttackTargetId = null;
             executeAttack(sel, clickedUnit);
             return;
           }
+          STATE.pendingAttackTargetId = null;
           // Helpful feedback why the attack didn't fire (while still inspecting the enemy)
           const st = computeUnitStats(sel, STATE.grid[sel.r][sel.c]);
           const maxAtk = st.wc.id === 'titan' ? 2 : 1;
@@ -5422,6 +5862,7 @@
           }
           if (reason) showRollToast(`<strong style="color:var(--warn);">CANNOT ATTACK</strong><br/>${reason} Inspecting ${clickedUnit.name}.`, 'var(--warn)');
         }
+        STATE.pendingAttackTargetId = null;
         if (!clickedUnit && STATE.freeDeployActive[sel.owner] && isInDeployZone(sel.owner, r, c) && !isImpassable(STATE.grid[r][c])) {
           executeDeploy(sel, r, c);
           return;
@@ -5450,6 +5891,7 @@
 
     if (clickedUnit) {
       Sound.click();
+      STATE.pendingAttackTargetId = null;
       STATE.selectedUnitId = clickedUnit.id;
       STATE.actionMode = 'normal';
       STATE.activeCardIndex = null;
@@ -5506,10 +5948,14 @@
     }
 
     const trapBar = document.getElementById('trapStatusBar');
+    const totalMines = (STATE.mines || []).length;
     if (STATE.isSpectator) {
       let totalTraps = 0;
       for (let o = 1; o <= (STATE.playerCount || 2); o++) totalTraps += (STATE.traps[o] || []).length;
-      if (trapBar) trapBar.textContent = totalTraps ? `SECRET TRAPS ARMED: ${totalTraps}` : '';
+      const sParts = [];
+      if (totalTraps) sParts.push(`SECRET TRAPS ARMED: ${totalTraps}`);
+      if (totalMines) sParts.push(`⬟ MINES ON BOARD: ${totalMines}`);
+      if (trapBar) trapBar.textContent = sParts.join(' · ');
     } else {
       const viewerOwner = STATE.mode === 'online' ? STATE.localPlayerNum : ((STATE.mode === 'ai' || STATE.mode === 'tutorial') ? 1 : STATE.activePlayer);
       const myTraps = STATE.traps[viewerOwner] || [];
@@ -5517,9 +5963,13 @@
       for (let o = 1; o <= (STATE.playerCount || 2); o++) {
         if (o !== viewerOwner) oppTrapCount += (STATE.traps[o] || []).length;
       }
+      const myMines = (STATE.mines || []).filter(m => m.owner === viewerOwner).length;
+      const oppMines = totalMines - myMines;
       const trapParts = [];
       if (myTraps.length) trapParts.push(`YOUR TRAPS: ${myTraps.map(t => t.name.replace('Trap: ', '')).join(', ')}`);
       if (oppTrapCount) trapParts.push(`ENEMY SECRET TRAPS: ${oppTrapCount}`);
+      if (myMines) trapParts.push(`⬟ YOUR MINES: ${myMines}/3`);
+      if (oppMines) trapParts.push(`⬟ ENEMY MINES: ${oppMines}`);
       if (trapBar) trapBar.textContent = trapParts.join(' · ');
     }
 
@@ -5557,11 +6007,18 @@
       banner.textContent = tutPrompts[STATE.tutorialStep] || '';
       banner.classList.add('visible');
     } else if (STATE.actionMode === 'special') {
-      banner.textContent = 'SELECT TARGET FOR ROLE SPECIAL (ESC TO CANCEL)';
+      const selForSpec = STATE.units.find(u => u.id === STATE.selectedUnitId && u.alive);
+      banner.textContent = selForSpec?.role === 'saboteur'
+        ? 'SELECT OPEN TILE WITHIN 3 TILES FOR PROXIMITY MINE (ESC TO CANCEL)'
+        : 'SELECT TARGET FOR ROLE SPECIAL (ESC TO CANCEL)';
       banner.classList.add('visible');
     } else if (STATE.actionMode === 'card' && STATE.activeCardIndex !== null) {
       const card = STATE.hands[STATE.activePlayer][STATE.activeCardIndex];
       banner.textContent = `TARGET FOR ${card.name.toUpperCase()} (PAYS ${card.cost} HP · ESC TO CANCEL)`;
+      banner.classList.add('visible');
+    } else if (isMyTurn() && STATE.confirmAttacks && STATE.pendingAttackTargetId) {
+      const pend = STATE.units.find(u => u.id === STATE.pendingAttackTargetId && u.alive);
+      banner.textContent = `2-CLICK CONFIRM: CLICK ${(pend?.name || 'TARGET').toUpperCase()} AGAIN TO ROLL 2D6 (ESC TO CANCEL)`;
       banner.classList.add('visible');
     } else if (isMyTurn() && STATE.freeDeployActive[STATE.activePlayer]) {
       banner.textContent = 'TURN 1 FREE DEPLOY (0 AP): Click gold back-row tiles to reposition — ends once you move or attack';
@@ -5585,7 +6042,8 @@
         sel.role === 'vanguard' ||
         (sel.role === 'striker' && canUnitAttack(sel)) ||
         (sel.role === 'arcanist' && sel.hp > 4 && canUnitAttack(sel)) ||
-        (sel.role === 'catalyst' && sel.hp > 8)
+        (sel.role === 'catalyst' && sel.hp > 8) ||
+        (sel.role === 'saboteur' && getSaboteurMineTiles(sel).length > 0)
       );
       const maxAtks = st.wc.id === 'titan' ? 2 : 1;
       const atksLeft = Math.max(0, maxAtks - sel.attacksThisTurn);
@@ -5650,6 +6108,7 @@
       if (specBtn) {
         specBtn.addEventListener('click', () => {
           Sound.click();
+          STATE.pendingAttackTargetId = null;
           if (sel.role === 'vanguard') {
             executeSpecial(sel);
           } else {
@@ -5662,6 +6121,7 @@
       const cancelBtn = document.getElementById('cancelModeBtn');
       if (cancelBtn) {
         cancelBtn.addEventListener('click', () => {
+          STATE.pendingAttackTargetId = null;
           STATE.actionMode = 'normal'; STATE.activeCardIndex = null; renderBattleUI();
         });
       }
@@ -5680,6 +6140,7 @@
       div.addEventListener('click', () => {
         if (!u.alive) return;
         Sound.click();
+        STATE.pendingAttackTargetId = null;
         STATE.selectedUnitId = u.id;
         STATE.actionMode = 'normal';
         STATE.activeCardIndex = null;
@@ -5764,6 +6225,63 @@
     if (lobbySub) lobbySub.textContent = NetworkAdapter.connected ? 'LIVE SERVER ELO STANDINGS (ONLINE PvP)' : 'LOCAL ELO STANDINGS';
   }
 
+  const CONFIRM_ATK_KEY = 'fracture_confirm_atk_v1';
+  function syncConfirmAtkBtn() {
+    const btn = document.getElementById('confirmAtkBtn');
+    if (!btn) return;
+    btn.textContent = STATE.confirmAttacks ? '2-CLICK ATK: ON' : '2-CLICK ATK: OFF';
+    btn.style.borderColor = STATE.confirmAttacks ? 'rgba(250,204,21,0.55)' : '';
+    btn.style.color = STATE.confirmAttacks ? '#facc15' : '';
+  }
+  function initConfirmAtkPref() {
+    try { STATE.confirmAttacks = localStorage.getItem(CONFIRM_ATK_KEY) === '1'; } catch (_) { STATE.confirmAttacks = false; }
+    syncConfirmAtkBtn();
+  }
+  document.getElementById('confirmAtkBtn')?.addEventListener('click', () => {
+    Sound.click();
+    STATE.confirmAttacks = !STATE.confirmAttacks;
+    STATE.pendingAttackTargetId = null;
+    try { localStorage.setItem(CONFIRM_ATK_KEY, STATE.confirmAttacks ? '1' : '0'); } catch (_) {}
+    syncConfirmAtkBtn();
+    if (screens.battle.classList.contains('active')) renderBattleUI();
+  });
+
+  let resetProfileArmed = false;
+  let resetProfileTimer = null;
+  document.getElementById('profileBtn')?.addEventListener('click', () => {
+    Sound.click();
+    resetProfileArmed = false;
+    const rb = document.getElementById('profileResetBtn');
+    if (rb) { rb.textContent = 'Reset Career'; rb.style.color = 'var(--muted)'; }
+    renderProfileModal();
+    document.getElementById('profileOverlay')?.classList.add('active');
+  });
+  document.getElementById('profileCloseBtn')?.addEventListener('click', () => {
+    Sound.click();
+    document.getElementById('profileOverlay')?.classList.remove('active');
+  });
+  document.getElementById('profileOverlay')?.addEventListener('click', e => {
+    if (e.target.id === 'profileOverlay') document.getElementById('profileOverlay').classList.remove('active');
+  });
+  document.getElementById('profileResetBtn')?.addEventListener('click', () => {
+    Sound.click();
+    const rb = document.getElementById('profileResetBtn');
+    if (!resetProfileArmed) {
+      resetProfileArmed = true;
+      if (rb) { rb.textContent = 'Click Again to Wipe'; rb.style.color = 'var(--crit)'; }
+      clearTimeout(resetProfileTimer);
+      resetProfileTimer = setTimeout(() => {
+        resetProfileArmed = false;
+        if (rb) { rb.textContent = 'Reset Career'; rb.style.color = 'var(--muted)'; }
+      }, 3500);
+      return;
+    }
+    resetProfileArmed = false;
+    saveProfile(defaultProfile());
+    if (rb) { rb.textContent = 'Reset Career'; rb.style.color = 'var(--muted)'; }
+    renderProfileModal();
+  });
+
   document.getElementById('lobbyLbBtn')?.addEventListener('click', () => {
     Sound.click();
     renderLeaderboard();
@@ -5834,6 +6352,10 @@
   // Keyboard shortcuts
   window.addEventListener('keydown', e => {
     if (document.activeElement && ['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) return;
+    if (e.code === 'Escape' && document.getElementById('profileOverlay')?.classList.contains('active')) {
+      document.getElementById('profileOverlay').classList.remove('active');
+      return;
+    }
     if (e.code === 'Escape' && document.getElementById('legendOverlay')?.classList.contains('active')) {
       toggleLegendOverlay(false);
       return;
@@ -5842,6 +6364,7 @@
     if (e.code === 'KeyL') {
       toggleLegendOverlay();
     } else if (e.code === 'Escape') {
+      STATE.pendingAttackTargetId = null;
       STATE.actionMode = 'normal';
       STATE.activeCardIndex = null;
       renderBattleUI();
@@ -5883,8 +6406,8 @@
       html: `<p style="margin-bottom:8px;">Both players agree on the exact same <strong>Battle HP Pool</strong> (e.g., 100 HP) and secretly split it across <strong>1 to 6 fighters</strong> in the Fracture Forge.</p><p>Pour all 100 HP into one unstoppable <strong>Titan</strong> (Cleave + Double-Strike), build a balanced <strong>Triad</strong>, or deploy a 5-unit <strong>Swarm</strong> with Pack Tactics.</p>`
     },
     {
-      title: '2. The 4 Fighter Roles',
-      html: `<p style="margin-bottom:6px;"><strong>◈ Vanguard (Tank):</strong> High Armor frontline bruiser; uses <em>FORTIFY</em> (+6 Shield) and gains Last Stand power when low on HP.</p><p style="margin-bottom:6px;"><strong>▲ Striker (Assassin):</strong> Fast melee flanker (4 MOV, high ATK); finishes hurt enemies with <em>EXECUTE</em> (+5 DMG).</p><p style="margin-bottom:6px;"><strong>✦ Arcanist (Ranged):</strong> Fires from 3 tiles away, pierces 50% Armor, and burns 4 HP for a Range-4 <em>OVERCHARGE</em> blast.</p><p><strong>✚ Catalyst (Support):</strong> Mid-range healer that transfers 8 of its own HP to an ally via <em>TRANSFUSE</em>.</p>`
+      title: '2. The 5 Fighter Roles',
+      html: `<p style="margin-bottom:5px;"><strong>◈ Vanguard (Tank):</strong> High Armor frontline bruiser; uses <em>FORTIFY</em> (+6 Shield) and gains Last Stand power when low on HP.</p><p style="margin-bottom:5px;"><strong>▲ Striker (Assassin):</strong> Fast melee flanker (4 MOV, high ATK); finishes hurt enemies with <em>EXECUTE</em> (+5 DMG).</p><p style="margin-bottom:5px;"><strong>✦ Arcanist (Ranged):</strong> Fires from 3 tiles away, pierces 50% Armor, and burns 4 HP for a Range-4 <em>OVERCHARGE</em> blast.</p><p style="margin-bottom:5px;"><strong>✚ Catalyst (Support):</strong> Mid-range healer that transfers 8 of its own HP to an ally via <em>TRANSFUSE</em>.</p><p><strong>⬟ Saboteur (Sapper):</strong> Mid-range disruptor (3 MOV, 2 RNG) that rigs choke points and Conduits with armed <em>PROXIMITY MINES</em> (strips Shield + 8 piercing DMG).</p>`
     },
     {
       title: '3. 4 AP Turns & Tactical Terrain',
@@ -5967,16 +6490,18 @@
   /* ============================================================================
      13. WHAT'S NEW / VERSION CHANGELOG MODAL
      ============================================================================ */
-  const APP_VERSION = '3.9a';
+  const APP_VERSION = '4.0';
   const SEEN_VER_KEY = 'fracture_seen_version_v1';
   const CHANGELOG = [
     {
-      ver: 'v3.9a',
-      tag: 'LATEST',
-      title: 'Forge Armories: Save, Load & Share Squad Codes',
+      ver: 'v4.0',
+      tag: 'MILESTONE RELEASE',
+      title: 'Saboteur Role & Proximity Mines, Commander Profile & Medals, Role Audio & Forge Armories',
       items: [
-        'Custom Squad Slots (Up to 6): Save your favorite Forge rosters (custom names, roles, and exact HP splits) right inside the Fracture Forge and reload them in 1 click.',
-        'Shareable Squad Codes: Export any build as a short code (e.g. FRAC-100-V45-S35-A20) and paste any code into Import to load it — automatically scales cleanly if the match HP pool differs.'
+        '5th Fighter Role — ⬟ Saboteur (PROXIMITY MINE): Mid-range tactical sapper (3 MOV, 2 RNG) that rigs open tiles within 3 steps (max 3/team). Stepping, teleporting, or getting knocked onto an enemy mine strips Shield and deals 8 Armor-piercing DMG.',
+        'Commander Profile & 8 Tactical Medals: Open PROFILE in the top bar to track career W-L, total DMG, Crits, Traps/Mines sprung, fastest win, archetype records, and 8 unlockable medals (First Fracture, Titan Slayer, Conduit Master, Blood Pact, Master Sapper, Critical Mass, Tactician\'s Par, Unbroken).',
+        'Forge Armories & Squad Codes (V/S/A/C/B): Save up to 6 custom squads in the Forge and export/import compact FRAC-... squad codes with automatic HP-pool scaling.',
+        'Role WebAudio Suite & 2-Click Attack Confirm: Distinct synthesized audio cues for Crits, Fortify, Execute, Overcharge, Transfuse, Mines, Conduits, Victory, and Medals (with persistent Sound preference), plus an optional 2-CLICK ATK confirmation reticle.'
       ]
     },
     {
@@ -6165,6 +6690,8 @@
     }
   } catch (_) {}
 
+  Sound.initFromStorage();
+  initConfirmAtkPref();
   renderLeaderboard();
   let savedCallsign = '';
   try { savedCallsign = (localStorage.getItem(CALLSIGN_KEY) || '').trim(); } catch (_) {}
