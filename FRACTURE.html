@@ -3,17 +3,17 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>FRACTURE v4.0 — Tactical HP-Pool Wargame</title>
-<meta name="description" content="Free browser tactical wargame where your shared HP pool is your entire army budget. Forge 1–6 fighters across 5 roles with dynamic Wound Dials, 2d6 combat, 0-AP Blood Cards, Daily Skirmishes, and 1v1–4P Online PvP." />
+<title>FRACTURE v4.1 — Tactical HP-Pool Wargame</title>
+<meta name="description" content="Free browser tactical wargame where your shared HP pool is your entire army budget. Forge 1–6 fighters across 5 roles with dynamic Wound Dials, Split Duel Forecasts, Danger Zone overlays, Synergy Bond Lines, 2d6 combat, 0-AP Blood Cards, and Online PvP." />
 <meta name="theme-color" content="#0c0e13" />
 <meta property="og:type" content="website" />
 <meta property="og:site_name" content="FRACTURE" />
 <meta property="og:url" content="https://fracture-online.onrender.com" />
-<meta property="og:title" content="FRACTURE v4.0 — Tactical HP-Pool Wargame" />
-<meta property="og:description" content="Both commanders share the exact same Hit Point pool and secretly split it across 1–6 fighters from 5 tactical roles. Save Forge Armories, earn medals, and battle AI or live 1v1–4P Online PvP." />
+<meta property="og:title" content="FRACTURE v4.1 — Tactical HP-Pool Wargame" />
+<meta property="og:description" content="Both commanders share the exact same Hit Point pool and secretly split it across 1–6 fighters from 5 tactical roles. Features Split Duel Forecasts, Enemy Danger Zones, Synergy Bond Lines, Role Portraits, and 1v1–4P Online PvP." />
 <meta name="twitter:card" content="summary" />
-<meta name="twitter:title" content="FRACTURE v4.0 — Tactical HP-Pool Wargame" />
-<meta name="twitter:description" content="Free browser tactical grid game where your shared HP pool is your army budget. 5 Fighter Roles, Dynamic Wound Dials, 2d6 combat, 0-AP Blood Cards, and Online PvP." />
+<meta name="twitter:title" content="FRACTURE v4.1 — Tactical HP-Pool Wargame" />
+<meta name="twitter:description" content="Free browser tactical grid game where your shared HP pool is your army budget. 5 Fighter Roles, Split Duel Forecasts, Danger Zone [X], Synergy Bond Lines, and Online PvP." />
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230c0e13'/%3E%3Crect x='9' y='9' width='14' height='14' transform='rotate(45 16 16)' fill='none' stroke='%23d4a359' stroke-width='2.5'/%3E%3Crect x='13' y='13' width='6' height='6' transform='rotate(45 16 16)' fill='%23d4a359'/%3E%3C/svg%3E" />
 <style>
   :root {
@@ -914,6 +914,238 @@
     .hand-bar { height: auto; }
     .cards-row { grid-template-columns: 1fr; }
     .side-col { order: 2; max-height: 360px; }
+    .duel-forecast { width: min(320px, calc(100% - 14px)); padding: 8px 9px; right: 7px; bottom: 7px; }
+    .cutin-banner { max-width: calc(100% - 16px); left: 8px; top: 38px; }
+  }
+
+  /* v4.1 TACTICAL SOUL: DANGER ZONE, ROLE PORTRAITS, CUT-INS & DUEL FORECAST */
+  #dangerZoneBtn.active-danger {
+    background: rgba(244, 63, 94, 0.22);
+    border-color: #fb7185 !important;
+    color: #ffe4e6 !important;
+    box-shadow: 0 0 12px rgba(244, 63, 94, 0.35);
+  }
+  .role-portrait-frame {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9px;
+    background: radial-gradient(circle at 50% 35%, #1d2535 0%, #0d1119 100%);
+    border: 1px solid var(--border-hi);
+    flex-shrink: 0;
+    overflow: hidden;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
+  }
+  .role-portrait-frame.tier-1 {
+    border-color: rgba(245, 158, 11, 0.65);
+    box-shadow: 0 0 8px rgba(245, 158, 11, 0.18);
+  }
+  .role-portrait-frame.tier-2 {
+    border-color: rgba(244, 63, 94, 0.85);
+    box-shadow: 0 0 12px rgba(244, 63, 94, 0.35);
+  }
+  .cutin-banner {
+    position: absolute;
+    left: 14px;
+    top: 44px;
+    z-index: 16;
+    pointer-events: none;
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 8px 14px 8px 10px;
+    border-radius: 10px;
+    background: linear-gradient(112deg, rgba(12, 14, 19, 0.96) 0%, rgba(25, 31, 45, 0.94) 72%, rgba(12, 14, 19, 0.88) 100%);
+    border: 1.5px solid var(--cutin-accent, #facc15);
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.62), 0 0 18px rgba(250, 204, 21, 0.18);
+    opacity: 0;
+    transform: translateX(-22px) skewX(-5deg);
+    transition: opacity 0.18s ease, transform 0.2s cubic-bezier(0.2, 0.9, 0.25, 1);
+    max-width: 390px;
+  }
+  .cutin-banner.visible {
+    opacity: 1;
+    transform: translateX(0) skewX(-3deg);
+  }
+  .cutin-banner > * {
+    transform: skewX(3deg);
+  }
+  .cutin-tag {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.09em;
+    color: var(--cutin-accent, #facc15);
+    text-transform: uppercase;
+  }
+  .cutin-name {
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--ink);
+    letter-spacing: 0.04em;
+    line-height: 1.15;
+  }
+  .cutin-bark {
+    font-size: 11.5px;
+    font-style: italic;
+    color: #cbd5e1;
+    margin-top: 1px;
+  }
+  .duel-forecast {
+    position: absolute;
+    right: 12px;
+    bottom: 12px;
+    width: 348px;
+    z-index: 15;
+    pointer-events: none;
+    background: rgba(13, 17, 25, 0.95);
+    border: 1.5px solid rgba(212, 163, 89, 0.6);
+    border-radius: 11px;
+    padding: 9px 11px;
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(6px);
+    opacity: 0;
+    transform: translateY(6px);
+    transition: opacity 0.14s ease, transform 0.14s ease;
+  }
+  .duel-forecast.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .duel-forecast.dock-top-left {
+    right: auto;
+    bottom: auto;
+    left: 12px;
+    top: 44px;
+  }
+  .df-hdr {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.07em;
+    padding-bottom: 6px;
+    margin-bottom: 7px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  .df-lethal-pill {
+    background: rgba(244, 63, 94, 0.22);
+    color: #fda4af;
+    border: 1px solid rgba(244, 63, 94, 0.72);
+    padding: 1px 6px;
+    border-radius: 999px;
+    font-size: 9.5px;
+    font-weight: 800;
+  }
+  .df-split {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 8px;
+    align-items: center;
+  }
+  .df-side {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+  }
+  .df-unit-top {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    min-width: 0;
+  }
+  .df-unit-meta {
+    min-width: 0;
+    flex: 1;
+  }
+  .df-unit-name {
+    font-size: 12px;
+    font-weight: 800;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .df-unit-sub {
+    font-family: var(--font-mono);
+    font-size: 9.5px;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .df-hp-track {
+    height: 6px;
+    border-radius: 999px;
+    background: #090c11;
+    border: 1px solid #232b3b;
+    overflow: hidden;
+    display: flex;
+  }
+  .df-hp-keep { height: 100%; transition: width 0.15s ease; }
+  .df-hp-loss { height: 100%; background: repeating-linear-gradient(135deg, #f43f5e, #f43f5e 3px, rgba(244,63,94,0.35) 3px, rgba(244,63,94,0.35) 6px); }
+  .df-hp-gain { height: 100%; background: rgba(16, 185, 129, 0.65); }
+  .df-hp-nums {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    display: flex;
+    justify-content: space-between;
+    color: #cbd5e1;
+  }
+  .df-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    min-height: 15px;
+  }
+  .df-tag {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    padding: 1px 4px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #cbd5e1;
+  }
+  .df-vs {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 800;
+    color: var(--brass);
+    padding: 0 2px;
+  }
+  .df-rolls {
+    margin-top: 7px;
+    padding-top: 6px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 4px;
+  }
+  .df-roll-cell {
+    background: #0b0f16;
+    border: 1px solid #1f2737;
+    border-radius: 6px;
+    padding: 3px 4px;
+    text-align: center;
+    font-family: var(--font-mono);
+  }
+  .df-roll-cell.primary-band {
+    border-color: rgba(244, 63, 94, 0.55);
+    background: rgba(244, 63, 94, 0.09);
+  }
+  .df-roll-lbl {
+    font-size: 8.5px;
+    color: var(--muted);
+    line-height: 1.15;
+  }
+  .df-roll-val {
+    font-size: 10.5px;
+    font-weight: 800;
+    line-height: 1.25;
   }
 </style>
 </head>
@@ -941,6 +1173,7 @@
       </div>
       <button id="undoMoveBtn" disabled>UNDO MOVE [Z]</button>
       <button class="primary" id="endTurnBtn">END TURN [Space]</button>
+      <button id="dangerZoneBtn" title="Toggle Enemy Threat Perimeter [X]" style="border-color:rgba(244,63,94,0.45); color:#fda4af;">DANGER [X]</button>
       <button id="legendBtn" title="Visual Board & Token Legend [L]" style="border-color:rgba(56,189,248,0.45); color:#7dd3fc;">? LEGEND [L]</button>
     </div>
 
@@ -948,7 +1181,7 @@
       <span class="turn-pill" id="netStatusPill" style="font-size:11px; padding:4px 10px;">LOCAL MODE</span>
       <button id="profileBtn">PROFILE</button>
       <button id="lobbyLbBtn">LEADERBOARD</button>
-      <button id="whatsNewBtn" style="position:relative; border-color:rgba(212,163,89,0.45); color:var(--brass);">v4.0.1 · WHAT'S NEW<span id="whatsNewDot" style="display:none; position:absolute; top:-3px; right:-3px; width:8px; height:8px; border-radius:50%; background:var(--crit); border:1px solid var(--panel);"></span></button>
+      <button id="whatsNewBtn" style="position:relative; border-color:rgba(212,163,89,0.45); color:var(--brass);">v4.1 · WHAT'S NEW<span id="whatsNewDot" style="display:none; position:absolute; top:-3px; right:-3px; width:8px; height:8px; border-radius:50%; background:var(--crit); border:1px solid var(--panel);"></span></button>
       <button id="howToPlayBtn">HOW TO PLAY</button>
       <button id="confirmAtkBtn" title="Require a second click on an enemy target to confirm 2d6 attacks">2-CLICK ATK: OFF</button>
       <button id="soundBtn">SOUND: OFF</button>
@@ -1200,6 +1433,8 @@
       <div class="board-wrap" id="boardWrap">
         <canvas id="boardCanvas"></canvas>
         <div class="board-banner" id="boardBanner"></div>
+        <div class="cutin-banner" id="cutinBanner" aria-live="polite"></div>
+        <div class="duel-forecast" id="duelForecast"></div>
         <div class="dice-tray" id="diceTray" aria-live="polite"></div>
         <div class="roll-toast" id="rollToast"></div>
         <div class="hover-tooltip" id="hoverTooltip"></div>
@@ -1256,7 +1491,7 @@
             Move = 1 AP (moves up to <strong>MOV tiles around obstacles</strong>, not 1 AP/tile; 1 move/unit/turn; cannot move after attacking) · Attack = 2 AP (1 attack/unit/turn; Titans get 2) · Role Special = 2 AP (<em>Execute</em> &amp; <em>Overcharge</em> consume your attack; <em>Fortify</em>, <em>Transfuse</em> &amp; <em>Proximity Mine</em> do not) · Blood Card = 0 AP (paid in unit HP).<br/>
             <strong>Shield Decay:</strong> Shields halve (50% decay) at the start of your next turn.<br/>
             <strong>Win Modes:</strong> <em>Elimination</em> (last commander standing) or <em>Conduit Control</em> (+1 CP per held Brass Conduit at end of turn; first to <strong>10 CP</strong> or wipeout wins). Optional <strong>Sudden Death</strong> cracks outer rings into Rift Hazards starting Turn 8.<br/>
-            <strong>Turn 1 Free Deploy &amp; Coordinates:</strong> Click gold back-row tiles to reposition for 0 AP before your first move/attack. Log &amp; board coordinates use 1-based <code>(Col, Row)</code> from top-left <code>(1,1)</code>. Keys: <code>Z</code> undo, <code>Esc</code> cancel, <code>Space</code> end turn.
+            <strong>Turn 1 Free Deploy &amp; Coordinates:</strong> Click gold back-row tiles to reposition for 0 AP before your first move/attack. Log &amp; board coordinates use 1-based <code>(Col, Row)</code> from top-left <code>(1,1)</code>. Keys: <code>X</code> danger zone, <code>Z</code> undo, <code>Esc</code> cancel, <code>Space</code> end turn, <code>L</code> legend.
           </div>
           <div>
             <strong style="color:var(--ink);">2d6 RNG Combat Rolls &amp; Piercing:</strong><br/>
@@ -1412,9 +1647,11 @@
           <div style="display:flex; align-items:center; gap:8px;"><span style="width:14px; height:14px; border-radius:3px; background:rgba(244,63,94,0.36); border:1.5px solid #f43f5e; flex-shrink:0;"></span><span><strong style="color:var(--ink);">Red = Attack (2 AP)</strong> · rolls 2d6</span></div>
           <div style="display:flex; align-items:center; gap:8px;"><span style="width:14px; height:14px; border-radius:3px; background:rgba(212,163,89,0.22); border:1.5px solid #d4a359; flex-shrink:0;"></span><span><strong style="color:var(--ink);">Gold = Free Deploy (0 AP)</strong> · Turn 1 only</span></div>
           <div style="display:flex; align-items:center; gap:8px;"><span style="width:14px; height:14px; border-radius:3px; background:rgba(245,158,11,0.3); border:1.5px solid #f59e0b; flex-shrink:0;"></span><span><strong style="color:var(--ink);">Amber/Green = Special (2 AP)</strong> · Role ability</span></div>
+          <div style="display:flex; align-items:center; gap:8px;"><span style="width:14px; height:14px; border-radius:3px; background:rgba(244,63,94,0.18); border:1.5px dashed #fb7185; flex-shrink:0;"></span><span><strong style="color:var(--ink);">Crimson Perimeter = Danger [X]</strong> · Enemy next-turn reach</span></div>
+          <div style="display:flex; align-items:center; gap:8px;"><span style="width:14px; height:14px; border-radius:3px; background:rgba(56,189,248,0.16); border:1.5px dashed #38bdf8; flex-shrink:0;"></span><span><strong style="color:var(--ink);">Cyan/Amber Arcs = Synergy</strong> · BOND +2 / FLANK +2</span></div>
         </div>
         <div style="margin-top:8px; font-family:var(--font-mono); font-size:11px; color:var(--muted); border-top:1px solid var(--border); padding-top:7px;">
-          <strong style="color:var(--ink);">Blood Cards (Bottom Hand):</strong> 0 AP — pay HP from selected unit · <strong style="color:var(--ink);">Keys:</strong> <code>Z</code> Undo · <code>Esc</code> Cancel · <code>Space</code> End Turn · <code>L</code> Legend
+          <strong style="color:var(--ink);">Blood Cards (Bottom Hand):</strong> 0 AP — pay HP from selected unit · <strong style="color:var(--ink);">Keys:</strong> <code>X</code> Danger Zone · <code>Z</code> Undo · <code>Esc</code> Cancel · <code>Space</code> End Turn · <code>L</code> Legend
         </div>
       </div>
     </div>
@@ -1439,7 +1676,7 @@
 <div class="overlay" id="whatsNewOverlay" style="z-index:55;">
   <div class="modal" style="max-width:580px; text-align:left; max-height:84vh; display:flex; flex-direction:column;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-shrink:0;">
-      <span id="whatsNewVersionBadge" style="font-family:var(--font-mono); font-size:11px; color:var(--brass); letter-spacing:0.1em;">PATCH NOTES · CURRENT v4.0.1</span>
+      <span id="whatsNewVersionBadge" style="font-family:var(--font-mono); font-size:11px; color:var(--brass); letter-spacing:0.1em;">PATCH NOTES · CURRENT v4.1</span>
       <button id="whatsNewCloseBtn" style="padding:4px 10px; font-size:11.5px;">Close</button>
     </div>
     <h2 style="font-size:20px; margin-bottom:10px; text-align:left; flex-shrink:0;">What's New in FRACTURE</h2>
@@ -2272,6 +2509,7 @@
     activeCardIndex: null,
     confirmAttacks: false,
     pendingAttackTargetId: null,
+    showDangerZone: false,
     mines: [],
     profileRecorded: false,
     decks: { 1: [], 2: [], 3: [], 4: [] },
@@ -3158,7 +3396,8 @@
             ${list.length > 1 ? `<button class="danger uf-del" data-idx="${idx}" style="padding:3px 7px;">×</button>` : ''}
           </div>
         </div>
-        <div style="display:flex; gap:8px; align-items:center;">
+        <div style="display:flex; gap:9px; align-items:center;">
+          ${renderRolePortraitSvg(u.role, 0, getPlayerColor(STATE.forgeOwner), 40)}
           <select class="uf-role-select" data-idx="${idx}" style="flex:1;">
             ${Object.entries(ROLES).map(([k, r]) => `<option value="${k}" ${u.role === k ? 'selected' : ''}>${r.symbol} ${r.name}</option>`).join('')}
           </select>
@@ -3398,7 +3637,11 @@
     STATE.units = [];
     STATE.mines = [];
     STATE.pendingAttackTargetId = null;
+    STATE.showDangerZone = false;
     STATE.profileRecorded = false;
+    syncDangerZoneBtn();
+    hideDuelForecast();
+    hideCutIn();
     STATE.traps = {};
     STATE.freeDeployActive = {};
     STATE.stats = {};
@@ -3548,6 +3791,8 @@
     STATE.selectedUnitId = 1;
     STATE.actionMode = 'normal';
     STATE.activeCardIndex = null;
+    STATE.pendingAttackTargetId = null;
+    STATE.showDangerZone = false;
     STATE.gameOver = false;
     STATE.aiBusy = false;
     STATE.floatingTexts = [];
@@ -3556,6 +3801,9 @@
     STATE.boardShake = 0;
     STATE.hitStopUntil = 0;
     STATE.critFlash = 0;
+    syncDangerZoneBtn();
+    hideDuelForecast();
+    hideCutIn();
     clearTimeout(rollToastTimer);
     document.getElementById('rollToast')?.classList.remove('visible');
     hideDiceTray();
@@ -3749,7 +3997,359 @@
     return { raw, effArm, total: afterArm, shieldAbsorb, hpDmg, lethal: hpDmg >= target.hp };
   }
 
+  /* ============================================================================
+     v4.1 TACTICAL SOUL: ROLE PORTRAITS, CUT-INS, DANGER ZONE & DUEL FORECAST
+     ============================================================================ */
+  const ROLE_BARKS = {
+    vanguard: {
+      crit: '"Iron holds — and shatters back!"',
+      special: '"Shields locked! Hold this line!"',
+      awaken: '"Last Stand online — come break against me!"'
+    },
+    striker: {
+      crit: '"Found the fault line. Target cleaved!"',
+      special: '"No escape — finishing strike!"',
+      awaken: '"Glass Edge active — every cut draws blood!"'
+    },
+    arcanist: {
+      crit: '"Conduit surge at maximum resonance!"',
+      special: '"Burning life-force — Overcharge unleashed!"',
+      awaken: '"Containment cracked — pure output now!"'
+    },
+    catalyst: {
+      crit: '"Mercy ends where fracture begins!"',
+      special: '"Take my pulse — stay in the fight!"',
+      awaken: '"Martyr Grace — my pain fuels our stand!"'
+    },
+    saboteur: {
+      crit: '"Direct charge — armor vaporized!"',
+      special: '"Charge armed. Watch your step!"',
+      awaken: '"Deadman switch primed — moving hot!"'
+    }
+  };
+
+  function renderRolePortraitSvg(roleKey, tier = 0, teamColor = '#38bdf8', size = 42) {
+    const visor = tier === 2 ? '#fb7185' : (tier === 1 ? '#fbbf24' : teamColor);
+    const trim = tier === 2 ? '#f43f5e' : (tier === 1 ? '#f59e0b' : teamColor);
+    let crest = '';
+    if (roleKey === 'vanguard') {
+      crest = `
+        <path d="M12 36 L14 17 L24 10 L34 17 L36 36 Z" fill="#1e2636" stroke="${trim}" stroke-width="1.7"/>
+        <path d="M17 15 L24 11 L31 15 L30 29 L24 34 L18 29 Z" fill="#2a354b" stroke="#64748b" stroke-width="1"/>
+        <path d="M17 21 H31 L29 24 H25.3 V31 H22.7 V24 H19 Z" fill="${visor}"/>
+      `;
+    } else if (roleKey === 'striker') {
+      crest = `
+        <path d="M11 36 L16 14 L24 9 L32 14 L37 36 L29 33 L24 36 L19 33 Z" fill="#1b2232" stroke="${trim}" stroke-width="1.6"/>
+        <path d="M16 19 L24 24 L32 19 L29 26 L24 28 L19 26 Z" fill="${visor}"/>
+        <path d="M24 9 L26 16 L24 19 L22 16 Z" fill="${trim}"/>
+      `;
+    } else if (roleKey === 'arcanist') {
+      crest = `
+        <path d="M12 36 L16 18 L24 12 L32 18 L36 36 Z" fill="#1c1f33" stroke="${trim}" stroke-width="1.6"/>
+        <polygon points="24,6 28,12 24,16 20,12" fill="${visor}"/>
+        <circle cx="24" cy="24" r="5.2" fill="none" stroke="${visor}" stroke-width="1.8"/>
+        <circle cx="24" cy="24" r="2.2" fill="#f8fafc"/>
+      `;
+    } else if (roleKey === 'catalyst') {
+      crest = `
+        <circle cx="24" cy="21" r="12" fill="none" stroke="${trim}" stroke-width="1.3" stroke-dasharray="3 2"/>
+        <path d="M13 36 C13 21, 17 12, 24 12 C31 12, 35 21, 35 36 Z" fill="#1b2830" stroke="${trim}" stroke-width="1.6"/>
+        <path d="M22.2 17 H25.8 V21.2 H30 V24.8 H25.8 V29 H22.2 V24.8 H18 V21.2 H22.2 Z" fill="${visor}"/>
+      `;
+    } else {
+      crest = `
+        <path d="M12 36 L14 16 L20 11 H28 L34 16 L36 36 Z" fill="#232026" stroke="${trim}" stroke-width="1.6"/>
+        <circle cx="19.5" cy="22" r="3.6" fill="${visor}" stroke="#0c0e13" stroke-width="1"/>
+        <circle cx="28.5" cy="22" r="3.6" fill="${visor}" stroke="#0c0e13" stroke-width="1"/>
+        <rect x="18" y="28" width="12" height="5" rx="2" fill="#334155" stroke="${trim}" stroke-width="1"/>
+      `;
+    }
+    const scars = tier >= 1
+      ? `<path d="M15 14 L20 21 L17 26" fill="none" stroke="${tier === 2 ? '#fb7185' : '#fbbf24'}" stroke-width="1.4" stroke-linecap="round"/>` +
+        (tier === 2 ? `<path d="M33 15 L28 22 L31 29" fill="none" stroke="#fb7185" stroke-width="1.5" stroke-linecap="round"/><circle cx="24" cy="24" r="20" fill="none" stroke="rgba(244,63,94,0.55)" stroke-width="1.4"/>` : '')
+      : '';
+    return `<span class="role-portrait-frame tier-${tier}" style="width:${size}px; height:${size}px;"><svg viewBox="0 0 48 48" width="${size}" height="${size}" aria-hidden="true"><circle cx="24" cy="24" r="18" fill="${teamColor}" opacity="${tier === 2 ? '0.18' : '0.1'}"/>${crest}${scars}</svg></span>`;
+  }
+
+  let cutinTimer = null;
+  function hideCutIn() {
+    clearTimeout(cutinTimer);
+    document.getElementById('cutinBanner')?.classList.remove('visible');
+  }
+  function showCutIn(unit, badgeText, barkText, accentColor = '#facc15') {
+    const el = document.getElementById('cutinBanner');
+    if (!el || !unit) return;
+    const tier = getDialTier(unit.hp, unit.maxHP);
+    const teamColor = getPlayerColor(unit.owner);
+    el.style.setProperty('--cutin-accent', accentColor);
+    el.innerHTML = `
+      ${renderRolePortraitSvg(unit.role, tier, teamColor, 48)}
+      <div style="min-width:0;">
+        <div class="cutin-tag">${badgeText}</div>
+        <div class="cutin-name">${ROLES[unit.role]?.symbol || ''} ${unit.name}</div>
+        <div class="cutin-bark">${barkText || ''}</div>
+      </div>
+    `;
+    el.classList.add('visible');
+    clearTimeout(cutinTimer);
+    cutinTimer = setTimeout(() => el.classList.remove('visible'), 1650);
+  }
+
+  function getDangerZoneViewerOwner() {
+    if (STATE.mode === 'online' && !STATE.isSpectator) return STATE.localPlayerNum;
+    if (STATE.mode === 'ai' || STATE.mode === 'tutorial') return 1;
+    return STATE.activePlayer || 1;
+  }
+
+  function syncDangerZoneBtn() {
+    const btn = document.getElementById('dangerZoneBtn');
+    if (!btn) return;
+    btn.style.display = STATE.gameOver ? 'none' : 'inline-block';
+    btn.classList.toggle('active-danger', !!STATE.showDangerZone);
+    btn.textContent = STATE.showDangerZone ? '⚠ DANGER: ON [X]' : 'DANGER [X]';
+  }
+
+  function toggleDangerZone(force = null) {
+    if (STATE.gameOver) return;
+    STATE.showDangerZone = force !== null ? force : !STATE.showDangerZone;
+    syncDangerZoneBtn();
+    if (STATE.hoverCell) updateHoverTooltip(STATE.hoverCell.r, STATE.hoverCell.c);
+  }
+
+  function computeDangerZone(viewerOwner = getDangerZoneViewerOwner()) {
+    const danger = Array.from({ length: ROWS }, () => Array(COLS).fill(false));
+    if (!STATE.grid.length) return danger;
+    const foes = STATE.units.filter(u => u.alive && u.owner !== viewerOwner);
+    for (const foe of foes) {
+      const standTiles = [{ r: foe.r, c: foe.c }, ...getReachableTiles(foe)];
+      for (const pos of standTiles) {
+        const stAtPos = computeUnitStats(foe, STATE.grid[pos.r][pos.c]);
+        const rng = stAtPos.rng;
+        for (let tr = Math.max(0, pos.r - rng); tr <= Math.min(ROWS - 1, pos.r + rng); tr++) {
+          for (let tc = Math.max(0, pos.c - rng); tc <= Math.min(COLS - 1, pos.c + rng); tc++) {
+            if (danger[tr][tc]) continue;
+            if (dist(pos.r, pos.c, tr, tc) > rng) continue;
+            if (blocksLOS(STATE.grid[tr][tc])) continue;
+            if (hasLineOfSight(pos.r, pos.c, tr, tc)) danger[tr][tc] = true;
+          }
+        }
+      }
+    }
+    return danger;
+  }
+
+  function hideDuelForecast() {
+    const el = document.getElementById('duelForecast');
+    if (el) el.classList.remove('visible', 'dock-top-left');
+  }
+
+  function renderDuelForecast(attacker, target, mode = 'attack', isArmed = false) {
+    const el = document.getElementById('duelForecast');
+    if (!el || !attacker || !target || STATE.gameOver) { hideDuelForecast(); return; }
+    const aTile = STATE.grid[attacker.r]?.[attacker.c] || 'floor';
+    const tTile = STATE.grid[target.r]?.[target.c] || 'floor';
+    const aSt = computeUnitStats(attacker, aTile);
+    const tSt = computeUnitStats(target, tTile);
+    const aColor = getPlayerColor(attacker.owner);
+    const tColor = getPlayerColor(target.owner);
+
+    // Dock top-left when target sits in bottom-right quadrant so board target stays uncovered
+    const dockTopLeft = target.r >= Math.floor(ROWS / 2) && target.c >= Math.floor(COLS / 2);
+    el.classList.toggle('dock-top-left', dockTopLeft);
+
+    if (mode === 'transfuse') {
+      const healBase = 8 + (aSt.tier === 2 ? 2 : 0);
+      const actualHeal = Math.min(target.maxHP - target.hp, healBase);
+      const aAfter = Math.max(1, attacker.hp - 8);
+      const tAfter = target.hp + actualHeal;
+      el.innerHTML = `
+        <div class="df-hdr" style="color:#10b981;">
+          <span>✚ TRANSFUSE FORECAST · 2 AP</span>
+          <span style="color:var(--brass);">DETERMINISTIC</span>
+        </div>
+        <div class="df-split">
+          <div class="df-side">
+            <div class="df-unit-top">
+              ${renderRolePortraitSvg(attacker.role, aSt.tier, aColor, 36)}
+              <div class="df-unit-meta">
+                <div class="df-unit-name" style="color:${aColor};">${attacker.name}</div>
+                <div class="df-unit-sub">${aSt.wc.label} · ${aSt.role.name}</div>
+              </div>
+            </div>
+            <div class="df-hp-track">
+              <div class="df-hp-keep" style="width:${Math.round((aAfter / attacker.maxHP) * 100)}%; background:${aColor};"></div>
+              <div class="df-hp-loss" style="width:${Math.round(((attacker.hp - aAfter) / attacker.maxHP) * 100)}%;"></div>
+            </div>
+            <div class="df-hp-nums"><span>HP ${attacker.hp} → <strong>${aAfter}</strong></span><span style="color:#fda4af;">-8 SELF</span></div>
+          </div>
+          <div class="df-vs">➔</div>
+          <div class="df-side">
+            <div class="df-unit-top">
+              ${renderRolePortraitSvg(target.role, tSt.tier, tColor, 36)}
+              <div class="df-unit-meta">
+                <div class="df-unit-name" style="color:${tColor};">${target.name}</div>
+                <div class="df-unit-sub">${tSt.wc.label} · ${tSt.role.name}</div>
+              </div>
+            </div>
+            <div class="df-hp-track">
+              <div class="df-hp-keep" style="width:${Math.round((target.hp / target.maxHP) * 100)}%; background:${tColor};"></div>
+              <div class="df-hp-gain" style="width:${Math.round((actualHeal / target.maxHP) * 100)}%;"></div>
+            </div>
+            <div class="df-hp-nums"><span>HP ${target.hp} → <strong style="color:#10b981;">${tAfter}</strong></span><span style="color:#10b981;">+${actualHeal} HP</span></div>
+          </div>
+        </div>
+      `;
+      el.classList.add('visible');
+      return;
+    }
+
+    const bonusDmg = mode === 'execute' ? (target.hp < target.maxHP ? 5 : 1) : (mode === 'overcharge' ? 3 : 0);
+    const selfBurn = mode === 'overcharge' ? 4 : 0;
+    const basePrev = previewAttackDamage(attacker, target, bonusDmg, false, false);
+    const critPrev = previewAttackDamage(attacker, target, bonusDmg, false, true);
+
+    const calcBand = (prevObj, mult) => {
+      const rolled = Math.max(2, Math.round(prevObj.total * mult));
+      const shd = Math.min(target.shield, rolled);
+      const hpDmg = rolled - shd;
+      return { rolled, shd, hpDmg, lethal: hpDmg >= target.hp };
+    };
+    const bGlance = calcBand(basePrev, 0.65);
+    const bHit = calcBand(basePrev, 1.0);
+    const bHeavy = calcBand(basePrev, 1.25);
+    const bCrit = calcBand(critPrev, 1.5);
+
+    const aTags = [];
+    if (aTile === 'conduit') aTags.push('Conduit +2');
+    if (attacker.surgeBonus) aTags.push(`Surge +${attacker.surgeBonus}`);
+    if (aSt.wc.id === 'swarm') {
+      const adj = STATE.units.filter(u => u.alive && u.owner === attacker.owner && u.id !== attacker.id && dist(u.r, u.c, attacker.r, attacker.c) === 1).length;
+      if (adj > 0) aTags.push(`Bond +${adj * 2}`);
+    } else if (aSt.wc.id === 'skirmisher') {
+      const flanked = STATE.units.some(u => u.alive && u.owner === attacker.owner && u.id !== attacker.id && dist(u.r, u.c, target.r, target.c) === 1);
+      if (flanked) aTags.push('Flank +2');
+    }
+    if (aSt.role.piercing) aTags.push('50% Pierce');
+    if (mode === 'execute') aTags.push(`Execute +${bonusDmg}`);
+    if (mode === 'overcharge') aTags.push('Overcharge +3');
+    if (aSt.wc.id === 'titan' && aSt.rng === 1) aTags.push('Cleave 50%');
+
+    const tTags = [`ARM ${basePrev.effArm}`];
+    if (tTile === 'brush') tTags.push('Brush +2');
+    if (target.shield > 0) tTags.push(`SHD ${target.shield}`);
+    const viewerOwner = getDangerZoneViewerOwner();
+    if (!STATE.isSpectator && target.owner === viewerOwner && (STATE.traps[target.owner] || []).some(t => t.id === 'trap_deflect')) {
+      tTags.push('Deflect Armed');
+    }
+
+    const aAfterHP = Math.max(1, attacker.hp - selfBurn);
+    const tAfterHP = Math.max(0, target.hp - bHit.hpDmg);
+    const keepPct = Math.round((tAfterHP / target.maxHP) * 100);
+    const lossPct = Math.round(((target.hp - tAfterHP) / target.maxHP) * 100);
+    const hdrTitle = isArmed
+      ? '🎯 ARMED — CLICK TARGET TO ROLL 2D6'
+      : (mode === 'execute' ? '▲ EXECUTE FORECAST · 2 AP' : (mode === 'overcharge' ? '✦ OVERCHARGE FORECAST · 2 AP' : '⚔ SPLIT DUEL FORECAST · 2 AP'));
+    const hdrColor = isArmed ? '#facc15' : (mode === 'overcharge' ? '#c084fc' : (mode === 'execute' ? '#fbbf24' : 'var(--brass)'));
+
+    el.innerHTML = `
+      <div class="df-hdr" style="color:${hdrColor};">
+        <span>${hdrTitle}</span>
+        ${bHit.lethal ? '<span class="df-lethal-pill">☠ LETHAL ON HIT</span>' : (bCrit.lethal ? '<span class="df-lethal-pill" style="border-color:#facc15; color:#fde047; background:rgba(250,204,21,0.16);">⚡ LETHAL ON CRIT</span>' : `<span>RAW ${basePrev.raw} vs ${basePrev.effArm} ARM</span>`)}
+      </div>
+      <div class="df-split">
+        <div class="df-side">
+          <div class="df-unit-top">
+            ${renderRolePortraitSvg(attacker.role, aSt.tier, aColor, 36)}
+            <div class="df-unit-meta">
+              <div class="df-unit-name" style="color:${aColor};">${attacker.name}</div>
+              <div class="df-unit-sub">${aSt.wc.label} ${aSt.role.name}</div>
+            </div>
+          </div>
+          <div class="df-hp-track">
+            <div class="df-hp-keep" style="width:${Math.round((aAfterHP / attacker.maxHP) * 100)}%; background:${aColor};"></div>
+            ${selfBurn ? `<div class="df-hp-loss" style="width:${Math.round(((attacker.hp - aAfterHP) / attacker.maxHP) * 100)}%;"></div>` : ''}
+          </div>
+          <div class="df-hp-nums"><span>HP ${attacker.hp}${selfBurn ? ` → ${aAfterHP}` : `/${attacker.maxHP}`}</span><span>ATK ${aSt.atk + bonusDmg}</span></div>
+          <div class="df-tags">${(aTags.length ? aTags : ['Standard']).map(t => `<span class="df-tag">${t}</span>`).join('')}</div>
+        </div>
+        <div class="df-vs">VS</div>
+        <div class="df-side">
+          <div class="df-unit-top">
+            ${renderRolePortraitSvg(target.role, tSt.tier, tColor, 36)}
+            <div class="df-unit-meta">
+              <div class="df-unit-name" style="color:${tColor};">${target.name}</div>
+              <div class="df-unit-sub">${tSt.wc.label} ${tSt.role.name}</div>
+            </div>
+          </div>
+          <div class="df-hp-track">
+            <div class="df-hp-keep" style="width:${keepPct}%; background:${tColor};"></div>
+            <div class="df-hp-loss" style="width:${lossPct}%;"></div>
+          </div>
+          <div class="df-hp-nums"><span>HP ${target.hp} → <strong style="color:${tAfterHP === 0 ? '#f43f5e' : '#f8fafc'};">${tAfterHP}</strong></span><span style="color:#fda4af;">-${bHit.hpDmg} HIT</span></div>
+          <div class="df-tags">${tTags.map(t => `<span class="df-tag">${t}</span>`).join('')}</div>
+        </div>
+      </div>
+      <div class="df-rolls">
+        <div class="df-roll-cell">
+          <div class="df-roll-lbl">2–3 GLANCE</div>
+          <div class="df-roll-val" style="color:#f59e0b;">-${bGlance.hpDmg}${bGlance.lethal ? ' ☠' : ''}</div>
+        </div>
+        <div class="df-roll-cell primary-band">
+          <div class="df-roll-lbl">4–9 HIT</div>
+          <div class="df-roll-val" style="color:#fb7185;">-${bHit.hpDmg}${bHit.lethal ? ' ☠' : ''}</div>
+        </div>
+        <div class="df-roll-cell">
+          <div class="df-roll-lbl">10–11 HVY</div>
+          <div class="df-roll-val" style="color:#fb923c;">-${bHeavy.hpDmg}${bHeavy.lethal ? ' ☠' : ''}</div>
+        </div>
+        <div class="df-roll-cell">
+          <div class="df-roll-lbl">12 CRIT!</div>
+          <div class="df-roll-val" style="color:#facc15;">-${bCrit.hpDmg}${bCrit.lethal ? ' ☠' : ''}</div>
+        </div>
+      </div>
+    `;
+    el.classList.add('visible');
+  }
+
+  function syncDuelForecastFromState() {
+    if (STATE.gameOver || !isMyTurn()) { hideDuelForecast(); return; }
+    const sel = STATE.units.find(u => u.id === STATE.selectedUnitId && u.alive && u.owner === STATE.activePlayer);
+    if (!sel) { hideDuelForecast(); return; }
+
+    if (STATE.hoverCell) {
+      const hUnit = unitAt(STATE.hoverCell.r, STATE.hoverCell.c);
+      if (hUnit) {
+        if (STATE.actionMode === 'normal' && hUnit.owner !== sel.owner && canUnitAttack(sel) && getAttackableTargets(sel).includes(hUnit)) {
+          renderDuelForecast(sel, hUnit, 'attack', STATE.confirmAttacks && STATE.pendingAttackTargetId === hUnit.id);
+          return;
+        }
+        if (STATE.actionMode === 'special' && STATE.ap >= 2) {
+          if (sel.role === 'striker' && hUnit.owner !== sel.owner && canUnitAttack(sel) && getAttackableTargets(sel, 1).includes(hUnit)) {
+            renderDuelForecast(sel, hUnit, 'execute', false); return;
+          }
+          if (sel.role === 'arcanist' && sel.hp > 4 && hUnit.owner !== sel.owner && canUnitAttack(sel) && getAttackableTargets(sel, 4).includes(hUnit)) {
+            renderDuelForecast(sel, hUnit, 'overcharge', false); return;
+          }
+          if (sel.role === 'catalyst' && sel.hp > 8 && hUnit.owner === sel.owner && hUnit.id !== sel.id && dist(sel.r, sel.c, hUnit.r, hUnit.c) <= 3) {
+            renderDuelForecast(sel, hUnit, 'transfuse', false); return;
+          }
+        }
+      }
+    }
+
+    if (STATE.actionMode === 'normal' && STATE.confirmAttacks && STATE.pendingAttackTargetId) {
+      const pend = STATE.units.find(u => u.id === STATE.pendingAttackTargetId && u.alive);
+      if (pend && canUnitAttack(sel) && getAttackableTargets(sel).includes(pend)) {
+        renderDuelForecast(sel, pend, 'attack', true);
+        return;
+      }
+    }
+    hideDuelForecast();
+  }
+
   function applyDamage(target, amount, sourceLabel, ignoreArmor = false, attacker = null) {
+    const prevTier = getDialTier(target.hp, target.maxHP);
     let dmg = amount;
     if (!ignoreArmor) {
       const tSt = computeUnitStats(target, STATE.grid[target.r][target.c]);
@@ -3768,6 +4368,10 @@
     spawnParticles(target.r, target.c, hpDmg > 0 ? '#f43f5e' : '#38bdf8', hpDmg > 0 ? 10 : 6, 2.6, false);
     if (hpDmg > 0) triggerBoardImpact(2.6, 0, null);
     spawnFloat(target.r, target.c, hpDmg > 0 ? `-${hpDmg}` : `BLOCKED`, hpDmg > 0 ? '#f43f5e' : '#38bdf8');
+    if (target.hp > 0 && hpDmg > 0 && prevTier < 2 && getDialTier(target.hp, target.maxHP) === 2) {
+      const cNote = ROLES[target.role]?.dial?.[2]?.note || 'Critical Tier';
+      showCutIn(target, `⚠ CRITICAL AWAKENING · ${cNote}`, ROLE_BARKS[target.role]?.awaken, '#f43f5e');
+    }
     if (target.hp <= 0) {
       target.alive = false;
       spawnShockwave(target.r, target.c, '#ef4444', 1.1);
@@ -4040,6 +4644,8 @@
     STATE.lastMove = null;
     STATE.actionMode = 'normal';
     STATE.activeCardIndex = null;
+    hideDuelForecast();
+    const prevTargetTier = getDialTier(target.hp, target.maxHP);
     const roll = rollAttack2d6(forcedRoll);
     const prev = previewAttackDamage(attacker, target, bonusDmg, forcePierce, roll.pierce);
     let rolledTotal = Math.max(2, Math.round(prev.total * roll.mult));
@@ -4089,12 +4695,25 @@
     spawnShockwave(target.r, target.c, impactColor, isCrit ? 1.25 : 0.8);
     spawnParticles(target.r, target.c, impactColor, isCrit ? 26 : (isHeavy ? 18 : (hpDmg > 0 ? 12 : 8)), isCrit ? 4.2 : (isHeavy ? 3.4 : 2.8), false);
     triggerBoardImpact(isCrit ? 9.5 : (isHeavy ? 5.8 : (hpDmg > 0 ? 3.5 : 2.0)), isCrit ? 75 : 0, isCrit ? '#facc15' : null);
-    if (isCrit) Sound.crit(); else Sound.hit();
+    if (isCrit) {
+      Sound.crit();
+      showCutIn(attacker, '⚡ 12 · CRITICAL FRACTURE!', ROLE_BARKS[attacker.role]?.crit, '#facc15');
+    } else {
+      Sound.hit();
+    }
 
     target.shield -= shieldAbsorb;
     target.hp = Math.max(0, target.hp - hpDmg);
     const floatTxt = hpDmg > 0 ? `${roll.label} [${roll.sum}] -${hpDmg} HP` : `SHIELDED [${roll.sum}]`;
     spawnFloat(target.r, target.c, floatTxt, hpDmg > 0 ? roll.color : '#38bdf8');
+    if (target.hp > 0 && hpDmg > 0 && prevTargetTier < 2 && getDialTier(target.hp, target.maxHP) === 2) {
+      const cNote = ROLES[target.role]?.dial?.[2]?.note || 'Critical Tier';
+      if (isCrit) {
+        setTimeout(() => { if (!STATE.gameOver && target.alive) showCutIn(target, `⚠ CRITICAL AWAKENING · ${cNote}`, ROLE_BARKS[target.role]?.awaken, '#f43f5e'); }, 950);
+      } else {
+        showCutIn(target, `⚠ CRITICAL AWAKENING · ${cNote}`, ROLE_BARKS[target.role]?.awaken, '#f43f5e');
+      }
+    }
 
     let momentumNote = '';
     if (target.hp <= 0) {
@@ -4167,6 +4786,7 @@
     STATE.actionMode = 'normal';
     STATE.activeCardIndex = null;
     document.getElementById('hoverTooltip')?.classList.remove('visible');
+    hideDuelForecast();
     triggerCounterTrap(unit.owner);
     let specialRoll = null;
     if (unit.role === 'vanguard') {
@@ -4174,6 +4794,7 @@
       const gained = Math.min(10, unit.shield + 6) - unit.shield;
       unit.shield = Math.min(10, unit.shield + 6);
       Sound.fortify();
+      showCutIn(unit, `◈ FORTIFY · +${gained} SHIELD`, ROLE_BARKS.vanguard.special, '#38bdf8');
       spawnShockwave(unit.r, unit.c, '#38bdf8', 0.9);
       spawnFloat(unit.r, unit.c, `+${gained} SHD`, '#38bdf8');
       addLog(`${unit.name} activates FORTIFY (+${gained} Shield, ${unit.shield} total; halves next turn).`, `p${unit.owner}`);
@@ -4182,6 +4803,11 @@
       const bonus = target.hp < target.maxHP ? 5 : 1;
       specialRoll = rollAttack2d6(forcedRoll);
       executeAttack(unit, target, bonus, false, 'EXECUTES', true, specialRoll);
+      if (specialRoll.sum !== 12 && target.alive) {
+        showCutIn(unit, `▲ EXECUTE · +${bonus} DMG`, ROLE_BARKS.striker.special, '#f59e0b');
+      } else if (specialRoll.sum !== 12 && !target.alive) {
+        showCutIn(unit, '▲ EXECUTE · TARGET FELLED', ROLE_BARKS.striker.special, '#f59e0b');
+      }
     } else if (unit.role === 'arcanist' && target) {
       if (unit.hp <= 4) return;
       Sound.overcharge();
@@ -4189,6 +4815,9 @@
       spawnFloat(unit.r, unit.c, '-4 HP', '#fda4af');
       specialRoll = rollAttack2d6(forcedRoll);
       executeAttack(unit, target, 3, false, 'OVERCHARGES', true, specialRoll);
+      if (specialRoll.sum !== 12) {
+        showCutIn(unit, '✦ OVERCHARGE · -4 SELF HP', ROLE_BARKS.arcanist.special, '#c084fc');
+      }
     } else if (unit.role === 'catalyst' && target) {
       if (unit.hp <= 8) return;
       STATE.ap -= 2;
@@ -4198,6 +4827,7 @@
       const actual = Math.min(target.maxHP - target.hp, healAmt);
       target.hp += actual;
       Sound.transfuse();
+      showCutIn(unit, `✚ TRANSFUSE · +${actual} HP`, ROLE_BARKS.catalyst.special, '#10b981');
       spawnBeam(unit.r, unit.c, target.r, target.c, '#10b981');
       spawnShockwave(target.r, target.c, '#10b981', 0.85);
       spawnFloat(unit.r, unit.c, '-8 HP', '#fda4af');
@@ -4212,6 +4842,7 @@
       }
       STATE.mines.push({ r: target.r, c: target.c, owner: unit.owner, planterId: unit.id });
       Sound.mineArm();
+      showCutIn(unit, '⬟ PROXIMITY MINE ARMED', ROLE_BARKS.saboteur.special, '#fb923c');
       spawnShockwave(target.r, target.c, '#fb923c', 0.82);
       spawnFloat(target.r, target.c, '⬟ ARMED', '#fb923c');
       addLog(`${unit.name} rigs a Proximity Mine at (${target.c + 1},${target.r + 1}) [8 piercing DMG + strips SHD].`, `p${unit.owner}`);
@@ -4632,6 +5263,9 @@
     clearTimeout(rollToastTimer);
     document.getElementById('rollToast')?.classList.remove('visible');
     document.getElementById('hoverTooltip')?.classList.remove('visible');
+    hideDuelForecast();
+    hideCutIn();
+    syncDangerZoneBtn();
     hideDiceTray();
     const winner = officialResult?.winner || cpWinner || aliveOwners[0] || STATE.winnerOwner || STATE.activePlayer || 1;
     const winReason = officialResult?.winReason || (cpWinner ? 'conduit' : (STATE.winReason || 'elimination'));
@@ -5285,6 +5919,34 @@
       }
     }
 
+    // Enemy Danger Zone [X] unified threat overlay & perimeter
+    const dangerGrid = (!STATE.gameOver && STATE.showDangerZone) ? computeDangerZone() : null;
+    if (dangerGrid) {
+      ctx.save();
+      const dzPulse = 0.12 + 0.05 * Math.sin(now * 2.4);
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          if (!dangerGrid[r][c]) continue;
+          const x = c * tileSize, y = r * tileSize;
+          ctx.fillStyle = `rgba(244, 63, 94, ${dzPulse.toFixed(3)})`;
+          ctx.fillRect(x + 1, y + 1, tileSize - 2, tileSize - 2);
+          ctx.strokeStyle = 'rgba(251, 113, 133, 0.22)';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(x + 6, y + tileSize - 6);
+          ctx.lineTo(x + tileSize - 6, y + 6);
+          ctx.stroke();
+          ctx.strokeStyle = 'rgba(251, 113, 133, 0.88)';
+          ctx.lineWidth = 2.2;
+          if (r === 0 || !dangerGrid[r - 1][c]) { ctx.beginPath(); ctx.moveTo(x, y + 1.5); ctx.lineTo(x + tileSize, y + 1.5); ctx.stroke(); }
+          if (r === ROWS - 1 || !dangerGrid[r + 1][c]) { ctx.beginPath(); ctx.moveTo(x, y + tileSize - 1.5); ctx.lineTo(x + tileSize, y + tileSize - 1.5); ctx.stroke(); }
+          if (c === 0 || !dangerGrid[r][c - 1]) { ctx.beginPath(); ctx.moveTo(x + 1.5, y); ctx.lineTo(x + 1.5, y + tileSize); ctx.stroke(); }
+          if (c === COLS - 1 || !dangerGrid[r][c + 1]) { ctx.beginPath(); ctx.moveTo(x + tileSize - 1.5, y); ctx.lineTo(x + tileSize - 1.5, y + tileSize); ctx.stroke(); }
+        }
+      }
+      ctx.restore();
+    }
+
     // Interactive 1-Turn Tutorial pulsing gold beacon
     if (STATE.mode === 'tutorial' && (STATE.tutorialStep === 1 || STATE.tutorialStep === 2)) {
       const tr = 1, tc = STATE.tutorialStep === 1 ? 3 : 4;
@@ -5335,6 +5997,85 @@
       ctx.restore();
     }
 
+    // Visible Synergy Bond (Swarm Pack Tactics) & Flanker Pincer Arcs
+    if (!STATE.gameOver) {
+      const synergyArcs = [];
+      const living = STATE.units.filter(u => u.alive);
+      for (let i = 0; i < living.length; i++) {
+        for (let j = i + 1; j < living.length; j++) {
+          const a = living[i], b = living[j];
+          if (a.owner !== b.owner) continue;
+          if (dist(a.r, a.c, b.r, b.c) !== 1) continue;
+          const aSwarm = getWeightClass(a.maxHP).id === 'swarm';
+          const bSwarm = getWeightClass(b.maxHP).id === 'swarm';
+          if (!aSwarm && !bSwarm) continue;
+          const isSelPair = sel && (sel.id === a.id || sel.id === b.id);
+          synergyArcs.push({
+            from: a, to: b,
+            color: isSelPair ? '#38bdf8' : 'rgba(56, 189, 248, 0.48)',
+            label: isSelPair ? ((aSwarm && bSwarm) ? 'BOND +2×2' : 'BOND +2') : '',
+            strong: !!isSelPair
+          });
+        }
+      }
+      if (sel && getWeightClass(sel.maxHP).id === 'skirmisher') {
+        const focusFoes = [];
+        if (STATE.hoverCell) {
+          const hu = unitAt(STATE.hoverCell.r, STATE.hoverCell.c);
+          if (hu && hu.alive && hu.owner !== sel.owner) focusFoes.push(hu);
+        }
+        if (!focusFoes.length) {
+          attackTargets.forEach(t => { if (!focusFoes.includes(t)) focusFoes.push(t); });
+        }
+        focusFoes.forEach(foe => {
+          living.forEach(ally => {
+            if (ally.owner === sel.owner && ally.id !== sel.id && dist(ally.r, ally.c, foe.r, foe.c) === 1) {
+              synergyArcs.push({ from: ally, to: foe, color: '#fbbf24', label: 'FLANK +2', strong: true });
+            }
+          });
+        });
+      }
+      if (synergyArcs.length) {
+        ctx.save();
+        synergyArcs.forEach(arc => {
+          const x1 = (arc.from.drawX + 0.5) * tileSize, y1 = (arc.from.drawY + 0.5) * tileSize;
+          const x2 = (arc.to.drawX + 0.5) * tileSize, y2 = (arc.to.drawY + 0.5) * tileSize;
+          const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+          const dx = x2 - x1, dy = y2 - y1;
+          const len = Math.hypot(dx, dy) || 1;
+          const nx = (-dy / len) * (tileSize * 0.22), ny = (dx / len) * (tileSize * 0.22);
+          const cx = mx + nx, cy = my + ny;
+          ctx.strokeStyle = arc.color;
+          ctx.lineWidth = arc.strong ? 2.4 : 1.5;
+          ctx.setLineDash([5, 4]);
+          ctx.lineDashOffset = -now * 14;
+          ctx.beginPath();
+          ctx.moveTo(x1, y1);
+          ctx.quadraticCurveTo(cx, cy, x2, y2);
+          ctx.stroke();
+          if (arc.label && tileSize >= 42) {
+            ctx.setLineDash([]);
+            ctx.font = '800 8.5px monospace';
+            const tw = ctx.measureText(arc.label).width + 8;
+            const lx = (x1 + 2 * cx + x2) / 4;
+            const ly = (y1 + 2 * cy + y2) / 4;
+            ctx.fillStyle = 'rgba(12, 14, 19, 0.9)';
+            ctx.strokeStyle = arc.color;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.roundRect(lx - tw / 2, ly - 7, tw, 14, 4);
+            ctx.fill();
+            ctx.stroke();
+            ctx.fillStyle = arc.color;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(arc.label, lx, ly + 0.5);
+          }
+        });
+        ctx.restore();
+      }
+    }
+
     // Hover outline + Live Pathfinding / Line-of-Sight Action Preview
     let hoverPreview = null;
     let hoverMovePreview = null;
@@ -5361,19 +6102,20 @@
           hoverPreview = { target: hUnit, apTag: '0 AP', prev: { label: card.id === 'siphon' ? '-6 HP' : 'PUSH' }, color: '#d4a359' };
         }
       } else if (canAct && !hUnit) {
+        const warnDanger = dangerGrid && dangerGrid[r]?.[c] ? ' · ⚠ DANGER' : '';
         if (STATE.actionMode === 'normal' && STATE.freeDeployActive[sel.owner] && isInDeployZone(sel.owner, r, c) && !isImpassable(STATE.grid[r][c])) {
-          hoverMovePreview = { path: [{ r: sel.r, c: sel.c }, { r, c }], label: '0 AP · DEPLOY', color: '#d4a359', r, c };
+          hoverMovePreview = { path: [{ r: sel.r, c: sel.c }, { r, c }], label: `0 AP · DEPLOY${warnDanger}`, color: warnDanger ? '#fb7185' : '#d4a359', r, c };
         } else if (STATE.actionMode === 'normal' && moveTiles.some(t => t.r === r && t.c === c)) {
           const path = getMovePath(sel, r, c);
           if (path && path.length > 1) {
             const steps = path.length - 1;
-            hoverMovePreview = { path, label: `1 AP · ${steps} ${steps === 1 ? 'TILE' : 'TILES'}`, color: '#38bdf8', r, c };
+            hoverMovePreview = { path, label: `1 AP · ${steps} ${steps === 1 ? 'TILE' : 'TILES'}${warnDanger}`, color: warnDanger ? '#fb7185' : '#38bdf8', r, c };
           }
         } else if (STATE.actionMode === 'special' && specialTiles.some(t => t.r === r && t.c === c)) {
           hoverMovePreview = { path: [{ r: sel.r, c: sel.c }, { r, c }], label: '2 AP · RIG MINE', color: '#fb923c', r, c };
         } else if (STATE.actionMode === 'card' && cardTiles.some(t => t.r === r && t.c === c)) {
           const card = STATE.hands[STATE.activePlayer][STATE.activeCardIndex];
-          hoverMovePreview = { path: [{ r: sel.r, c: sel.c }, { r, c }], label: `0 AP · -${card.cost} HP`, color: '#d4a359', r, c };
+          hoverMovePreview = { path: [{ r: sel.r, c: sel.c }, { r, c }], label: `0 AP · -${card.cost} HP${warnDanger}`, color: warnDanger ? '#fb7185' : '#d4a359', r, c };
         }
       }
     }
@@ -5762,6 +6504,7 @@
     if (r < 0 || r >= ROWS || c < 0 || c >= COLS) {
       STATE.hoverCell = null;
       document.getElementById('hoverTooltip').classList.remove('visible');
+      syncDuelForecastFromState();
       return;
     }
     STATE.hoverCell = { r, c };
@@ -5771,6 +6514,7 @@
   canvas.addEventListener('mouseleave', () => {
     STATE.hoverCell = null;
     document.getElementById('hoverTooltip').classList.remove('visible');
+    syncDuelForecastFromState();
   });
 
   function updateHoverTooltip(r, c) {
@@ -5781,10 +6525,12 @@
     const tile = STATE.grid[r][c];
     let text = '';
 
+    syncDuelForecastFromState();
+
     if (sel && sel.owner === STATE.activePlayer && target && target.owner !== sel.owner && canUnitAttack(sel) && getAttackableTargets(sel).includes(target)) {
       const prev = previewAttackDamage(sel, target);
       const lo = Math.max(2, Math.round(prev.total * 0.65));
-      const hi = Math.max(2, Math.round(prev.total * 1.5));
+      const hi = Math.max(2, Math.round(commitCritTotalForTip(sel, target) * 1.5));
       const confirmTag = STATE.confirmAttacks ? (STATE.pendingAttackTargetId === target.id ? ' [CLICK AGAIN TO FIRE]' : ' [1ST CLICK ARMS]') : '';
       text = `2d6 ATTACK ${target.name}: ${lo}–${hi} DMG (Base ${prev.hpDmg})${prev.shieldAbsorb ? ` · SHD ${prev.shieldAbsorb}` : ''}${prev.lethal ? ' [LETHAL ON HIT]' : ''}${confirmTag}`;
     } else if (target) {
@@ -5806,12 +6552,20 @@
       text = 'OBSIDIAN PILLAR: Impassable · Blocks Line-of-Sight';
     }
 
+    if (!STATE.gameOver && STATE.showDangerZone && !isImpassable(tile)) {
+      const dz = computeDangerZone();
+      if (dz[r]?.[c]) text = text ? `${text} · [⚠ ENEMY DANGER ZONE]` : `TILE (${c + 1},${r + 1}) · [⚠ ENEMY DANGER ZONE]`;
+    }
+
     if (text) {
       tip.textContent = text;
       tip.classList.add('visible');
     } else {
       tip.classList.remove('visible');
     }
+  }
+  function commitCritTotalForTip(attacker, target) {
+    return previewAttackDamage(attacker, target, 0, false, true).total;
   }
 
   canvas.addEventListener('click', e => {
@@ -5994,6 +6748,7 @@
     endBtn.style.display = (STATE.isSpectator || STATE.gameOver) ? 'none' : 'inline-block';
     endBtn.disabled = !isMyTurn();
     undoBtn.disabled = !(isMyTurn() && STATE.lastMove);
+    syncDangerZoneBtn();
 
     const cpBadge = document.getElementById('cpScoreBadge');
     if (cpBadge) {
@@ -6144,13 +6899,18 @@
 
       insp.innerHTML = `
         <div class="insp-card">
-          <div class="insp-title-row">
-            <span class="insp-name" style="color:${getPlayerVar(sel.owner)};">${st.role.symbol} ${sel.name}</span>
-            <span class="weight-badge" title="Weight Class (scales with HP)">WT: ${st.wc.label}</span>
-          </div>
-          <div style="display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:11px; gap:6px;">
-            <span>HP: <strong>${sel.hp}/${sel.maxHP}</strong></span>
-            <span style="color:var(--muted);">${st.role.name}${sel.shield > 0 ? ` · <strong style="color:#38bdf8;">SHD +${sel.shield}</strong> (½/turn)` : ''}</span>
+          <div style="display:flex; align-items:center; gap:9px; margin-bottom:6px;">
+            ${renderRolePortraitSvg(sel.role, st.tier, getPlayerColor(sel.owner), 44)}
+            <div style="flex:1; min-width:0;">
+              <div class="insp-title-row" style="margin-bottom:2px;">
+                <span class="insp-name" style="color:${getPlayerVar(sel.owner)};">${st.role.symbol} ${sel.name}</span>
+                <span class="weight-badge" title="Weight Class (scales with HP)">WT: ${st.wc.label}</span>
+              </div>
+              <div style="display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:11px; gap:6px;">
+                <span>HP: <strong>${sel.hp}/${sel.maxHP}</strong></span>
+                <span style="color:var(--muted);">${st.role.name}${sel.shield > 0 ? ` · <strong style="color:#38bdf8;">SHD +${sel.shield}</strong> (½/turn)` : ''}</span>
+              </div>
+            </div>
           </div>
           <div class="insp-hp-bar"><div class="insp-hp-fill" style="width:${pct}%; background:${hpColor};"></div></div>
           <div class="uf-stats">
@@ -6231,6 +6991,7 @@
       document.getElementById('deckCountLabel').textContent = 'READ-ONLY VIEW';
       cardsRow.classList.add('locked');
       cardsRow.innerHTML = '<div style="grid-column:1/-1; display:flex; align-items:center; justify-content:center; color:#d8b4fe; font-family:var(--font-mono); font-size:12px; background:rgba(168,85,247,0.08); border:1px dashed rgba(168,85,247,0.45); border-radius:8px; padding:12px;">👁 SPECTATOR MODE — Private Blood-Cost hands &amp; face-down Secret Traps are hidden for fair play. Click any unit on the board to inspect its Wound Dial.</div>';
+      hideDuelForecast();
       return;
     }
     const viewer = STATE.mode === 'online' ? STATE.localPlayerNum : ((STATE.mode === 'ai' || STATE.mode === 'tutorial') ? 1 : STATE.activePlayer);
@@ -6282,6 +7043,7 @@
       });
       cardsRow.appendChild(cEl);
     });
+    syncDuelForecastFromState();
   }
 
   function addLog(text, cls = 'sys') {
@@ -6430,6 +7192,7 @@
     const show = forceState !== null ? forceState : !el.classList.contains('active');
     el.classList.toggle('active', show);
   }
+  document.getElementById('dangerZoneBtn')?.addEventListener('click', () => { Sound.click(); toggleDangerZone(); });
   document.getElementById('legendBtn')?.addEventListener('click', () => { Sound.click(); toggleLegendOverlay(); });
   document.getElementById('legendCloseBtn')?.addEventListener('click', () => { Sound.click(); toggleLegendOverlay(false); });
   document.getElementById('legendOverlay')?.addEventListener('click', e => {
@@ -6448,7 +7211,10 @@
       return;
     }
     if (!screens.battle.classList.contains('active')) return;
-    if (e.code === 'KeyL') {
+    if (e.code === 'KeyX') {
+      Sound.click();
+      toggleDangerZone();
+    } else if (e.code === 'KeyL') {
       toggleLegendOverlay();
     } else if (e.code === 'Escape') {
       STATE.pendingAttackTargetId = null;
@@ -6577,12 +7343,22 @@
   /* ============================================================================
      13. WHAT'S NEW / VERSION CHANGELOG MODAL
      ============================================================================ */
-  const APP_VERSION = '4.0.1';
+  const APP_VERSION = '4.1';
   const SEEN_VER_KEY = 'fracture_seen_version_v1';
   const CHANGELOG = [
     {
+      ver: 'v4.1',
+      tag: 'TACTICAL SOUL',
+      title: 'Enemy Danger Zone [X], Split Duel Forecast, Synergy Bond Lines & Role Cut-Ins',
+      items: [
+        'Enemy Danger Zone Overlay (DANGER [X] button or X key): Paints a unified crimson threat perimeter across every tile any living rival fighter could reach and attack with Line-of-Sight next turn (accounting for +1 RNG on Brass Conduits), with live move-path and hover warnings.',
+        'Head-to-Head Split Duel Forecast: Hovering or 2-Click arming any valid Normal Attack or Role Special (Execute, Overcharge, Transfuse) opens a side-by-side Attacker vs. Defender tactical card with Role Portraits, active terrain/synergy/pierce/shield tags, Before → After HP bars, ☠ LETHAL ON HIT indicator, and all 4 exact 2d6 outcomes.',
+        'Visible Synergy Bond & Flanker Lines: Active Pack Tactics (BOND +2 cyan arcs between adjacent Swarm <25 HP allies) and Flanker (FLANK +2 amber pincer arcs from allies adjacent to targeted foes for Skirmishers 25–49 HP) animate directly on the arena canvas.',
+        'Dynamic Wound-Dial Role Portraits & Cut-In Banners: Custom vector crests/visors for all 5 Roles across Forge cards, Battlefield Inspector, Duel Forecast, and non-blocking Cut-In banners (12 CRIT!, Role Specials, and Critical Wound-Dial awakenings) that gain amber fracture scars at Bloodied and crimson battle auras at Critical HP.'
+      ]
+    },
+    {
       ver: 'v4.0.1',
-      tag: 'PLAYTEST POLISH',
       title: 'On-Board Action Tags, Forge Stat Breakdown, Winning-Team MVP & HUD Clarity',
       items: [
         'On-Board Unit Readiness Tag & 0-AP Hand Cue: Selected friendly fighters now show a live MOV ✓ · ATK 1 badge directly on the board, and the Blood Hand header highlights when you hit 0 AP with playable 0-AP Blood Cards remaining.',
